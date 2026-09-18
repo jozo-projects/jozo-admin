@@ -37,6 +37,7 @@ import {
 } from "@/hooks/room-schedule";
 import ScheduleDatePicker from "./ScheduleDatePicker";
 import ScheduleMemberSection from "./ScheduleMemberSection";
+import ImagePicker from "@/components/ui/image-picker";
 import ScheduleRoomTypeSection from "./ScheduleRoomTypeSection";
 import { getRoomTypeLabel } from "../utils/scheduleRoomType";
 import fnbMenuApis from "@/apis/fnbMenu.apis";
@@ -131,6 +132,8 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
   const [roomChangeNote, setRoomChangeNote] = React.useState<string>("");
   const [promotionSelectOpen, setPromotionSelectOpen] = React.useState(false);
   const [roomSelectOpen, setRoomSelectOpen] = React.useState(false);
+  const [photoFiles, setPhotoFiles] = React.useState<File[]>([]);
+  const [photoPreview, setPhotoPreview] = React.useState<string>("");
 
   const queryClient = useQueryClient();
   const { data: standardPromotions } = useGetStandardPromotions();
@@ -142,6 +145,25 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
     initialPhone: schedule.customerPhone || "",
     isOpen,
     refetchSchedules,
+  });
+
+  const { data: photoDisplayData, refetch: refetchPhotoDisplay } = useQuery({
+    queryKey: ["schedulePhotoDisplay", schedule._id],
+    queryFn: () => roomsScheduleApis.getPhotoDisplay(schedule._id),
+    enabled: isOpen && !!schedule._id,
+  });
+  const photoDisplay = photoDisplayData?.data?.result;
+  const photoMutation = useMutation({
+    mutationFn: async (file: File) => roomsScheduleApis.uploadPhoto(schedule._id, file),
+    onSuccess: () => { setPhotoFiles([]); setPhotoPreview(""); refetchPhotoDisplay(); toast({ title: "Đã tải ảnh", description: "Ảnh đang ở trạng thái ẩn." }); },
+  });
+  const displayMutation = useMutation({
+    mutationFn: (state: "hidden" | "showing") => roomsScheduleApis.setPhotoDisplay(schedule._id, state),
+    onSuccess: () => { refetchPhotoDisplay(); toast({ title: "Đã cập nhật hiển thị ảnh" }); },
+  });
+  const deletePhotosMutation = useMutation({
+    mutationFn: () => roomsScheduleApis.deletePhotos(schedule._id),
+    onSuccess: () => { refetchPhotoDisplay(); toast({ title: "Đã xóa ảnh" }); },
   });
 
   // Query danh sách phòng để đổi
@@ -788,6 +810,25 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
                 physicalRoomType={currentRoom?.roomType}
                 onUpdated={refetchSchedules}
               />
+
+              <div className="rounded-md border bg-card text-sm">
+                <div className="flex items-center justify-between border-b px-3 py-2">
+                  <div><h4 className="font-semibold">Hình ảnh khách hàng</h4><p className="text-[11px] text-muted-foreground">Tối đa 1 ảnh · Ảnh mặc định được ẩn</p></div>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${photoDisplay?.state === "showing" ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>{photoDisplay?.state === "showing" ? "Đang hiển thị" : "Đang ẩn"}</span>
+                </div>
+                <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                  <ImagePicker currentImage={photoPreview || photoDisplay?.photos?.[0]?.url} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; setPhotoFiles([file]); setPhotoPreview(URL.createObjectURL(file)); }} onRemove={() => { setPhotoFiles([]); setPhotoPreview(""); }} />
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-muted-foreground">Staff kiểm tra ảnh trước khi bấm Hiện ảnh.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {photoFiles.length > 0 && <Button size="sm" onClick={() => photoFiles.forEach((file) => photoMutation.mutate(file))} loading={photoMutation.isPending}>Tải ảnh lên</Button>}
+                      <Button size="sm" onClick={() => displayMutation.mutate("showing")} disabled={!photoDisplay?.photos?.length || displayMutation.isPending}>Hiện ảnh</Button>
+                      <Button size="sm" variant="outline" onClick={() => displayMutation.mutate("hidden")} disabled={displayMutation.isPending}>Ẩn ảnh</Button>
+                      <Button size="sm" variant="destructive" onClick={() => deletePhotosMutation.mutate()} disabled={!photoDisplay?.photos?.length || deletePhotosMutation.isPending}>Xóa ảnh</Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium">Khuyến mãi</label>

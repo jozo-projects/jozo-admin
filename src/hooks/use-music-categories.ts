@@ -181,6 +181,7 @@ const useSongMutation = (
         queryKey: musicCategoryKeys.songsRoot(categoryId),
       });
       void queryClient.invalidateQueries({ queryKey: musicCategoryKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ["songs-collection"] });
     },
     onError: () =>
       toast(

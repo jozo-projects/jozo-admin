@@ -54,6 +54,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import PaginationContainer from "@/pages/RecruitmentPage/components/PaginationContainer";
+import AddSongsToCategoryDialog from "./SongsCollectionPage/components/AddSongsToCategoryDialog";
 
 const PRUNE_STATUS_POLL_MS = 3000;
 
@@ -207,6 +208,8 @@ const SongsCollectionPage = () => {
   const [confirmDialogState, setConfirmDialogState] =
     useState<ConfirmDialogState | null>(null);
   const [confirmDialogLoading, setConfirmDialogLoading] = useState(false);
+  const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(new Set());
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const lastPruneNotifiedJobIdRef = useRef<string | null>(null);
 
   const confirmDialogContent = getConfirmDialogContent(confirmDialogState);
@@ -225,6 +228,27 @@ const SongsCollectionPage = () => {
   // Extract songs and pagination from response
   const songs = responseData?.result?.songs || [];
   const pagination = responseData?.result?.pagination;
+  const selectedSongs = songs.filter((song) => selectedSongIds.has(song.video_id));
+
+  const toggleSongSelection = (videoId: string, checked: boolean) => {
+    setSelectedSongIds((current) => {
+      const next = new Set(current);
+      if (checked) next.add(videoId);
+      else next.delete(videoId);
+      return next;
+    });
+  };
+
+  const toggleVisibleSongs = (checked: boolean) => {
+    setSelectedSongIds((current) => {
+      const next = new Set(current);
+      songs.forEach((song) => {
+        if (checked) next.add(song.video_id);
+        else next.delete(song.video_id);
+      });
+      return next;
+    });
+  };
 
   const applySongPruneJob = useCallback((job: SongPruneJob) => {
     setYoutubePruneJob(job);
@@ -786,12 +810,29 @@ const SongsCollectionPage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách bài hát đã lưu</CardTitle>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Danh sách bài hát đã lưu</CardTitle>
+            <Button
+              type="button"
+              onClick={() => setCategoryDialogOpen(true)}
+              disabled={!selectedSongs.length}
+            >
+              Thêm vào danh mục
+              {selectedSongs.length ? ` (${selectedSongs.length})` : ""}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={songs.length > 0 && songs.every((song) => selectedSongIds.has(song.video_id))}
+                    onCheckedChange={(checked) => toggleVisibleSongs(checked === true)}
+                    aria-label="Chọn tất cả bài hát trên trang"
+                  />
+                </TableHead>
                 <TableHead>Thumbnail</TableHead>
                 <TableHead>Tiêu đề</TableHead>
                 <TableHead>Tác giả</TableHead>
@@ -805,6 +846,13 @@ const SongsCollectionPage = () => {
             <TableBody>
               {songs.map((song) => (
                 <TableRow key={song._id || song.video_id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedSongIds.has(song.video_id)}
+                      onCheckedChange={(checked) => toggleSongSelection(song.video_id, checked === true)}
+                      aria-label={`Chọn ${song.title}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     {song.thumbnail ? (
                       <img
@@ -886,6 +934,12 @@ const SongsCollectionPage = () => {
           )}
         </CardContent>
       </Card>
+      <AddSongsToCategoryDialog
+        open={categoryDialogOpen}
+        songs={selectedSongs}
+        onClose={() => setCategoryDialogOpen(false)}
+        onAssigned={() => setSelectedSongIds(new Set())}
+      />
     </div>
   );
 };

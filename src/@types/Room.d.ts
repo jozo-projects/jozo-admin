@@ -50,6 +50,8 @@ interface IRoomSchedule {
   bookingCode?: string;
   // Gift enabled
   giftEnabled?: boolean;
+  photoDisplayState?: "hidden" | "showing" | "deleted";
+  photos?: Array<{ id: string; url: string; publicId: string; position: number }>;
   /** Khuyến mãi đã chọn lúc booked — dùng lại khi mở modal thanh toán */
   promotionId?: string;
   // Free hour promotion
