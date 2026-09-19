@@ -24,45 +24,31 @@ const StaffManagementPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
-  const { users, isLoadingUsers, deleteUser, isDeletingUser } =
+  const {
+    users,
+    isLoadingUsers,
+    deleteUser,
+    isDeletingUser,
+    pagination,
+  } =
     useUsers({
-      page: 1,
-      limit: 10000,
+      page: currentPage,
+      limit: pageSize,
       search: searchTerm || undefined,
+      role: `${Role.Admin},${Role.Staff}`,
     });
 
-  // Lọc chỉ admin/staff có role "admin" hoặc "staff"
-  const adminStaff = users.filter(
-    (user: User) => user.role === Role.Admin || user.role === Role.Staff
-  );
-
-  // Lọc users theo search term
-  const filteredUsers = adminStaff.filter(
-    (user: User) =>
-      (user.name || user.full_name || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone_number.includes(searchTerm)
-  );
+  // Backend đã scope endpoint này chỉ về admin/staff accounts.
+  const filteredUsers = users;
 
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const totalRecords = filteredUsers.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / (pageSize || 1)));
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+  const totalRecords = pagination?.total ?? filteredUsers.length;
+  const totalPages =
+    pagination?.total_pages ??
+    Math.max(1, Math.ceil(totalRecords / (pageSize || 1)));
 
   const handleDeleteUser = (userId: string) => {
     deleteUser(userId, {
@@ -136,7 +122,7 @@ const StaffManagementPage = () => {
 
       {/* Users List */}
       <div className="grid gap-4">
-        {paginatedUsers.map((user: User) => (
+        {filteredUsers.map((user: User) => (
           <Card key={user._id} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex justify-between items-start">
@@ -193,7 +179,7 @@ const StaffManagementPage = () => {
         ))}
       </div>
 
-      {paginatedUsers.length === 0 && (
+      {filteredUsers.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
             <p className="text-gray-500">

@@ -160,13 +160,11 @@ const UsersManagementPage = () => {
     page: currentPage,
     limit: pageSize,
     search: queryConfig.search.trim() || undefined,
-    role: Role.User,
+    role: `${Role.Member},${Role.User}`,
   });
 
-  // Lọc chỉ users có role "user" (được map từ Role.Staff ở backend)
-  const filteredUsers = users.filter(
-    (user: User) => user.role === Role.User || user.role === Role.Member
-  );
+  // Backend đã scope endpoint này chỉ về member/user accounts.
+  const filteredUsers = users;
 
   // Đồng bộ input khi URL thay đổi (back/forward)
   useEffect(() => {
