@@ -59,9 +59,11 @@ const StaffSchedulePage = () => {
     undefined,
   );
 
-  const { users, isLoadingUsers } = useUsers({
-    page: 1,
-    limit: 10000,
+  const { users, isLoadingUsers, pagination } = useUsers({
+    page: currentPage,
+    limit: pageSize,
+    search: searchTerm || undefined,
+    role: Role.Staff,
   });
   const isAdmin = useIsAdmin();
 
@@ -147,23 +149,17 @@ const StaffSchedulePage = () => {
     };
   }, [onNewScheduleRegistration, offNewScheduleRegistration, refetch, toast]);
 
-  const staffList = users.filter((user: User) => user.role === Role.Staff);
-
-  const filteredStaff = staffList.filter(
-    (user: User) =>
-      (user.name || user.full_name || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone_number.includes(searchTerm),
-  );
+  const staffList = users;
+  const filteredStaff = staffList;
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, pageSize]);
 
-  const totalRecords = filteredStaff.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / (pageSize || 1)));
+  const totalRecords = pagination?.total ?? filteredStaff.length;
+  const totalPages =
+    pagination?.total_pages ??
+    Math.max(1, Math.ceil(totalRecords / (pageSize || 1)));
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -171,10 +167,7 @@ const StaffSchedulePage = () => {
     }
   }, [currentPage, totalPages]);
 
-  const paginatedStaff = filteredStaff.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
+  const paginatedStaff = filteredStaff;
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;

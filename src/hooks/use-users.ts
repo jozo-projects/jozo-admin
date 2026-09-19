@@ -38,6 +38,7 @@ export const useUsers = (params: UsersQueryParams = {}) => {
         ...(role ? { role } : {}),
       }),
     enabled,
+    staleTime: 5 * 60 * 1000,
     placeholderData: keepPreviousData,
   });
 
