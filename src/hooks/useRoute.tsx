@@ -85,6 +85,7 @@ const MyEarningsDetailPage = lazy(
 const ChangePasswordPage = lazy(() => import("@/pages/ChangePasswordPage"));
 const ProfilePage = lazy(() => import("@/pages/ProfilePage"));
 const NotificationsPage = lazy(() => import("@/pages/NotificationsPage"));
+const SupportHistoryPage = lazy(() => import("@/pages/SupportHistoryPage"));
 const SongsCollectionPage = lazy(
   () => import("@/pages/SongsCollectionPage")
 );
@@ -139,6 +140,10 @@ function useRoute() {
                 <Route
                   path={PATHS.NOTIFICATIONS}
                   element={<NotificationsPage />}
+                />
+                <Route
+                  path={PATHS.SUPPORT_HISTORY}
+                  element={<SupportHistoryPage />}
                 />
                 <Route
                   path={PATHS.SONGS_COLLECTION}

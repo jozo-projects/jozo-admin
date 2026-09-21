@@ -44,6 +44,12 @@ const MENU_ITEMS: MenuItem[] = [
     roles: STAFF_AND_ADMIN,
   },
   {
+    title: "Lịch sử hỗ trợ",
+    url: PATHS.SUPPORT_HISTORY,
+    icon: ClipboardList,
+    roles: STAFF_AND_ADMIN,
+  },
+  {
     title: "My Schedule",
     url: PATHS.MY_SCHEDULE,
     icon: Briefcase,

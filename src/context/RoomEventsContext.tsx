@@ -16,7 +16,10 @@ import {
   applyScheduleChangedToCache,
   getRoomSchedulesQueryKey,
 } from "@/hooks/room-schedule";
-import { IRoomSchedule, IRoomScheduleChangedSocketPayload } from "@/@types/Room";
+import {
+  IRoomSchedule,
+  IRoomScheduleChangedSocketPayload,
+} from "@/@types/Room";
 import { useQueryClient } from "@tanstack/react-query";
 import { parseUTCToLocal } from "@/lib/dayjs";
 import {
@@ -43,6 +46,8 @@ import {
   summarizeLineItemsQuick,
 } from "@/utils/coffeeSessionOrderBatch";
 import roomApis from "@/apis/room.apis";
+import supportRequestApis from "@/apis/supportRequest.apis";
+import type { SupportRequest } from "@/@types/SupportRequest";
 
 type SupportNotification = {
   roomId: string;
@@ -65,6 +70,7 @@ type GiftNotificationState = {
 };
 
 type SupportNotificationsMap = Record<string, SupportNotification>;
+type SupportRequestsMap = Record<string, SupportRequest>;
 type OrderNotificationsMap = Record<string, OrderNotificationState[]>;
 type GiftNotificationsMap = Record<string, GiftNotificationState>;
 
@@ -130,6 +136,7 @@ type CoffeeNewOrderNotificationsMap = Record<
 
 interface RoomEventsContextValue {
   supportNotifications: SupportNotificationsMap;
+  supportRequests: SupportRequestsMap;
   orderNotifications: OrderNotificationsMap;
   giftNotifications: GiftNotificationsMap;
   blinkingSupportRooms: BlinkingMap;
@@ -168,6 +175,18 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     leaveRoom,
     onNotification,
     offNotification,
+    onSupportRequestCreated,
+    offSupportRequestCreated,
+    onSupportRequestAcknowledged,
+    offSupportRequestAcknowledged,
+    onSupportRequestExpired,
+    offSupportRequestExpired,
+    onSupportRequestNotSupported,
+    offSupportRequestNotSupported,
+    onSupportRequestResolved,
+    offSupportRequestResolved,
+    onSupportRequestClosed,
+    offSupportRequestClosed,
     onNewOrderNotification,
     offNewOrderNotification,
     onOrderServedNotification,
@@ -192,6 +211,36 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
 
   const [supportNotifications, setSupportNotifications] =
     useState<SupportNotificationsMap>({});
+  const [supportRequests, setSupportRequests] = useState<SupportRequestsMap>(
+    {},
+  );
+
+  // Rebuild room bells after a full page reload. Realtime events alone cannot
+  // restore requests that were created before the socket connected.
+  useEffect(() => {
+    let cancelled = false;
+    void supportRequestApis
+      .getAllHistory()
+      .then((response) => {
+        if (cancelled) return;
+        const activeRequests = (response.data.result ?? []).filter(
+          (request) => !["resolved", "closed"].includes(request.status),
+        );
+        setSupportRequests((previous) => ({
+          ...previous,
+          ...Object.fromEntries(
+            activeRequests.map((request) => [request.requestId, request]),
+          ),
+        }));
+      })
+      .catch(() => {
+        // The socket path remains available if the initial recovery request fails.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [orderNotifications, setOrderNotifications] =
     useState<OrderNotificationsMap>({});
   const [giftNotifications, setGiftNotifications] =
@@ -337,22 +386,27 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     }));
   }, []);
 
-  const clearOrderNotification = useCallback((roomId: string, orderId?: string) => {
-    setOrderNotifications((prev) => {
-      const current = prev[roomId] || [];
-      const remaining = orderId
-        ? current.filter((notification) => notification.orderData.orderId !== orderId)
-        : [];
-      const next = { ...prev };
-      if (remaining.length > 0) next[roomId] = remaining;
-      else delete next[roomId];
-      return next;
-    });
-    setBlinkingOrderRooms((prev) => ({
-      ...prev,
-      [roomId]: false,
-    }));
-  }, []);
+  const clearOrderNotification = useCallback(
+    (roomId: string, orderId?: string) => {
+      setOrderNotifications((prev) => {
+        const current = prev[roomId] || [];
+        const remaining = orderId
+          ? current.filter(
+              (notification) => notification.orderData.orderId !== orderId,
+            )
+          : [];
+        const next = { ...prev };
+        if (remaining.length > 0) next[roomId] = remaining;
+        else delete next[roomId];
+        return next;
+      });
+      setBlinkingOrderRooms((prev) => ({
+        ...prev,
+        [roomId]: false,
+      }));
+    },
+    [],
+  );
 
   const clearGiftNotification = useCallback((roomId: string) => {
     setGiftNotifications((prev) => {
@@ -401,8 +455,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
 
         const batchMatches = notif.orderId === args.batchId;
         const legacyMatches =
-          !notif.createdBatch &&
-          notif.coffeeSessionId === args.coffeeSessionId;
+          !notif.createdBatch && notif.coffeeSessionId === args.coffeeSessionId;
 
         if (batchMatches || legacyMatches) {
           const next = { ...prev };
@@ -423,6 +476,102 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
   useEffect(() => {
     // Admin room để nhận booking/support/order/gift chung
     joinRoom("admin");
+
+    const normalizeSupportRequest = (
+      payload: unknown,
+    ): SupportRequest | null => {
+      const candidate =
+        (payload as { result?: SupportRequest } | null)?.result ?? payload;
+      if (
+        !candidate ||
+        typeof candidate !== "object" ||
+        !("requestId" in candidate) ||
+        !("roomId" in candidate)
+      ) {
+        console.warn("Ignoring malformed support request payload", payload);
+        return null;
+      }
+      const request = candidate as SupportRequest;
+      return {
+        ...request,
+        requestId: String(request.requestId),
+        roomId: String(request.roomId),
+      };
+    };
+
+    const upsertSupportRequest = (payload: unknown) => {
+      const request = normalizeSupportRequest(payload);
+      if (!request) return null;
+      setSupportRequests((prev) => ({ ...prev, [request.requestId]: request }));
+      return request;
+    };
+
+    const handleSupportRequestCreated = (payload: unknown) => {
+      const request = upsertSupportRequest(payload);
+      if (!request) return;
+      setBlinkingSupportRooms((prev) => ({ ...prev, [request.roomId]: true }));
+      toast({
+        title: "Yêu cầu hỗ trợ mới",
+        description: `Phòng ${request.roomId} đang chờ nhân viên nhận`,
+      });
+      playSupportBoxAudio(
+        request.roomId,
+        `Phòng ${request.roomId} có yêu cầu hỗ trợ mới`,
+      );
+    };
+
+    const handleSupportRequestUpdated = (payload: unknown) => {
+      const request = normalizeSupportRequest(payload);
+      if (!request) return;
+
+      if (["resolved", "closed"].includes(request.status)) {
+        setSupportRequests((prev) => {
+          const next = { ...prev };
+          delete next[request.requestId];
+          return next;
+        });
+        setBlinkingSupportRooms((prev) => ({
+          ...prev,
+          [request.roomId]: false,
+        }));
+        setSupportNotifications((prev) => {
+          const next = { ...prev };
+          delete next[request.roomId];
+          return next;
+        });
+        return;
+      }
+
+      setSupportRequests((prev) => ({
+        ...prev,
+        [request.requestId]: request,
+      }));
+      if (request.status !== "pending") {
+        setBlinkingSupportRooms((prev) => ({
+          ...prev,
+          [request.roomId]: false,
+        }));
+      }
+    };
+
+    const handleSupportRequestClosed = (payload: unknown) => {
+      const request = normalizeSupportRequest(payload);
+      if (!request) return;
+      setSupportRequests((prev) => {
+        const next = { ...prev };
+        delete next[request.requestId];
+        return next;
+      });
+      setBlinkingSupportRooms((prev) => ({
+        ...prev,
+        [request.roomId]: false,
+      }));
+      setSupportNotifications((prev) => {
+        const next = { ...prev };
+        delete next[request.roomId];
+        return next;
+      });
+    };
 
     const handleNotification = (data: { roomId: string; message: string }) => {
       const roomId = data.roomId;
@@ -457,7 +606,10 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
       playSupportBoxAudio(roomId, `Phòng ${roomId} ${data.message}`);
     };
 
-    const handleOrderServedNotification = (data: { roomId: string; orderId?: string }) => {
+    const handleOrderServedNotification = (data: {
+      roomId: string;
+      orderId?: string;
+    }) => {
       clearOrderNotification(String(data.roomId), data.orderId);
     };
 
@@ -486,7 +638,9 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
           (item) => item.orderData.orderId === data.orderData.orderId,
         )
           ? current.map((item) =>
-              item.orderData.orderId === data.orderData.orderId ? notification : item,
+              item.orderData.orderId === data.orderData.orderId
+                ? notification
+                : item,
             )
           : [...current, notification];
         return { ...prev, [roomId]: next };
@@ -610,9 +764,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
 
         const submitted = payload.submittedLineItems ?? [];
         const lineItems: ICoffeeSessionOrderLineItem[] =
-          submitted.length > 0
-            ? submitted
-            : payload.createdBatch.lineItems;
+          submitted.length > 0 ? submitted : payload.createdBatch.lineItems;
         const summary = summarizeLineItemsQuick(lineItems);
         const lines =
           payload.createdBatch.order?.lines?.length > 0
@@ -816,6 +968,12 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     };
 
     onNotification(handleNotification);
+    onSupportRequestCreated(handleSupportRequestCreated);
+    onSupportRequestAcknowledged(handleSupportRequestUpdated);
+    onSupportRequestExpired(handleSupportRequestUpdated);
+    onSupportRequestNotSupported(handleSupportRequestUpdated);
+    onSupportRequestResolved(handleSupportRequestUpdated);
+    onSupportRequestClosed(handleSupportRequestClosed);
     onNewOrderNotification(handleNewOrderNotification);
     onOrderServedNotification(handleOrderServedNotification);
     onNewBooking(handleNewBooking);
@@ -828,6 +986,12 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
 
     return () => {
       offNotification(handleNotification);
+      offSupportRequestCreated(handleSupportRequestCreated);
+      offSupportRequestAcknowledged(handleSupportRequestUpdated);
+      offSupportRequestExpired(handleSupportRequestUpdated);
+      offSupportRequestNotSupported(handleSupportRequestUpdated);
+      offSupportRequestResolved(handleSupportRequestUpdated);
+      offSupportRequestClosed(handleSupportRequestClosed);
       offNewOrderNotification(handleNewOrderNotification);
       offOrderServedNotification(handleOrderServedNotification);
       offNewBooking(handleNewBooking);
@@ -845,6 +1009,18 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     leaveRoom,
     onNotification,
     offNotification,
+    onSupportRequestCreated,
+    offSupportRequestCreated,
+    onSupportRequestAcknowledged,
+    offSupportRequestAcknowledged,
+    onSupportRequestExpired,
+    offSupportRequestExpired,
+    onSupportRequestNotSupported,
+    offSupportRequestNotSupported,
+    onSupportRequestResolved,
+    offSupportRequestResolved,
+    onSupportRequestClosed,
+    offSupportRequestClosed,
     onNewOrderNotification,
     offNewOrderNotification,
     onOrderServedNotification,
@@ -897,7 +1073,11 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
               orderData: item.orderData,
             };
             const current = next[item.roomId] || [];
-            if (!current.some((entry) => entry.orderData.orderId === item.orderData.orderId)) {
+            if (
+              !current.some(
+                (entry) => entry.orderData.orderId === item.orderData.orderId,
+              )
+            ) {
               next[item.roomId] = [...current, notification];
             }
           });
@@ -912,6 +1092,43 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
 
     void hydratePendingOrderNotifications();
 
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateActiveSupportRequests = async () => {
+      try {
+        const roomsResponse = await roomApis.getRooms();
+        const rooms = roomsResponse.data.result ?? [];
+        const activeResults = await Promise.all(
+          rooms.map(async (room) => {
+            const roomId = String(room._id ?? room.roomId ?? "");
+            if (!roomId) return [];
+            const response = await supportRequestApis.getActive(roomId);
+            return response.data.result ?? [];
+          }),
+        );
+
+        if (cancelled) return;
+        setSupportRequests((prev) => {
+          const next = { ...prev };
+          activeResults.flat().forEach((request) => {
+            next[request.requestId] = request;
+          });
+          return next;
+        });
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to hydrate active support requests", error);
+        }
+      }
+    };
+
+    void hydrateActiveSupportRequests();
     return () => {
       cancelled = true;
     };
@@ -974,6 +1191,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
   const value = useMemo<RoomEventsContextValue>(
     () => ({
       supportNotifications,
+      supportRequests,
       orderNotifications,
       giftNotifications,
       blinkingSupportRooms,
@@ -992,6 +1210,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     }),
     [
       supportNotifications,
+      supportRequests,
       orderNotifications,
       giftNotifications,
       blinkingSupportRooms,

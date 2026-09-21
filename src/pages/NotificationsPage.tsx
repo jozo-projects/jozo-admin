@@ -27,7 +27,7 @@ import {
   Bell,
   CalendarCheck,
   CalendarClock,
-  CalendarX,
+
   CheckCheck,
   Trash2,
 } from "lucide-react";
@@ -39,58 +39,32 @@ const ITEMS_PER_PAGE = 20;
 function NotificationsPage() {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
-
-  // Fetch notifications (unread count tính từ trang hiện tại)
   const { data: notificationsData, isLoading } = useNotifications({
     page: currentPage,
     limit: ITEMS_PER_PAGE,
   });
-
-  // Mutations
   const { mutate: markAsRead } = useMarkAsRead();
   const { mutate: markAllAsRead } = useMarkAllAsRead();
   const { mutate: deleteNotification } = useDeleteNotification();
 
   const notifications = notificationsData?.notifications || [];
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
   const totalPages = notificationsData?.totalPages || 1;
   const total = notificationsData?.total || 0;
 
   const handleNotificationClick = (notification: INotification) => {
-    if (!notification.isRead) {
-      markAsRead(notification._id);
-    }
-
-    // Navigate to my-schedule page with scheduleId if available
+    if (!notification.isRead) markAsRead(notification._id);
     if (notification.data?.scheduleId) {
-      navigate(
-        `${PATHS.MY_SCHEDULE}?scheduleId=${notification.data.scheduleId}`
-      );
+      navigate(`${PATHS.MY_SCHEDULE}?scheduleId=${notification.data.scheduleId}`);
     }
-  };
-
-  const handleMarkAllAsRead = () => {
-    markAllAsRead();
-  };
-
-  const handleDeleteNotification = (
-    e: React.MouseEvent,
-    notificationId: string
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    deleteNotification(notificationId);
   };
 
   const getNotificationIcon = (notification: INotification) => {
     switch (notification.type) {
-      case "schedule_approved":
-        return <CalendarCheck className="h-5 w-5 text-green-600" />;
-      case "schedule_rejected":
-        return <CalendarX className="h-5 w-5 text-red-600" />;
       case "schedule_assigned":
       case "schedule_registered":
       case "schedule_created_by_employee":
+        return <CalendarCheck className="h-5 w-5 text-green-600" />;
       case "schedule_status_updated":
         return <CalendarClock className="h-5 w-5 text-blue-600" />;
       default:
@@ -98,83 +72,49 @@ function NotificationsPage() {
     }
   };
 
+  const handleDeleteNotification = (
+    event: React.MouseEvent,
+    notificationId: string,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    deleteNotification(notificationId);
+  };
+
   const renderPagination = () => {
     if (totalPages <= 1) return null;
-
-    const pages = [];
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
+    const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
+    const visiblePages = pages.length <= 5 ? pages : pages.slice(0, 4);
 
     return (
-      <Pagination className="mt-6">
+      <Pagination className="mt-4">
         <PaginationContent>
           <PaginationItem>
             <PaginationPrevious
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              className={cn(
-                currentPage === 1 && "pointer-events-none opacity-50"
-              )}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              className={cn(currentPage === 1 && "pointer-events-none opacity-50")}
             />
           </PaginationItem>
-
-          {startPage > 1 && (
-            <>
-              <PaginationItem>
-                <PaginationLink onClick={() => setCurrentPage(1)}>
-                  1
-                </PaginationLink>
-              </PaginationItem>
-              {startPage > 2 && (
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              )}
-            </>
-          )}
-
-          {pages.map((page) => (
+          {visiblePages.map((page) => (
             <PaginationItem key={page}>
               <PaginationLink
+                isActive={page === currentPage}
                 onClick={() => setCurrentPage(page)}
-                isActive={currentPage === page}
               >
                 {page}
               </PaginationLink>
             </PaginationItem>
           ))}
-
-          {endPage < totalPages && (
+          {pages.length > 5 && (
             <>
-              {endPage < totalPages - 1 && (
-                <PaginationItem>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              )}
-              <PaginationItem>
-                <PaginationLink onClick={() => setCurrentPage(totalPages)}>
-                  {totalPages}
-                </PaginationLink>
-              </PaginationItem>
+              <PaginationItem><PaginationEllipsis /></PaginationItem>
+              <PaginationItem><PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink></PaginationItem>
             </>
           )}
-
           <PaginationItem>
             <PaginationNext
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-              }
-              className={cn(
-                currentPage === totalPages && "pointer-events-none opacity-50"
-              )}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              className={cn(currentPage === totalPages && "pointer-events-none opacity-50")}
             />
           </PaginationItem>
         </PaginationContent>
@@ -183,49 +123,39 @@ function NotificationsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex h-full flex-col gap-4">
       <PageHeader
         title="Tất cả thông báo"
         description={`${total} thông báo${unreadCount > 0 ? ` • ${unreadCount} chưa đọc` : ""}`}
         icon={Bell}
         actions={
           unreadCount > 0 ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleMarkAllAsRead}
-                className="gap-2"
-              >
-                <CheckCheck className="h-4 w-4" />
-                Đánh dấu tất cả đã đọc
-              </Button>
+            <Button variant="outline" size="sm" onClick={() => markAllAsRead()} className="gap-2">
+              <CheckCheck className="h-4 w-4" />
+              Đánh dấu tất cả đã đọc
+            </Button>
           ) : undefined
         }
       />
 
       <Card>
         <CardContent className="p-6">
-
-          {/* Notifications List */}
           {isLoading ? (
             <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex gap-4 p-4">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="flex gap-4 p-4">
                   <Skeleton className="h-10 w-10 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-3/4" />
                     <Skeleton className="h-3 w-full" />
-                    <Skeleton className="h-3 w-1/4" />
                   </div>
                 </div>
               ))}
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <h3 className="text-lg font-semibold mb-1">Không có thông báo</h3>
-              <p className="text-sm text-muted-foreground">
-                Bạn chưa có thông báo nào
-              </p>
+              <h3 className="mb-1 text-lg font-semibold">Không có thông báo</h3>
+              <p className="text-sm text-muted-foreground">Chưa có thông báo nào.</p>
             </div>
           ) : (
             <>
@@ -236,60 +166,35 @@ function NotificationsPage() {
                       key={notification._id}
                       onClick={() => handleNotificationClick(notification)}
                       className={cn(
-                        "relative rounded-lg p-4 cursor-pointer transition-all hover:shadow-md border group",
+                        "group relative cursor-pointer rounded-lg border p-4 transition-all hover:shadow-md",
                         !notification.isRead
-                          ? "bg-blue-50 border-blue-200 hover:bg-blue-100"
-                          : "bg-white border-gray-200 hover:bg-gray-50"
+                          ? "border-blue-200 bg-blue-50 hover:bg-blue-100"
+                          : "border-gray-200 bg-white hover:bg-gray-50",
                       )}
                     >
                       <div className="flex gap-4">
-                        {/* Icon */}
-                        <div className="flex-shrink-0 mt-1">
-                          {getNotificationIcon(notification)}
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <h4
-                              className={cn(
-                                "text-base font-medium",
-                                !notification.isRead && "font-semibold"
-                              )}
-                            >
+                        <div className="mt-1 shrink-0">{getNotificationIcon(notification)}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-2 flex items-start justify-between gap-2">
+                            <h4 className={cn("text-base font-medium", !notification.isRead && "font-semibold")}>
                               {notification.title}
                             </h4>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              {!notification.isRead && (
-                                <Badge
-                                  variant="default"
-                                  className="h-2 w-2 p-0 rounded-full"
-                                />
-                              )}
+                            <div className="flex shrink-0 items-center gap-2">
+                              {!notification.isRead && <Badge variant="default" className="h-2 w-2 rounded-full p-0" />}
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) =>
-                                  handleDeleteNotification(e, notification._id)
-                                }
+                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                                onClick={(event) => handleDeleteNotification(event, notification._id)}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </div>
-
-                          <p className="text-sm text-muted-foreground mb-3">
-                            {notification.body}
-                          </p>
-
-                          <div className="flex items-center gap-4">
-                            <p className="text-xs text-muted-foreground">
-                              {formatUTCToLocal(notification.createdAt)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {timeAgo(notification.createdAt)}
-                            </p>
+                          <p className="mb-3 text-sm text-muted-foreground">{notification.body}</p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>{formatUTCToLocal(notification.createdAt)}</span>
+                            <span>{timeAgo(notification.createdAt)}</span>
                           </div>
                         </div>
                       </div>
@@ -297,8 +202,6 @@ function NotificationsPage() {
                   ))}
                 </div>
               </ScrollArea>
-
-              {/* Pagination */}
               {renderPagination()}
             </>
           )}

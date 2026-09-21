@@ -1,4 +1,5 @@
 import { INotification } from "@/@types/Notification";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +19,9 @@ import {
 import { useSocket } from "@/hooks/useSocket";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+
 import { useQueryClient } from "@tanstack/react-query";
+
 import { timeAgo } from "@/lib/dayjs";
 import {
   Bell,
@@ -36,6 +39,7 @@ import PATHS from "@/constants/paths";
 
 export const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -50,6 +54,7 @@ export const NotificationBell = () => {
   const { mutate: markAsRead } = useMarkAsRead();
   const { mutate: markAllAsRead } = useMarkAllAsRead();
   const { mutate: deleteNotification } = useDeleteNotification();
+
 
   // Socket
   const { onNewNotification, offNewNotification } = useSocket();
@@ -91,7 +96,7 @@ export const NotificationBell = () => {
     if (notification.data?.scheduleId) {
       setIsOpen(false); // Close dropdown
       navigate(
-        `${PATHS.MY_SCHEDULE}?scheduleId=${notification.data.scheduleId}`
+        `${PATHS.MY_SCHEDULE}?scheduleId=${notification.data.scheduleId}`,
       );
     }
   };
@@ -104,7 +109,7 @@ export const NotificationBell = () => {
 
   const handleDeleteNotification = (
     e: React.MouseEvent,
-    notificationId: string
+    notificationId: string,
   ) => {
     e.preventDefault();
     e.stopPropagation();
@@ -130,14 +135,22 @@ export const NotificationBell = () => {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Thông báo"
+          title="Thông báo"
+          className="relative text-foreground opacity-100 hover:bg-accent hover:text-foreground"
+        >
+          <Bell className="h-5 w-5 shrink-0" strokeWidth={2.25} />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
               className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
             >
-              {unreadCount > 9 ? "9+" : unreadCount}
+              {unreadCount > 9
+                ? "9+"
+                : unreadCount}
             </Badge>
           )}
         </Button>
@@ -179,7 +192,7 @@ export const NotificationBell = () => {
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
                     "relative rounded-lg p-3 cursor-pointer transition-colors hover:bg-accent group",
-                    !notification.isRead && "bg-blue-50 hover:bg-blue-100"
+                    !notification.isRead && "bg-blue-50 hover:bg-blue-100",
                   )}
                 >
                   <div className="flex gap-3">
@@ -191,7 +204,7 @@ export const NotificationBell = () => {
                         <p
                           className={cn(
                             "text-sm font-medium line-clamp-1",
-                            !notification.isRead && "font-semibold"
+                            !notification.isRead && "font-semibold",
                           )}
                         >
                           {notification.title}

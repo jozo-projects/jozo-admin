@@ -83,6 +83,7 @@ const PATHS = {
 
   // notifications
   NOTIFICATIONS: "/notifications",
+  SUPPORT_HISTORY: "/support-history",
 
   // total revenue
   TOTAL_REVENUE: "/total-revenue",

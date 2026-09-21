@@ -11,6 +11,7 @@ import {
   IOrderBatchStatusChangedSocketPayload,
 } from "@/@types/CoffeeSessionOrder";
 import type { SongPruneJob } from "@/apis/roomMusic.apis";
+import type { SupportRequest } from "@/@types/SupportRequest";
 
 export const useSocket = () => {
   const { toast } = useToast();
@@ -100,6 +101,78 @@ export const useSocket = () => {
     socketRef.current?.off("notification", callback);
   };
 
+  const onSupportRequestCreated = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.on("support_request_created", callback);
+  };
+
+  const offSupportRequestCreated = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.off("support_request_created", callback);
+  };
+
+  const onSupportRequestAcknowledged = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.on("support_request_acknowledged", callback);
+  };
+
+  const offSupportRequestAcknowledged = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.off("support_request_acknowledged", callback);
+  };
+
+  const onSupportRequestExpired = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.on("support_request_expired", callback);
+  };
+
+  const offSupportRequestExpired = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.off("support_request_expired", callback);
+  };
+
+  const onSupportRequestNotSupported = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.on("support_request_not_supported", callback);
+  };
+
+  const offSupportRequestNotSupported = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.off("support_request_not_supported", callback);
+  };
+
+  const onSupportRequestResolved = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.on("support_request_resolved", callback);
+  };
+
+  const offSupportRequestResolved = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.off("support_request_resolved", callback);
+  };
+
+  const onSupportRequestClosed = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.on("support_request_closed", callback);
+  };
+
+  const offSupportRequestClosed = (
+    callback: (data: SupportRequest) => void,
+  ) => {
+    socketRef.current?.off("support_request_closed", callback);
+  };
+
   const onNewOrderNotification = (
     callback: (data: {
       type: string;
@@ -178,15 +251,11 @@ export const useSocket = () => {
     socketRef.current?.off("order_served_notification", callback);
   };
 
-  const onOrderNew = (
-    callback: (data: ICoffeeOrderSocketPayload) => void,
-  ) => {
+  const onOrderNew = (callback: (data: ICoffeeOrderSocketPayload) => void) => {
     socketRef.current?.on("order:new", callback);
   };
 
-  const offOrderNew = (
-    callback: (data: ICoffeeOrderSocketPayload) => void,
-  ) => {
+  const offOrderNew = (callback: (data: ICoffeeOrderSocketPayload) => void) => {
     socketRef.current?.off("order:new", callback);
   };
 
@@ -401,6 +470,18 @@ export const useSocket = () => {
     leaveRoom,
     onNotification,
     offNotification,
+    onSupportRequestCreated,
+    offSupportRequestCreated,
+    onSupportRequestAcknowledged,
+    offSupportRequestAcknowledged,
+    onSupportRequestExpired,
+    offSupportRequestExpired,
+    onSupportRequestNotSupported,
+    offSupportRequestNotSupported,
+    onSupportRequestResolved,
+    offSupportRequestResolved,
+    onSupportRequestClosed,
+    offSupportRequestClosed,
     onNewOrderNotification,
     offNewOrderNotification,
     onOrderServedNotification,

@@ -39,13 +39,14 @@ import {
 import { RoomType } from "@/constants/enum";
 import { useRoomEvents } from "@/context/RoomEventsContext";
 import {
-  useResolveRequest,
+
   useRoomSchedules,
   useTurnOffAllRooms,
 } from "@/hooks/room-schedule";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsStaff } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
+import SupportRequestModal from "./SupportRequestModal";
 import {
   getCoffeeSessionDisplayEnd,
   getCoffeeSessionDisplayStart,
@@ -230,6 +231,7 @@ const RoomTimelineTable: React.FC = () => {
   const isStaff = useIsStaff();
   const {
     supportNotifications,
+    supportRequests,
     orderNotifications,
     giftNotifications,
     blinkingSupportRooms,
@@ -251,18 +253,16 @@ const RoomTimelineTable: React.FC = () => {
   const [coffeeDate, setCoffeeDate] = useState<Dayjs>(() =>
     getDefaultBusinessDate(),
   );
-  const [timelineZoom, setTimelineZoom] =
-    useState<TimelineZoom>(DEFAULT_TIMELINE_ZOOM);
+  const [timelineZoom, setTimelineZoom] = useState<TimelineZoom>(
+    DEFAULT_TIMELINE_ZOOM,
+  );
   const timelineScale = getTimelineScale(timelineZoom);
   const timelineContentWidth = getTimelineContentWidth(timelineZoom);
   const timelineTotalWidth = getTimelineTotalWidth(timelineZoom);
   const timelineGridStyle = getTimelineGridBackground(timelineZoom);
   const hourMarkerSpacing = getTimelineScale(timelineZoom) * 60;
 
-  const nextRoomsDate = useMemo(
-    () => roomsDate.add(1, "day"),
-    [roomsDate],
-  );
+  const nextRoomsDate = useMemo(() => roomsDate.add(1, "day"), [roomsDate]);
   const {
     data: schedules,
     isLoading,
@@ -288,6 +288,9 @@ const RoomTimelineTable: React.FC = () => {
   });
 
   const [modal, setModal] = useState<Modal>(null);
+  const [supportRequestModalId, setSupportRequestModalId] = useState<
+    string | null
+  >(null);
   const [turnOffAllRoomsConfirmOpen, setTurnOffAllRoomsConfirmOpen] =
     useState(false);
   const [selectedRoom, setSelectedRoom] = useState<IRoom | null>(null);
@@ -441,7 +444,7 @@ const RoomTimelineTable: React.FC = () => {
   const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isAutoScrollingRef = useRef(false);
 
-  const { mutate: resolveRequest } = useResolveRequest();
+
 
   const scrollTimelineToMarker = (
     markerLeft: number,
@@ -463,9 +466,12 @@ const RoomTimelineTable: React.FC = () => {
     if (autoScrollTimerRef.current) {
       clearTimeout(autoScrollTimerRef.current);
     }
-    autoScrollTimerRef.current = setTimeout(() => {
-      isAutoScrollingRef.current = false;
-    }, behavior === "smooth" ? 450 : 100);
+    autoScrollTimerRef.current = setTimeout(
+      () => {
+        isAutoScrollingRef.current = false;
+      },
+      behavior === "smooth" ? 450 : 100,
+    );
   };
 
   // Handler để tạm dừng auto-scroll khi người dùng scroll
@@ -560,7 +566,10 @@ const RoomTimelineTable: React.FC = () => {
 
   const visibleSchedules = useMemo(() => {
     const byId = new Map<string, IRoomSchedule>();
-    for (const schedule of [...(schedules || []), ...(nextDaySchedules || [])]) {
+    for (const schedule of [
+      ...(schedules || []),
+      ...(nextDaySchedules || []),
+    ]) {
       byId.set(schedule._id, schedule);
     }
 
@@ -584,7 +593,11 @@ const RoomTimelineTable: React.FC = () => {
         else if (status === "maintenance") end = start.add(240, "minute");
         else end = currentTime.isBefore(dayEnd) ? currentTime : dayEnd;
       }
-      return intersectsTimelineWindow(start, end, roomsDate) || start.isSame(dayStart) || (!start.isBefore(dayStart) && start.isBefore(dayEnd));
+      return (
+        intersectsTimelineWindow(start, end, roomsDate) ||
+        start.isSame(dayStart) ||
+        (!start.isBefore(dayStart) && start.isBefore(dayEnd))
+      );
     });
   }, [schedules, nextDaySchedules, roomsDate, currentTime]);
 
@@ -932,7 +945,10 @@ const RoomTimelineTable: React.FC = () => {
     }
 
     // Nếu sự kiện đã hoàn toàn nằm bên trái now marker (đã qua) thì thay đổi màu thành sắc đậm hơn
-    const markerContentLeft = Math.max(0, roomsMarkerLeft - TIMELINE_LEFT_OFFSET);
+    const markerContentLeft = Math.max(
+      0,
+      roomsMarkerLeft - TIMELINE_LEFT_OFFSET,
+    );
     if (roomsIsToday && markerContentLeft >= left + width) {
       if (status === "booked") {
         // Nếu source là customer thì màu cam đậm, còn lại màu xanh dương đậm
@@ -989,7 +1005,10 @@ const RoomTimelineTable: React.FC = () => {
       bgColor = "bg-emerald-500";
     }
 
-    if (coffeeIsToday && coffeeMarkerLeft - TIMELINE_LEFT_OFFSET >= left + width) {
+    if (
+      coffeeIsToday &&
+      coffeeMarkerLeft - TIMELINE_LEFT_OFFSET >= left + width
+    ) {
       if (status === "booked") {
         bgColor = "bg-amber-700";
       } else if (status === "in-use") {
@@ -1000,31 +1019,14 @@ const RoomTimelineTable: React.FC = () => {
     return { left, width, bgColor, eventStart, eventEnd };
   };
 
-  const handleResolveRequest = (roomId: string) => {
-    const roomIndex =
-      roomsData?.findIndex((room) => room._id === roomId) || 0 + 1 + "";
+  const handleSupportRequestBell = (requestId: string) => {
+    if (!supportRequests[requestId]) return;
+    setSupportRequestModalId(requestId);
+  };
 
-    resolveRequest(roomIndex.toString(), {
-      onSuccess: () => {
-        // Remove notification for this room
-        const socketRoomId = getSocketRoomId(roomId);
-        if (socketRoomId) {
-          clearSupportNotification(socketRoomId);
-        }
-
-        toast({
-          title: "Success",
-          description: "Request resolved successfully",
-        });
-      },
-      onError: () => {
-        toast({
-          title: "Error",
-          description: "Failed to resolve request",
-          variant: "destructive",
-        });
-      },
-    });
+  const handleLegacySupportNotificationClick = (roomId: string) => {
+    const socketRoomId = getSocketRoomId(roomId);
+    if (socketRoomId) clearSupportNotification(socketRoomId);
   };
 
   const handleTurnOffAllRooms = () => {
@@ -1038,6 +1040,14 @@ const RoomTimelineTable: React.FC = () => {
       },
     });
   };
+
+  const selectedSupportRequest = supportRequestModalId
+    ? (supportRequests[supportRequestModalId] ?? null)
+    : null;
+  const selectedSupportRoomName =
+    roomsData?.find(
+      (room) => String(room._id) === String(selectedSupportRequest?.roomId),
+    )?.roomName ?? `Phòng ${selectedSupportRequest?.roomId ?? ""}`;
 
   return (
     <div className="!p-4 w-full space-y-6">
@@ -1111,7 +1121,7 @@ const RoomTimelineTable: React.FC = () => {
               giftBlinkingRooms={viewGiftBlinkingRooms}
               onRoomClick={handleRoomClick}
               onScheduleClick={handleScheduleClick}
-              onResolveRequest={handleResolveRequest}
+              onResolveRequest={handleLegacySupportNotificationClick}
               onOrderClick={handleOrderClick}
               onGiftClick={handleGiftClick}
             />
@@ -1136,7 +1146,10 @@ const RoomTimelineTable: React.FC = () => {
                   </div>
                   <div
                     className="relative h-10"
-                    style={{ width: timelineContentWidth, ...timelineGridStyle }}
+                    style={{
+                      width: timelineContentWidth,
+                      ...timelineGridStyle,
+                    }}
                   >
                     {Array.from({
                       length: DAY_END_HOUR - DAY_START_HOUR + 1,
@@ -1163,10 +1176,23 @@ const RoomTimelineTable: React.FC = () => {
                   const roomSchedules = grouped[room._id] || [];
                   const socketRoomId = (index + 1).toString();
                   const hasNotification = supportNotifications[socketRoomId];
-                  const isBlinking = !!blinkingSupportRooms[socketRoomId];
+                  const activeSupportRequest = Object.values(
+                    supportRequests,
+                  ).find(
+                    (request) =>
+                      (String(request.roomId) === socketRoomId ||
+                        String(request.roomId) === String(room._id)) &&
+                      (request.status === "pending" ||
+                        request.status === "not_supported" ||
+                        request.status === "acknowledged"),
+                  );
+                  const hasSupportRequest = Boolean(activeSupportRequest);
+                  const isBlinking =
+                    !!blinkingSupportRooms[socketRoomId] || hasSupportRequest;
                   const orderNotificationsForRoom =
                     orderNotifications[socketRoomId] || [];
-                  const hasOrderNotification = orderNotificationsForRoom.length > 0;
+                  const hasOrderNotification =
+                    orderNotificationsForRoom.length > 0;
                   const isOrderBlinking = !!blinkingOrderRooms[socketRoomId];
                   const giftNotification = giftNotifications[socketRoomId];
                   const isMaintenance = isRoomUnderMaintenance(room);
@@ -1221,9 +1247,7 @@ const RoomTimelineTable: React.FC = () => {
                           <button
                             onClick={() => handleRoomClick(room._id)}
                             className={`inline-flex items-center gap-1.5 hover:underline truncate ${
-                              isMaintenance
-                                ? "text-red-600"
-                                : "text-blue-600"
+                              isMaintenance ? "text-red-600" : "text-blue-600"
                             } ${
                               isBlinking
                                 ? "animate-[blink_1s_ease-in-out_infinite]"
@@ -1253,52 +1277,74 @@ const RoomTimelineTable: React.FC = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {hasNotification && (
+                          {(hasNotification || hasSupportRequest) && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <button
-                                  onClick={() => handleResolveRequest(room._id)}
+                                  aria-label={`Yêu cầu hỗ trợ ${room.roomName}`}
+                                  onClick={() =>
+                                    activeSupportRequest
+                                      ? handleSupportRequestBell(
+                                          activeSupportRequest.requestId,
+                                        )
+                                      : handleLegacySupportNotificationClick(
+                                          room._id,
+                                        )
+                                  }
                                 >
                                   <BellIcon className="h-5 w-5 text-red-500 animate-bounce" />
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>{hasNotification.message}</p>
+                                <p>
+                                  {activeSupportRequest
+                                    ? activeSupportRequest.status === "pending"
+                                      ? "Khách đang chờ xác nhận hỗ trợ"
+                                      : "Đã nhận hỗ trợ — bấm để ghi nhận kết quả"
+                                    : hasNotification?.message}
+                                </p>
                                 <p className="text-xs text-gray-500 mt-1">
-                                  {dayjs(hasNotification.timestamp).format(
-                                    "HH:mm",
-                                  )}
+                                  {activeSupportRequest
+                                    ? dayjs(
+                                        activeSupportRequest.createdAt,
+                                      ).format("HH:mm")
+                                    : dayjs(hasNotification?.timestamp).format(
+                                        "HH:mm",
+                                      )}
                                 </p>
                               </TooltipContent>
                             </Tooltip>
                           )}
                           {hasOrderNotification &&
-                            orderNotificationsForRoom.map((notification, orderIndex) => (
-                              <Tooltip key={notification.orderData.orderId}>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={() =>
-                                      handleOrderClick(
-                                        room._id,
-                                        notification.orderData.orderId,
-                                      )
-                                    }
-                                    className={`${
-                                      isOrderBlinking ? "animate-pulse" : ""
-                                    }`}
-                                    aria-label={`Đơn FNB ${orderIndex + 1} của ${room.roomName}`}
-                                  >
-                                    <UtensilsCrossed className="h-5 w-5 text-orange-500" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{notification.message}</p>
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    Đơn {orderIndex + 1}/{orderNotificationsForRoom.length}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            ))}
+                            orderNotificationsForRoom.map(
+                              (notification, orderIndex) => (
+                                <Tooltip key={notification.orderData.orderId}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={() =>
+                                        handleOrderClick(
+                                          room._id,
+                                          notification.orderData.orderId,
+                                        )
+                                      }
+                                      className={`${
+                                        isOrderBlinking ? "animate-pulse" : ""
+                                      }`}
+                                      aria-label={`Đơn FNB ${orderIndex + 1} của ${room.roomName}`}
+                                    >
+                                      <UtensilsCrossed className="h-5 w-5 text-orange-500" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{notification.message}</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      Đơn {orderIndex + 1}/
+                                      {orderNotificationsForRoom.length}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ),
+                            )}
                           {scheduleGiftInfo && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1329,15 +1375,15 @@ const RoomTimelineTable: React.FC = () => {
                         </div>
                       </div>
                       {(() => {
-                        const visibleRoomSchedules = (roomSchedules || []).filter(
-                          (schedule) => {
-                            if (!isStaff) return true;
-                            const status = schedule.status.toLowerCase();
-                            return (
-                              status !== "finished" && status !== "completed"
-                            );
-                          },
-                        );
+                        const visibleRoomSchedules = (
+                          roomSchedules || []
+                        ).filter((schedule) => {
+                          if (!isStaff) return true;
+                          const status = schedule.status.toLowerCase();
+                          return (
+                            status !== "finished" && status !== "completed"
+                          );
+                        });
                         const packed = packTimelineLanes(
                           visibleRoomSchedules.map((schedule) => {
                             const { left, width } = getMarkerStyle(schedule);
@@ -1357,297 +1403,308 @@ const RoomTimelineTable: React.FC = () => {
                           lane * (ROOM_LANE_HEIGHT + ROOM_LANE_GAP);
 
                         return (
-                      <div
-                        className="relative"
-                        style={{
-                          width: timelineContentWidth,
-                          height: rowHeight,
-                          ...timelineGridStyle,
-                        }}
-                      >
-                        {roomsIsToday && (
-                            <div
-                              className="absolute inset-y-0 left-0 bg-slate-900/[0.03] pointer-events-none z-0"
-                              style={{ width: markerContentLeft }}
-                            />
-                        )}
-                        {packed.map(({ item: schedule, lane }) => {
-                          const { left, width, bgColor } =
-                            getMarkerStyle(schedule);
-                          const scheduleLabel = getScheduleTimelineLabel(
-                            room.roomName,
-                            schedule,
-                            room,
-                          );
-                          const scheduleSizeLabel = getScheduleRoomTypeLabel(
-                            getEffectiveScheduleRoomType(schedule, room),
-                          );
-                          // const isDragging =
-                          //   dragState.isDragging &&
-                          //   dragState.scheduleId === schedule._id;
-                          const eventElement = (
-                            <button
-                              key={schedule._id}
-                              type="button"
-                              className={`absolute ${bgColor} opacity-90 rounded-md shadow-sm hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500`}
-                              style={{
-                                left,
-                                width: Math.max(width, 44),
-                                top: laneTop(lane),
-                                height: ROOM_LANE_HEIGHT,
-                              }}
-                              title={`${scheduleLabel} - ${dayjs(
-                                schedule.startTime,
-                              ).format("HH:mm")}`}
-                              aria-label={`${scheduleLabel} ${schedule.status} từ ${dayjs(
-                                schedule.startTime,
-                              ).format("HH:mm")}`}
-                              // draggable
-                              // onDragStart={(e) => handleDragStart(e, schedule)}
-                              // onDragEnd={handleDragEnd}
-                              onClick={() => handleScheduleClick(schedule)}
-                            >
-                              {/* Hiển thị thời gian trong schedule block */}
-                              <div className="relative flex h-full min-h-9 items-center justify-center px-1.5">
-                                <span className="absolute left-1 top-0.5 text-[11px] text-white font-medium leading-none">
-                                  {dayjs(schedule.startTime).format("HH:mm")}
-                                </span>
-                                <span className="max-w-full truncate text-xs sm:text-sm font-semibold text-white">
-                                  {scheduleLabel}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                          if (schedule.status.toLowerCase() === "booked") {
-                            const eventStart = dayjs(schedule.startTime);
-                            const eventEnd = schedule.endTime
-                              ? dayjs(schedule.endTime)
-                              : eventStart.add(120, "minute");
-                            return (
-                              <Tooltip key={schedule._id}>
-                                <TooltipTrigger asChild>
-                                  {eventElement}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Size: {scheduleSizeLabel}</p>
-                                  <p>Bắt đầu: {eventStart.format("HH:mm")}</p>
-                                  <p>Kết thúc: {eventEnd.format("HH:mm")}</p>
-                                  {schedule.note && (
-                                    <p>Ghi chú: {schedule.note}</p>
-                                  )}
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          } else if (
-                            schedule.status.toLowerCase() === "locked"
-                          ) {
-                            const lockedDuration = dayjs().diff(
-                              dayjs(schedule.startTime),
-                              "minute",
-                            );
-                            return (
-                              <Tooltip key={schedule._id}>
-                                <TooltipTrigger asChild>
-                                  {eventElement}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Đã khóa {lockedDuration} phút</p>
-                                  {/* <p className="text-xs text-gray-500">
+                          <div
+                            className="relative"
+                            style={{
+                              width: timelineContentWidth,
+                              height: rowHeight,
+                              ...timelineGridStyle,
+                            }}
+                          >
+                            {roomsIsToday && (
+                              <div
+                                className="absolute inset-y-0 left-0 bg-slate-900/[0.03] pointer-events-none z-0"
+                                style={{ width: markerContentLeft }}
+                              />
+                            )}
+                            {packed.map(({ item: schedule, lane }) => {
+                              const { left, width, bgColor } =
+                                getMarkerStyle(schedule);
+                              const scheduleLabel = getScheduleTimelineLabel(
+                                room.roomName,
+                                schedule,
+                                room,
+                              );
+                              const scheduleSizeLabel =
+                                getScheduleRoomTypeLabel(
+                                  getEffectiveScheduleRoomType(schedule, room),
+                                );
+                              // const isDragging =
+                              //   dragState.isDragging &&
+                              //   dragState.scheduleId === schedule._id;
+                              const eventElement = (
+                                <button
+                                  key={schedule._id}
+                                  type="button"
+                                  className={`absolute ${bgColor} opacity-90 rounded-md shadow-sm hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500`}
+                                  style={{
+                                    left,
+                                    width: Math.max(width, 44),
+                                    top: laneTop(lane),
+                                    height: ROOM_LANE_HEIGHT,
+                                  }}
+                                  title={`${scheduleLabel} - ${dayjs(
+                                    schedule.startTime,
+                                  ).format("HH:mm")}`}
+                                  aria-label={`${scheduleLabel} ${schedule.status} từ ${dayjs(
+                                    schedule.startTime,
+                                  ).format("HH:mm")}`}
+                                  // draggable
+                                  // onDragStart={(e) => handleDragStart(e, schedule)}
+                                  // onDragEnd={handleDragEnd}
+                                  onClick={() => handleScheduleClick(schedule)}
+                                >
+                                  {/* Hiển thị thời gian trong schedule block */}
+                                  <div className="relative flex h-full min-h-9 items-center justify-center px-1.5">
+                                    <span className="absolute left-1 top-0.5 text-[11px] text-white font-medium leading-none">
+                                      {dayjs(schedule.startTime).format(
+                                        "HH:mm",
+                                      )}
+                                    </span>
+                                    <span className="max-w-full truncate text-xs sm:text-sm font-semibold text-white">
+                                      {scheduleLabel}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                              if (schedule.status.toLowerCase() === "booked") {
+                                const eventStart = dayjs(schedule.startTime);
+                                const eventEnd = schedule.endTime
+                                  ? dayjs(schedule.endTime)
+                                  : eventStart.add(120, "minute");
+                                return (
+                                  <Tooltip key={schedule._id}>
+                                    <TooltipTrigger asChild>
+                                      {eventElement}
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Size: {scheduleSizeLabel}</p>
+                                      <p>
+                                        Bắt đầu: {eventStart.format("HH:mm")}
+                                      </p>
+                                      <p>
+                                        Kết thúc: {eventEnd.format("HH:mm")}
+                                      </p>
+                                      {schedule.note && (
+                                        <p>Ghi chú: {schedule.note}</p>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              } else if (
+                                schedule.status.toLowerCase() === "locked"
+                              ) {
+                                const lockedDuration = dayjs().diff(
+                                  dayjs(schedule.startTime),
+                                  "minute",
+                                );
+                                return (
+                                  <Tooltip key={schedule._id}>
+                                    <TooltipTrigger asChild>
+                                      {eventElement}
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Đã khóa {lockedDuration} phút</p>
+                                      {/* <p className="text-xs text-gray-500">
                               Kéo để di chuyển
                             </p> */}
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          } else if (
-                            schedule.status.toLowerCase() === "in use"
-                          ) {
-                            const eventStart = dayjs(schedule.startTime);
-                            const inUseDuration = dayjs().diff(
-                              eventStart,
-                              "minute",
-                            );
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              } else if (
+                                schedule.status.toLowerCase() === "in use"
+                              ) {
+                                const eventStart = dayjs(schedule.startTime);
+                                const inUseDuration = dayjs().diff(
+                                  eventStart,
+                                  "minute",
+                                );
 
-                            // Tính thời gian đã sử dụng
-                            let durationLabel = "";
-                            if (inUseDuration < 60) {
-                              durationLabel = `${inUseDuration} phút`;
-                            } else {
-                              const hours = Math.floor(inUseDuration / 60);
-                              const minutes = inUseDuration % 60;
-                              durationLabel = `${hours} giờ${
-                                minutes > 0 ? ` ${minutes} phút` : ""
-                              }`;
-                            }
-
-                            // Tính giờ kết thúc và thời gian còn lại
-                            let endTimeLabel = "";
-                            let remainingTimeLabel = "";
-                            if (schedule.endTime) {
-                              const eventEnd = dayjs(schedule.endTime);
-                              endTimeLabel = eventEnd.format("HH:mm");
-                              const remainingMinutes = eventEnd.diff(
-                                dayjs(),
-                                "minute",
-                              );
-                              if (remainingMinutes > 0) {
-                                if (remainingMinutes < 60) {
-                                  remainingTimeLabel = `Còn ${remainingMinutes} phút`;
+                                // Tính thời gian đã sử dụng
+                                let durationLabel = "";
+                                if (inUseDuration < 60) {
+                                  durationLabel = `${inUseDuration} phút`;
                                 } else {
-                                  const hours = Math.floor(
-                                    remainingMinutes / 60,
-                                  );
-                                  const minutes = remainingMinutes % 60;
-                                  remainingTimeLabel = `Còn ${hours} giờ${
+                                  const hours = Math.floor(inUseDuration / 60);
+                                  const minutes = inUseDuration % 60;
+                                  durationLabel = `${hours} giờ${
                                     minutes > 0 ? ` ${minutes} phút` : ""
                                   }`;
                                 }
-                              } else {
-                                remainingTimeLabel = "Đã quá giờ";
-                              }
-                            } else {
-                              // Nếu chưa có endTime, tính đến currentTime hoặc hết khung ca
-                              const endOfDay = getTimelineDayEnd(roomsDate);
-                              const now = dayjs();
-                              const actualEnd = now.isBefore(endOfDay)
-                                ? now
-                                : endOfDay;
-                              endTimeLabel = actualEnd.format("HH:mm");
-                            }
 
-                            // Nguồn đặt
-                            const sourceLabel =
-                              schedule.source === "customer"
-                                ? "Khách đặt online"
-                                : schedule.source === "walk-in"
-                                  ? "Khách vãng lai"
-                                  : "Admin đặt";
+                                // Tính giờ kết thúc và thời gian còn lại
+                                let endTimeLabel = "";
+                                let remainingTimeLabel = "";
+                                if (schedule.endTime) {
+                                  const eventEnd = dayjs(schedule.endTime);
+                                  endTimeLabel = eventEnd.format("HH:mm");
+                                  const remainingMinutes = eventEnd.diff(
+                                    dayjs(),
+                                    "minute",
+                                  );
+                                  if (remainingMinutes > 0) {
+                                    if (remainingMinutes < 60) {
+                                      remainingTimeLabel = `Còn ${remainingMinutes} phút`;
+                                    } else {
+                                      const hours = Math.floor(
+                                        remainingMinutes / 60,
+                                      );
+                                      const minutes = remainingMinutes % 60;
+                                      remainingTimeLabel = `Còn ${hours} giờ${
+                                        minutes > 0 ? ` ${minutes} phút` : ""
+                                      }`;
+                                    }
+                                  } else {
+                                    remainingTimeLabel = "Đã quá giờ";
+                                  }
+                                } else {
+                                  // Nếu chưa có endTime, tính đến currentTime hoặc hết khung ca
+                                  const endOfDay = getTimelineDayEnd(roomsDate);
+                                  const now = dayjs();
+                                  const actualEnd = now.isBefore(endOfDay)
+                                    ? now
+                                    : endOfDay;
+                                  endTimeLabel = actualEnd.format("HH:mm");
+                                }
 
-                            return (
-                              <Tooltip key={schedule._id}>
-                                <TooltipTrigger asChild>
-                                  {eventElement}
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <div className="space-y-1">
-                                    <p className="font-semibold">
-                                      Thông tin sử dụng
-                                    </p>
-                                    <div className="text-sm space-y-0.5">
-                                      <p>
-                                        <span className="text-gray-500">
-                                          Size:
-                                        </span>{" "}
-                                        {scheduleSizeLabel}
-                                      </p>
-                                      <p>
-                                        <span className="text-gray-500">
-                                          Bắt đầu:
-                                        </span>{" "}
-                                        {eventStart.format("HH:mm")}
-                                      </p>
-                                      <p>
-                                        <span className="text-gray-500">
-                                          Kết thúc:
-                                        </span>{" "}
-                                        {endTimeLabel}
-                                      </p>
-                                      <p>
-                                        <span className="text-gray-500">
-                                          Đã sử dụng:
-                                        </span>{" "}
-                                        {durationLabel}
-                                      </p>
-                                      {remainingTimeLabel && (
-                                        <p>
-                                          <span className="text-gray-500">
-                                            Thời gian còn lại:
-                                          </span>{" "}
-                                          <span
-                                            className={
-                                              remainingTimeLabel ===
-                                              "Đã quá giờ"
-                                                ? "text-red-500 font-medium"
-                                                : ""
-                                            }
-                                          >
-                                            {remainingTimeLabel}
-                                          </span>
+                                // Nguồn đặt
+                                const sourceLabel =
+                                  schedule.source === "customer"
+                                    ? "Khách đặt online"
+                                    : schedule.source === "walk-in"
+                                      ? "Khách vãng lai"
+                                      : "Admin đặt";
+
+                                return (
+                                  <Tooltip key={schedule._id}>
+                                    <TooltipTrigger asChild>
+                                      {eventElement}
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      <div className="space-y-1">
+                                        <p className="font-semibold">
+                                          Thông tin sử dụng
                                         </p>
-                                      )}
-                                    </div>
-                                    {(schedule.customerName ||
-                                      schedule.customerPhone ||
-                                      schedule.note) && (
-                                      <div className="pt-1 border-t text-sm space-y-0.5">
-                                        {schedule.customerName && (
+                                        <div className="text-sm space-y-0.5">
                                           <p>
                                             <span className="text-gray-500">
-                                              Khách hàng:
+                                              Size:
                                             </span>{" "}
-                                            {schedule.customerName}
+                                            {scheduleSizeLabel}
                                           </p>
-                                        )}
-                                        {schedule.customerPhone && (
                                           <p>
                                             <span className="text-gray-500">
-                                              SĐT:
+                                              Bắt đầu:
                                             </span>{" "}
-                                            {schedule.customerPhone}
+                                            {eventStart.format("HH:mm")}
                                           </p>
-                                        )}
-                                        {schedule.note && (
                                           <p>
                                             <span className="text-gray-500">
-                                              Ghi chú:
+                                              Kết thúc:
                                             </span>{" "}
-                                            <span className="italic">
-                                              {schedule.note}
-                                            </span>
+                                            {endTimeLabel}
                                           </p>
+                                          <p>
+                                            <span className="text-gray-500">
+                                              Đã sử dụng:
+                                            </span>{" "}
+                                            {durationLabel}
+                                          </p>
+                                          {remainingTimeLabel && (
+                                            <p>
+                                              <span className="text-gray-500">
+                                                Thời gian còn lại:
+                                              </span>{" "}
+                                              <span
+                                                className={
+                                                  remainingTimeLabel ===
+                                                  "Đã quá giờ"
+                                                    ? "text-red-500 font-medium"
+                                                    : ""
+                                                }
+                                              >
+                                                {remainingTimeLabel}
+                                              </span>
+                                            </p>
+                                          )}
+                                        </div>
+                                        {(schedule.customerName ||
+                                          schedule.customerPhone ||
+                                          schedule.note) && (
+                                          <div className="pt-1 border-t text-sm space-y-0.5">
+                                            {schedule.customerName && (
+                                              <p>
+                                                <span className="text-gray-500">
+                                                  Khách hàng:
+                                                </span>{" "}
+                                                {schedule.customerName}
+                                              </p>
+                                            )}
+                                            {schedule.customerPhone && (
+                                              <p>
+                                                <span className="text-gray-500">
+                                                  SĐT:
+                                                </span>{" "}
+                                                {schedule.customerPhone}
+                                              </p>
+                                            )}
+                                            {schedule.note && (
+                                              <p>
+                                                <span className="text-gray-500">
+                                                  Ghi chú:
+                                                </span>{" "}
+                                                <span className="italic">
+                                                  {schedule.note}
+                                                </span>
+                                              </p>
+                                            )}
+                                          </div>
                                         )}
+                                        <div className="pt-1 border-t text-xs text-gray-500">
+                                          <p>{sourceLabel}</p>
+                                          {schedule.upgraded && (
+                                            <p className="text-orange-500">
+                                              Đã nâng cấp phòng
+                                            </p>
+                                          )}
+                                        </div>
                                       </div>
-                                    )}
-                                    <div className="pt-1 border-t text-xs text-gray-500">
-                                      <p>{sourceLabel}</p>
-                                      {schedule.upgraded && (
-                                        <p className="text-orange-500">
-                                          Đã nâng cấp phòng
-                                        </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              } else if (
+                                schedule.status.toLowerCase() === "maintenance"
+                              ) {
+                                const eventStart = dayjs(schedule.startTime);
+                                const eventEnd = schedule.endTime
+                                  ? dayjs(schedule.endTime)
+                                  : eventStart.add(240, "minute");
+                                return (
+                                  <Tooltip key={schedule._id}>
+                                    <TooltipTrigger asChild>
+                                      {eventElement}
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Bảo trì</p>
+                                      <p>
+                                        Bắt đầu: {eventStart.format("HH:mm")}
+                                      </p>
+                                      <p>
+                                        Kết thúc: {eventEnd.format("HH:mm")}
+                                      </p>
+                                      {schedule.note && (
+                                        <p>Ghi chú: {schedule.note}</p>
                                       )}
-                                    </div>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          } else if (
-                            schedule.status.toLowerCase() === "maintenance"
-                          ) {
-                            const eventStart = dayjs(schedule.startTime);
-                            const eventEnd = schedule.endTime
-                              ? dayjs(schedule.endTime)
-                              : eventStart.add(240, "minute");
-                            return (
-                              <Tooltip key={schedule._id}>
-                                <TooltipTrigger asChild>
-                                  {eventElement}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Bảo trì</p>
-                                  <p>Bắt đầu: {eventStart.format("HH:mm")}</p>
-                                  <p>Kết thúc: {eventEnd.format("HH:mm")}</p>
-                                  {schedule.note && (
-                                    <p>Ghi chú: {schedule.note}</p>
-                                  )}
-                                  <p className="text-xs text-muted-foreground">
-                                    Bấm để chỉnh sửa / kết thúc
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          }
-                          return eventElement;
-                        })}
-                      </div>
+                                      <p className="text-xs text-muted-foreground">
+                                        Bấm để chỉnh sửa / kết thúc
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              }
+                              return eventElement;
+                            })}
+                          </div>
                         );
                       })()}
                     </div>
@@ -1730,7 +1787,10 @@ const RoomTimelineTable: React.FC = () => {
                   </div>
                   <div
                     className="relative h-10"
-                    style={{ width: timelineContentWidth, ...timelineGridStyle }}
+                    style={{
+                      width: timelineContentWidth,
+                      ...timelineGridStyle,
+                    }}
                   >
                     {Array.from({
                       length: DAY_END_HOUR - DAY_START_HOUR + 1,
@@ -1922,7 +1982,8 @@ const RoomTimelineTable: React.FC = () => {
                       {(() => {
                         const packed = packTimelineLanes(
                           tableSessions.map((session) => {
-                            const { left, width } = getCoffeeMarkerStyle(session);
+                            const { left, width } =
+                              getCoffeeMarkerStyle(session);
                             const startMin = left / timelineScale;
                             const endMin = startMin + width / timelineScale;
                             return { item: session, startMin, endMin };
@@ -1935,59 +1996,68 @@ const RoomTimelineTable: React.FC = () => {
                           lane * (ROOM_LANE_HEIGHT + ROOM_LANE_GAP);
 
                         return (
-                      <div
-                        className="relative cursor-pointer"
-                        style={{
-                          width: timelineContentWidth,
-                          height: rowHeight,
-                          ...timelineGridStyle,
-                        }}
-                        onClick={() => handleCoffeeEmptySlotClick(table)}
-                      >
-                        {packed.map(({ item: session, lane }) => {
-                          const { left, width, bgColor, eventStart, eventEnd } =
-                            getCoffeeMarkerStyle(session);
-
-                          const eventElement = (
-                            <div
-                              key={session._id}
-                              className={`absolute rounded shadow-sm ${bgColor} opacity-90 hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md`}
-                              style={{
+                          <div
+                            className="relative cursor-pointer"
+                            style={{
+                              width: timelineContentWidth,
+                              height: rowHeight,
+                              ...timelineGridStyle,
+                            }}
+                            onClick={() => handleCoffeeEmptySlotClick(table)}
+                          >
+                            {packed.map(({ item: session, lane }) => {
+                              const {
                                 left,
                                 width,
-                                top: laneTop(lane),
-                                height: ROOM_LANE_HEIGHT,
-                              }}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleCoffeeSessionClick(table, session);
-                              }}
-                            >
-                              <div className="text-xs text-white font-medium px-1 py-0.5 truncate">
-                                {getCoffeeSessionStatusLabel(session.status)}
-                              </div>
-                            </div>
-                          );
+                                bgColor,
+                                eventStart,
+                                eventEnd,
+                              } = getCoffeeMarkerStyle(session);
 
-                          return (
-                            <Tooltip key={session._id}>
-                              <TooltipTrigger asChild>
-                                {eventElement}
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  {getCoffeeSessionStatusLabel(session.status)}
-                                </p>
-                                <p>Bắt đầu: {eventStart.format("HH:mm")}</p>
-                                <p>Kết thúc: {eventEnd.format("HH:mm")}</p>
-                                {session.customerName && (
-                                  <p>Khách: {session.customerName}</p>
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
-                          );
-                        })}
-                      </div>
+                              const eventElement = (
+                                <div
+                                  key={session._id}
+                                  className={`absolute rounded shadow-sm ${bgColor} opacity-90 hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md`}
+                                  style={{
+                                    left,
+                                    width,
+                                    top: laneTop(lane),
+                                    height: ROOM_LANE_HEIGHT,
+                                  }}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleCoffeeSessionClick(table, session);
+                                  }}
+                                >
+                                  <div className="text-xs text-white font-medium px-1 py-0.5 truncate">
+                                    {getCoffeeSessionStatusLabel(
+                                      session.status,
+                                    )}
+                                  </div>
+                                </div>
+                              );
+
+                              return (
+                                <Tooltip key={session._id}>
+                                  <TooltipTrigger asChild>
+                                    {eventElement}
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      {getCoffeeSessionStatusLabel(
+                                        session.status,
+                                      )}
+                                    </p>
+                                    <p>Bắt đầu: {eventStart.format("HH:mm")}</p>
+                                    <p>Kết thúc: {eventEnd.format("HH:mm")}</p>
+                                    {session.customerName && (
+                                      <p>Khách: {session.customerName}</p>
+                                    )}
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })}
+                          </div>
                         );
                       })()}
                     </div>
@@ -2143,6 +2213,12 @@ const RoomTimelineTable: React.FC = () => {
           onOpenSession={handleOpenCoffeeSessionFromNewOrderPreview}
         />
       ) : null}
+
+      <SupportRequestModal
+        request={selectedSupportRequest}
+        roomName={selectedSupportRoomName}
+        onClose={() => setSupportRequestModalId(null)}
+      />
 
       <AlertDialog
         open={turnOffAllRoomsConfirmOpen}
