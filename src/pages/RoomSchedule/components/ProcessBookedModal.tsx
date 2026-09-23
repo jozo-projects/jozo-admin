@@ -609,9 +609,8 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
       refetchSchedules();
       onClose();
       toast({
-        title: "Success",
-        description:
-          "Đã đổi phòng thành công. Queue nhạc đã được chuyển sang phòng mới.",
+        title: "Đã đổi phòng",
+        description: "Phòng đã được cập nhật. Danh sách nhạc chưa được chuyển.",
       });
     },
     onError: () => {
