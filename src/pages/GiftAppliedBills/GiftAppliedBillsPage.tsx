@@ -54,7 +54,7 @@ const GiftAppliedBillsPage = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Bill ưu đãi member"
         description="Biết rõ bill nào được giảm/tặng và lý do áp dụng."

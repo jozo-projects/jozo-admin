@@ -1,6 +1,6 @@
 import { IEmployeeSchedule } from "@/apis/staffSchedule.apis";
 import staffScheduleApis from "@/apis/staffSchedule.apis";
-import { PageHeader } from "@/components/shared";
+import { PageHeader, StatCard, StatGrid } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -559,7 +559,7 @@ const MySchedulePage = () => {
   }, [monthSchedules]);
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="My Work Schedule"
         description="View and manage your work schedule"
@@ -568,108 +568,78 @@ const MySchedulePage = () => {
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Shifts
-              </CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.totalShifts}</div>
-              <p className="text-xs text-muted-foreground">
-                {summary.totalDays} days
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {summary.upcoming}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.byStatus.approved} approved shifts
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-              <PlayCircle className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {summary.inProgress}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.byStatus["in-progress"]} active shifts
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">
-                {summary.completed}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.byStatus.completed} completed shifts
-              </p>
-            </CardContent>
-          </Card>
+        <StatGrid className="md:grid-cols-2 lg:grid-cols-5">
+          <StatCard
+            label="Total Shifts"
+            value={summary.totalShifts}
+            hint={`${summary.totalDays} days`}
+            icon={Clock}
+          />
+          <StatCard
+            label="Upcoming"
+            value={summary.upcoming}
+            hint={`${summary.byStatus.approved} approved shifts`}
+            icon={TrendingUp}
+            tone="info"
+          />
+          <StatCard
+            label="In Progress"
+            value={summary.inProgress}
+            hint={`${summary.byStatus["in-progress"]} active shifts`}
+            icon={PlayCircle}
+            tone="warning"
+          />
+          <StatCard
+            label="Completed"
+            value={summary.completed}
+            hint={`${summary.byStatus.completed} completed shifts`}
+            icon={CheckCircle2}
+            tone="success"
+          />
 
           {/* Salary Card */}
           <Card
-            className="border-green-200 bg-green-50/50 cursor-pointer transition-all hover:shadow-lg hover:border-green-300"
+            className="cursor-pointer border-success/30 bg-success/5 transition-shadow hover:shadow-md"
             onClick={() => navigate(PATHS.MY_EARNINGS_DETAIL)}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
               <div>
-                <CardTitle className="text-sm font-medium">Earnings</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Earnings
+                </CardTitle>
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {currentDate.format("MM/YYYY")}
                 </p>
               </div>
-              <DollarSign className="h-4 w-4 text-green-600" />
+              <DollarSign className="size-4 text-success" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+            <CardContent className="p-4 pt-0">
+              <div className="text-2xl font-semibold tabular-nums tracking-tight text-success">
                 {summary.totalSalary.toLocaleString("vi-VN")}₫
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="mt-1 text-xs text-muted-foreground">
                 {salaryInfo.totalCompleted} completed shifts
               </p>
               <div className="mt-2">
-                <div className="flex items-center justify-between text-xs mb-1">
+                <div className="mb-1 flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Progress</span>
                   <span className="font-medium">
                     {salaryInfo.totalCompleted}/{salaryInfo.totalRegistered}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="h-2 w-full rounded-full bg-muted">
                   <div
-                    className="bg-green-600 h-2 rounded-full transition-all"
+                    className="h-2 rounded-full bg-success transition-all"
                     style={{ width: `${salaryInfo.completionRate}%` }}
                   />
                 </div>
               </div>
-              <p className="text-xs text-green-600 mt-2 font-medium">
+              <p className="mt-2 text-xs font-medium text-success">
                 Details →
               </p>
             </CardContent>
           </Card>
-        </div>
+        </StatGrid>
       )}
 
       {/* Controls */}

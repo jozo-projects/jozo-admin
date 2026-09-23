@@ -175,7 +175,7 @@ function UpsertRoomTypePage() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="flex w-full max-w-3xl flex-col gap-6">
       <PageHeader
         title={title}
         description={
@@ -184,7 +184,6 @@ function UpsertRoomTypePage() {
         icon={Building2}
         showBackButton
         backUrl={PATHS.ROOM_TYPES_LISTS}
-        className="mb-4"
       />
 
       <Form {...form}>

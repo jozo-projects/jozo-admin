@@ -214,7 +214,7 @@ const UsersManagementPage = () => {
   };
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Quản lý Thành viên"
         description="Quản lý danh sách người dùng"
@@ -225,14 +225,13 @@ const UsersManagementPage = () => {
             Thêm Thành viên
           </Button>
         }
-        className="mb-6"
       />
 
       {/* Search Bar — luôn mount để không mất focus khi refetch */}
-      <Card className="mb-6">
+      <Card>
         <CardContent className="pt-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Tìm kiếm theo tên, email hoặc số điện thoại..."
               value={searchTerm}
@@ -266,7 +265,7 @@ const UsersManagementPage = () => {
                         <Badge variant="secondary">User</Badge>
                       </div>
 
-                      <div className="space-y-1 text-sm text-gray-600">
+                      <div className="space-y-1 text-sm text-muted-foreground">
                         {user.username && <p>Username: {user.username}</p>}
                         {user.email && <p>Email: {user.email}</p>}
                         <p>Số điện thoại: {user.phone_number}</p>

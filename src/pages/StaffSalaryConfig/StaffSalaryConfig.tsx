@@ -115,7 +115,7 @@ function StaffSalaryConfig() {
     syncSalaryMutation.isPending;
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Staff salary configuration"
         description="Global snapshot, full-system sync, special salary days, and probation settings per user."

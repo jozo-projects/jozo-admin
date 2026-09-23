@@ -22,19 +22,17 @@ const AccessDenied: React.FC<AccessDeniedProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
-      <div className="text-center space-y-6">
-        <div className="flex justify-center">
-          <div className="p-4 bg-red-100 rounded-full">
-            <Lock className="w-12 h-12 text-red-600" />
-          </div>
+    <div className="flex min-h-[400px] flex-col items-center justify-center p-8">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="flex size-14 items-center justify-center rounded-full bg-destructive/10">
+          <Lock className="size-6 text-destructive" />
         </div>
 
-        <div className="space-y-2">
-          <Typography variant="h2" className="text-2xl font-bold text-gray-900">
+        <div className="flex flex-col items-center gap-2">
+          <Typography variant="h2" className="text-foreground">
             {title}
           </Typography>
-          <Typography variant="p" className="text-gray-600 max-w-md">
+          <Typography variant="p" className="max-w-md">
             {message}
           </Typography>
         </div>

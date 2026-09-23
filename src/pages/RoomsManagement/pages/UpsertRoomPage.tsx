@@ -123,7 +123,7 @@ function UpsertRoomPage() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="flex w-full max-w-3xl flex-col gap-6">
       <PageHeader
         title={title}
         description={id ? "Chỉnh sửa thông tin phòng" : "Tạo phòng mới"}
@@ -133,7 +133,7 @@ function UpsertRoomPage() {
       />
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-3">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
           {/* Room ID */}
           <FormField
             control={form.control}

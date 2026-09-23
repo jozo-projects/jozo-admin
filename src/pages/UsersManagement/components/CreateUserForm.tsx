@@ -94,7 +94,7 @@ const CreateUserForm = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Thêm User mới"
         description="Tạo tài khoản người dùng mới"

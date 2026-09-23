@@ -72,7 +72,7 @@ const RecruitmentPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Quản lý tuyển dụng"
         description="Quản lý danh sách ứng viên tuyển dụng"

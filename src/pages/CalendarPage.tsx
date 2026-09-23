@@ -68,7 +68,7 @@ function CalendarPage() {
   };
 
   return (
-    <div className="!py-6 space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Holiday Calendar"
         description="Manage public holidays and special dates"

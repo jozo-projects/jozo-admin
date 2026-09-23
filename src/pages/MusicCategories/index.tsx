@@ -61,7 +61,7 @@ export default function MusicCategoriesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Danh mục nhạc"
         description="Tạo danh mục, đổi thứ tự và quản lý các bài hát hiển thị."

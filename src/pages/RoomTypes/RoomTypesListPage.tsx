@@ -160,7 +160,7 @@ function RoomTypesListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Room Types"
         description="Danh sách các loại phòng"
@@ -170,7 +170,6 @@ function RoomTypesListPage() {
             <Button>New room type</Button>
       </Link>
         }
-        className="mb-4"
       />
 
       <DataTable

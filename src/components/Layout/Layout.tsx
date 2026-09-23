@@ -1,4 +1,9 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
@@ -29,13 +34,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <AppSidebar />
 
-      <main className="container mx-auto p-3 sm:p-4 md:p-6 w-full">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger />
-          </div>
-
-          <div className="flex items-center gap-2">
+      <SidebarInset>
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-1 h-4" />
+          <div className="ml-auto flex items-center gap-1">
             <NotificationBell />
             <Button
               variant="ghost"
@@ -43,16 +46,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               title="Toggle Theme"
               onClick={toggleDarkMode}
             >
-              {isDarkMode ? (
-                <Moon className="w-5 h-5" />
-              ) : (
-                <Sun className="w-5 h-5" />
-              )}
+              {isDarkMode ? <Moon /> : <Sun />}
             </Button>
           </div>
-        </div>
-        {children}
-      </main>
+        </header>
+        <div className="flex flex-1 flex-col p-4 md:p-6">{children}</div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

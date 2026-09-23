@@ -111,7 +111,7 @@ function RoomsListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Rooms Management"
         description="Quản lý danh sách phòng"
@@ -123,7 +123,6 @@ function RoomsListPage() {
             </Link>
           ) : undefined
         }
-        className="mb-4"
       />
 
       <DataTable

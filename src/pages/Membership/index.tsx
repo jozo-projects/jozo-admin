@@ -463,7 +463,7 @@ const MembershipConfigPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Membership"
         description="Quản lý cấu hình tích điểm, hạng thành viên và thưởng duy trì."

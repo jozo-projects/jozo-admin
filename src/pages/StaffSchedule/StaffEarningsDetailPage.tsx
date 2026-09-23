@@ -3,7 +3,7 @@ import staffScheduleApis, {
   IEmployeeSchedulesResponse,
   IEmployeeSchedulesSummary,
 } from "@/apis/staffSchedule.apis";
-import { PageHeader } from "@/components/shared";
+import { PageHeader, StatCard, StatGrid } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -356,7 +356,7 @@ const StaffEarningsDetailPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title={`Chi Tiết Thu Nhập - ${staffName}`}
         description="Thống kê chi tiết các ca làm việc và lương thực nhận"
@@ -366,92 +366,49 @@ const StaffEarningsDetailPage = () => {
       />
 
       {/* Summary Cards - desktop only (mobile uses hero card) */}
-      <div className="hidden md:grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-green-200 bg-green-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng Lương</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {earningsData.totalSalary.toLocaleString("vi-VN")}₫
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Sau khấu trừ {earningsData.totalDeductions.toLocaleString("vi-VN")}₫
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer border-red-200 bg-red-50/50 transition hover:bg-red-50 hover:shadow-sm"
+      <StatGrid className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <StatCard
+          label="Tổng Lương"
+          value={`${earningsData.totalSalary.toLocaleString("vi-VN")}₫`}
+          hint={`Sau khấu trừ ${earningsData.totalDeductions.toLocaleString("vi-VN")}₫`}
+          icon={DollarSign}
+          tone="success"
+        />
+        <StatCard
+          className="border-destructive/30 bg-destructive/5"
+          label="Lỗi / Khấu Trừ"
+          value={`-${earningsData.totalDeductions.toLocaleString("vi-VN")}₫`}
+          hint={`${earningsData.deductionCount} lỗi phạt đang hiệu lực · Bấm để xem`}
+          icon={DollarSign}
+          tone="danger"
           role="button"
           tabIndex={0}
           onClick={openStaffErrorLogs}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") openStaffErrorLogs();
           }}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lỗi / Khấu Trừ</CardTitle>
-            <DollarSign className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              -{earningsData.totalDeductions.toLocaleString("vi-VN")}₫
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {earningsData.deductionCount} lỗi phạt đang hiệu lực · Bấm để xem
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Thu Nhập Dự Kiến
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {earningsData.expectedSalary.toLocaleString("vi-VN")}₫
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {earningsData.expectedShifts} ca ({earningsData.expectedHours}h)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ca Đã Đăng Ký</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {earningsData.totalRegistered}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {selectedMonth.format("MM/YYYY")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng Giờ Làm</CardTitle>
-            <Clock className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {earningsData.totalHours}h
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              giờ làm việc thực tế
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+        />
+        <StatCard
+          label="Thu Nhập Dự Kiến"
+          value={`${earningsData.expectedSalary.toLocaleString("vi-VN")}₫`}
+          hint={`${earningsData.expectedShifts} ca (${earningsData.expectedHours}h)`}
+          icon={DollarSign}
+          tone="info"
+        />
+        <StatCard
+          label="Ca Đã Đăng Ký"
+          value={earningsData.totalRegistered}
+          hint={selectedMonth.format("MM/YYYY")}
+          icon={CalendarIcon}
+          tone="warning"
+        />
+        <StatCard
+          label="Tổng Giờ Làm"
+          value={`${earningsData.totalHours}h`}
+          hint="giờ làm việc thực tế"
+          icon={Clock}
+        />
+      </StatGrid>
 
       {/* Filters - desktop only (mobile has built-in month navigator) */}
       {!isMobile && (

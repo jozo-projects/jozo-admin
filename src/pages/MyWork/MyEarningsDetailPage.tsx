@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/shared";
+import { PageHeader, StatCard, StatGrid } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -259,7 +259,7 @@ const MyEarningsDetailPage = () => {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Earnings details"
         description="Detailed breakdown of shifts and take-home pay"
@@ -269,79 +269,42 @@ const MyEarningsDetailPage = () => {
       />
 
       {/* Summary Cards - desktop only */}
-      <div className="hidden md:grid gap-4 md:grid-cols-4">
-        <Card className="border-green-200 bg-green-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total take-home
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {earningsData.totalSalary.toLocaleString("en-US")}₫
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              After {earningsData.totalDeductions.toLocaleString("en-US")}₫ deductions
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card
-          className="cursor-pointer border-red-200 bg-red-50/50 transition hover:bg-red-50 hover:shadow-sm"
+      <StatGrid className="hidden md:grid md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total take-home"
+          value={`${earningsData.totalSalary.toLocaleString("en-US")}₫`}
+          hint={`After ${earningsData.totalDeductions.toLocaleString("en-US")}₫ deductions`}
+          icon={DollarSign}
+          tone="success"
+        />
+        <StatCard
+          className="border-destructive/30 bg-destructive/5"
+          label="Deductions"
+          value={`-${earningsData.totalDeductions.toLocaleString("en-US")}₫`}
+          hint={`${earningsData.deductionCount} active penalties · Click to view`}
+          icon={DollarSign}
+          tone="danger"
           role="button"
           tabIndex={0}
           onClick={openMyErrorLogs}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") openMyErrorLogs();
           }}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Deductions</CardTitle>
-            <DollarSign className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              -{earningsData.totalDeductions.toLocaleString("en-US")}₫
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {earningsData.deductionCount} active penalties · Click to view
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Registered shifts
-            </CardTitle>
-            <CalendarIcon className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {earningsData.totalRegistered}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {earningsData.totalShifts} shifts completed
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total hours</CardTitle>
-            <Clock className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {earningsData.totalHours}h
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              actual hours worked
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+        />
+        <StatCard
+          label="Registered shifts"
+          value={earningsData.totalRegistered}
+          hint={`${earningsData.totalShifts} shifts completed`}
+          icon={CalendarIcon}
+          tone="info"
+        />
+        <StatCard
+          label="Total hours"
+          value={`${earningsData.totalHours}h`}
+          hint="actual hours worked"
+          icon={Clock}
+        />
+      </StatGrid>
 
       {!isMobile && (
         <Card className="border-amber-200 bg-amber-50/70">

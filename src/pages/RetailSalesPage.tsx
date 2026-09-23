@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
 import retailSaleApis, { RetailProduct } from "@/apis/retailSale.apis";
+import { Page, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -150,13 +151,12 @@ export default function RetailSalesPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Bán lẻ</h1>
-        <p className="text-sm text-muted-foreground">
-          Bán trực tiếp tại quầy, không gắn với phòng.
-        </p>
-      </div>
+    <Page>
+      <PageHeader
+        title="Bán lẻ"
+        description="Bán trực tiếp tại quầy, không gắn với phòng."
+        icon={ShoppingCart}
+      />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
         <Card>
@@ -318,6 +318,6 @@ export default function RetailSalesPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </Page>
   );
 }

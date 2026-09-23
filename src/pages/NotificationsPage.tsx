@@ -123,7 +123,7 @@ function NotificationsPage() {
   };
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full w-full flex-col gap-6">
       <PageHeader
         title="Tất cả thông báo"
         description={`${total} thông báo${unreadCount > 0 ? ` • ${unreadCount} chưa đọc` : ""}`}

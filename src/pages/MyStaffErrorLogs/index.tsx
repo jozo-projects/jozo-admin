@@ -75,23 +75,22 @@ const MyStaffErrorLogsPage = () => {
   );
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Lỗi của tôi"
         description="Xem cảnh cáo/phạt tiền đã được admin ghi nhận"
         icon={BellRing}
-        className="mb-6"
       />
 
       {activeLogs.length > 0 && (
-        <Card className="mb-6 border-amber-300 bg-amber-50">
+        <Card className="border-warning/40 bg-warning/10">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-amber-900">
-              <AlertTriangle className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-sm font-medium text-warning">
+              <AlertTriangle className="size-4" />
               Thông báo lỗi đang hiệu lực
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-amber-900">
+          <CardContent className="text-sm text-foreground">
             Bạn đang có <strong>{activeLogs.length}</strong> log lỗi đang hiệu lực
             {activePenaltyAmount > 0 && (
               <>
@@ -103,7 +102,7 @@ const MyStaffErrorLogsPage = () => {
         </Card>
       )}
 
-      <Card className="mb-6">
+      <Card>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
           <div>
             <Label>Loại</Label>

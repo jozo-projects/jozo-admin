@@ -1050,7 +1050,7 @@ const RoomTimelineTable: React.FC = () => {
     )?.roomName ?? `Phòng ${selectedSupportRequest?.roomId ?? ""}`;
 
   return (
-    <div className="!p-4 w-full space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Room Schedules Timeline"
         description="Track room schedules and manage bookings"

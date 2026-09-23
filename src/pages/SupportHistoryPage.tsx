@@ -83,7 +83,7 @@ function SupportHistoryPage() {
   }, [supportDate, supportHistory, supportRoom, supportSort, supportStatus]);
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-full w-full flex-col gap-6">
       <PageHeader
         title="Lịch sử hỗ trợ"
         description="Tra cứu các yêu cầu hỗ trợ theo ngày, phòng và trạng thái."

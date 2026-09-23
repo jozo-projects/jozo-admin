@@ -485,7 +485,7 @@ const SongsCollectionPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Bộ sưu tập bài hát"
         description="Xem danh sách các bài hát đã được lưu vào collection"

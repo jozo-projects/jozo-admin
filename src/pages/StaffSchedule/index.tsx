@@ -394,15 +394,14 @@ const StaffSchedulePage = () => {
   }
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Staff Schedule Management"
         description="Click on staff name to view earnings details, or click on a cell to view/register schedule"
         icon={CalendarIcon}
-        className="mb-6"
       />
 
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Tabs
             value={viewMode}

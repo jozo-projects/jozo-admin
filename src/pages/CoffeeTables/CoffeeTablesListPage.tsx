@@ -91,7 +91,7 @@ function CoffeeTablesListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Service Stations"
         description="Manage coffee lounge service stations"
@@ -103,7 +103,6 @@ function CoffeeTablesListPage() {
             </Link>
           ) : undefined
         }
-        className="mb-4"
       />
 
       <DataTable

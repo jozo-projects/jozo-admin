@@ -173,7 +173,7 @@ const RoomDeviceConnectionsPage = () => {
   const onlineRoomCount = rooms.length;
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Theo dõi thiết bị"
         description="Danh sách thiết bị tablet / tv đang kết nối theo từng phòng"

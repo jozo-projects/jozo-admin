@@ -214,7 +214,7 @@ const StaffErrorLogsPage = () => {
   };
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Log lỗi nhân viên"
         description="Admin ghi nhận cảnh cáo/phạt tiền và quản lý preset lỗi nhân viên"
@@ -225,7 +225,6 @@ const StaffErrorLogsPage = () => {
             Ghi lỗi nhân viên
           </Button>
         }
-        className="mb-6"
       />
 
       <Tabs defaultValue="logs" className="space-y-4">

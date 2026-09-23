@@ -68,7 +68,7 @@ function ChangePasswordPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Đổi mật khẩu"
         description="Cập nhật mật khẩu của bạn để bảo mật tài khoản"

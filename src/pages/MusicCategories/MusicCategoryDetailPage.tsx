@@ -95,7 +95,7 @@ export default function MusicCategoryDetailPage() {
   if (!category) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title={category.name}
         description={`${pagination?.total ?? category.songCount} bài hát trong danh mục`}

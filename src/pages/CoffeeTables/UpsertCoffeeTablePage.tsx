@@ -110,7 +110,7 @@ function UpsertCoffeeTablePage() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="flex w-full max-w-3xl flex-col gap-6">
       <PageHeader
         title={isEditMode ? "Edit Service Station" : "New Service Station"}
         description={
@@ -121,7 +121,6 @@ function UpsertCoffeeTablePage() {
         icon={Coffee}
         showBackButton
         backUrl={PATHS.COFFEE_TABLES}
-        className="mb-4"
       />
 
       <Form {...form}>

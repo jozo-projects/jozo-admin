@@ -14,12 +14,10 @@ function Header(props: Props) {
     <div className="flex flex-col w-full">
       <div className="flex items-center justify-between">
         <div>
-          <Typography variant="p" className="text-md">
-            {title}
-          </Typography>
+          <Typography variant="h3">{title}</Typography>
 
           {subtitle && (
-            <Typography variant="p" className="text-sm text-gray-500 !mt-0">
+            <Typography variant="p" className="mt-1">
               {subtitle}
             </Typography>
           )}
@@ -35,7 +33,7 @@ function Header(props: Props) {
         </div>
       </div>
 
-      <div className="w-full h-[1px] bg-gray-200 mt-4" />
+      <div className="mt-4 h-px w-full bg-border" />
     </div>
   );
 }

@@ -91,7 +91,7 @@ const StaffManagementPage = () => {
   }
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Quản lý Admin/Staff"
         description="Quản lý danh sách quản trị viên và nhân viên"
@@ -102,14 +102,13 @@ const StaffManagementPage = () => {
             Thêm Admin/Staff
           </Button>
         }
-        className="mb-6"
       />
 
       {/* Search Bar */}
-      <Card className="mb-6">
+      <Card>
         <CardContent className="pt-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Tìm kiếm theo tên, email hoặc số điện thoại..."
               value={searchTerm}

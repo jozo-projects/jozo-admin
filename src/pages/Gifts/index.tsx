@@ -77,7 +77,7 @@ const GiftsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Quản lý Quà Tặng"
         description="Quản lý các quà tặng và khuyến mãi"

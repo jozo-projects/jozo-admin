@@ -174,7 +174,7 @@ const FnbShiftCountPage = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Kiểm kê số lượng tồn"
         description="Nhập mở ca / kết ca theo 3 ca trong ngày và đối chiếu với hệ thống bán hàng"

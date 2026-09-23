@@ -162,7 +162,7 @@ const MenuItemsPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Quản lý số tồn kho FNB"
         description="Quản lý các món ăn, đồ uống và variants"

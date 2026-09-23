@@ -1023,7 +1023,7 @@ const RevenueStatisticsPage = () => {
   };
 
   return (
-    <div className="p-3 space-y-5 sm:p-4 sm:space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Thống kê doanh thu"
         description="Theo ngày; theo tuần (T2–CN, chọn thêm ngày kết thúc); theo kỳ tháng 6→5 (ngày 6 tháng này đến ngày 5 tháng sau, có thể chỉnh ngày kết thúc)"

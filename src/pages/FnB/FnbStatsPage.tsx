@@ -220,7 +220,7 @@ const FnbStatsPage = () => {
         : "Month";
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="FNB Statistics"
         description="Food & beverage order stats by day, week, or month"
