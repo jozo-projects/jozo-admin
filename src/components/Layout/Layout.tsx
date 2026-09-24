@@ -34,7 +34,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <AppSidebar />
 
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4" />
@@ -50,7 +50,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </Button>
           </div>
         </header>
-        <div className="flex flex-1 flex-col p-4 md:p-6">{children}</div>
+        <div className="flex min-w-0 flex-1 flex-col p-4 md:p-6 [&>*]:min-w-0">
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

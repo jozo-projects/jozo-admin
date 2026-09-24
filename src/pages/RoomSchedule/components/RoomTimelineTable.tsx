@@ -1050,7 +1050,7 @@ const RoomTimelineTable: React.FC = () => {
     )?.roomName ?? `Phòng ${selectedSupportRequest?.roomId ?? ""}`;
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-6">
       <PageHeader
         title="Room Schedules Timeline"
         description="Track room schedules and manage bookings"
@@ -1060,14 +1060,14 @@ const RoomTimelineTable: React.FC = () => {
       <Tabs
         value={scheduleViewTab}
         onValueChange={(v) => setScheduleViewTab(v as "rooms" | "coffee")}
-        className="w-full"
+        className="w-full min-w-0"
       >
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="rooms">Box + Dorm</TabsTrigger>
           <TabsTrigger value="coffee">Coffee table</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="rooms" className="mt-4 space-y-6">
+        <TabsContent value="rooms" className="mt-4 min-w-0 space-y-6">
           <TimelineControls
             date={roomsDate}
             onDateChange={setRoomsDate}
@@ -1128,7 +1128,7 @@ const RoomTimelineTable: React.FC = () => {
           ) : (
             /* Desktop View - Container cho phép scroll ngang, thêm onScroll để bắt sự kiện scroll */
             <div
-              className="overflow-x-auto overscroll-x-contain rounded-md border bg-white [contain:content]"
+              className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white"
               ref={timelineContainerRef}
               onScroll={handleScroll}
             >
@@ -1742,7 +1742,7 @@ const RoomTimelineTable: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="coffee" className="mt-4 space-y-6">
+        <TabsContent value="coffee" className="mt-4 min-w-0 space-y-6">
           <TimelineControls
             date={coffeeDate}
             onDateChange={setCoffeeDate}
@@ -1770,7 +1770,7 @@ const RoomTimelineTable: React.FC = () => {
             </div>
           ) : (
             <div
-              className="overflow-x-auto overscroll-x-contain rounded-md border bg-white [contain:content]"
+              className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white"
               ref={timelineContainerRef}
               onScroll={handleScroll}
             >
