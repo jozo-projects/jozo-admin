@@ -30,11 +30,11 @@ import StaffEarningsMobileView from "@/pages/StaffSchedule/components/StaffEarni
 import dayjs, { Dayjs } from "dayjs";
 import { Calendar as CalendarIcon, Clock, DollarSign } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 
 const MyEarningsDetailPage = () => {
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
 
   const dayNames = [
@@ -61,7 +61,7 @@ const MyEarningsDetailPage = () => {
       startDate: startDate.format("YYYY-MM-DD"),
       endDate: endDate.format("YYYY-MM-DD"),
     });
-    navigate(`${PATHS.MY_ERROR_LOGS}?${params.toString()}`);
+    router.navigate({ to: PATHS.MY_ERROR_LOGS as never, search: Object.fromEntries(params) as never });
   };
 
   // Get all schedules for selected month (approved, completed, absent, etc.)
@@ -261,8 +261,8 @@ const MyEarningsDetailPage = () => {
   return (
     <div className="flex w-full flex-col gap-6">
       <PageHeader
-        title="Earnings details"
-        description="Detailed breakdown of shifts and take-home pay"
+        title="My Work Statistics"
+        description="Review your shifts, working hours, deductions, and take-home pay"
         icon={DollarSign}
         showBackButton
         backUrl={PATHS.MY_SCHEDULE}

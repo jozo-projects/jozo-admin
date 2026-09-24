@@ -5,7 +5,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Edit, GripVertical, ListMusic, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 
 interface Props {
   category: AdminMusicCategory;
@@ -46,7 +46,7 @@ export default function MusicCategoryRow({
         <img src={category.imageUrl} alt={category.name} className="h-14 w-20 rounded-md border object-cover" />
       </TableCell>
       <TableCell>
-        <Link className="font-medium hover:underline" to={`/music-categories/${category._id}`}>
+        <Link preload="intent" to="/music-categories/$categoryId" params={{ categoryId: category._id }} className="font-medium hover:underline">
           {category.name}
         </Link>
         <div className="text-xs text-muted-foreground">{category.slug}</div>
@@ -66,7 +66,7 @@ export default function MusicCategoryRow({
       <TableCell>
         <div className="flex gap-1">
           <Button asChild variant="ghost" size="icon" title="Quản lý bài hát">
-            <Link to={`/music-categories/${category._id}`}><ListMusic className="h-4 w-4" /></Link>
+            <Link preload="intent" to="/music-categories/$categoryId" params={{ categoryId: category._id }}><ListMusic className="h-4 w-4" /></Link>
           </Button>
           <Button variant="ghost" size="icon" title="Sửa" onClick={onEdit}><Edit className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" title="Xóa" className="text-destructive" onClick={onDelete}>

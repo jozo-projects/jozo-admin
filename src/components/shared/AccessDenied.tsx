@@ -1,7 +1,7 @@
 import { Lock } from "lucide-react";
 import Typography from "../ui/typography";
 import { Button } from "../ui/button";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 
 interface AccessDeniedProps {
@@ -15,10 +15,10 @@ const AccessDenied: React.FC<AccessDeniedProps> = ({
   message = "Bạn không có quyền truy cập vào trang này. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
   showBackButton = true,
 }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleBackToHome = () => {
-    navigate(PATHS.HOME);
+    router.navigate({ to: PATHS.HOME });
   };
 
   return (

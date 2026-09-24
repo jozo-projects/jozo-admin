@@ -27,7 +27,7 @@ import { Select } from "@radix-ui/react-select";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { roomStatusOptions, roomTypeOptions } from "../constants";
 
 // FormValues đồng bộ với IRoom tối giản
@@ -43,7 +43,11 @@ type FormValues = {
 function UpsertRoomPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { id = "" } = useParams();
+  const roomParams = useParams({
+    from: "/rooms/$id/edit",
+    shouldThrow: false,
+  });
+  const id = roomParams?.id ?? "";
   const title = id ? "Edit room" : "New room";
 
   const form = useForm<FormValues>({
@@ -89,7 +93,7 @@ function UpsertRoomPage() {
         title: "Success",
         description: "Room created successfully",
       });
-      navigate(PATHS.ROOMS);
+      navigate({ to: PATHS.ROOMS });
     },
   });
 
@@ -100,7 +104,7 @@ function UpsertRoomPage() {
         title: "Success",
         description: "Room updated successfully",
       });
-      navigate(PATHS.ROOMS);
+      navigate({ to: PATHS.ROOMS });
     },
   });
 

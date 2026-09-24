@@ -18,7 +18,6 @@ import {
 import { useMyStaffErrorLogs } from "@/hooks/use-staff-error-logs";
 import { AlertTriangle, BellRing } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 
 const formatDateTime = (value?: string) => {
   if (!value) return "-";
@@ -50,7 +49,7 @@ const StatusBadge = ({ status }: { status: StaffErrorLogStatus }) =>
   );
 
 const MyStaffErrorLogsPage = () => {
-  const [searchParams] = useSearchParams();
+  const searchParams = new URLSearchParams(window.location.search);
   const [filters, setFilters] = useState<{
     type: StaffErrorLogType | "";
     status: StaffErrorLogStatus | "";

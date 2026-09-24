@@ -25,23 +25,27 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
 
-          if (id.includes("@radix-ui")) {
+          if (id.includes("/node_modules/@radix-ui/")) {
             return "vendor-radix";
           }
-
-          if (id.includes("@tanstack")) {
-            return "vendor-tanstack";
-          }
-
-          if (id.includes("lucide-react")) {
+          if (id.includes("/node_modules/lucide-react/")) {
             return "vendor-icons";
           }
-
-          if (id.includes("date-fns") || id.includes("dayjs")) {
+          if (id.includes("/node_modules/@dnd-kit/")) {
+            return "vendor-dnd";
+          }
+          if (id.includes("/node_modules/date-fns/")) {
             return "vendor-date";
           }
-
-          return "vendor";
+          if (
+            id.includes("/node_modules/axios/") ||
+            id.includes("/node_modules/socket.io-client/")
+          ) {
+            return "vendor-network";
+          }
+          if (id.includes("/node_modules/nuqs/")) {
+            return "vendor-url-state";
+          }
         },
       },
     },

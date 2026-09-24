@@ -16,7 +16,7 @@ import { User } from "@/@types/user";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 import { DeleteModal } from "@/components/shared/DeleteModal";
 import { toast } from "@/hooks/use-toast";
@@ -140,7 +140,7 @@ const PaginationControls = ({
 };
 
 const UsersManagementPage = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { queryConfig, setQueryConfig } = useUsersManagementQueryConfig();
   const pageSize = PAGE_SIZE_OPTIONS.includes(queryConfig.limit)
     ? queryConfig.limit
@@ -220,7 +220,7 @@ const UsersManagementPage = () => {
         description="Quản lý danh sách người dùng"
         icon={UserCircle}
         actions={
-          <Button onClick={() => navigate(PATHS.USERS_MANAGEMENT_NEW)}>
+          <Button onClick={() => router.navigate({ to: PATHS.USERS_MANAGEMENT_NEW })}>
             <Plus className="mr-2 h-4 w-4" />
             Thêm Thành viên
           </Button>
@@ -293,11 +293,7 @@ const UsersManagementPage = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          navigate(
-                            PATHS.USERS_MANAGEMENT_EDIT.replace(":id", user._id)
-                          )
-                        }
+                        onClick={() => router.navigate({ to: "/users-management/$id/edit", params: { id: user._id } })}
                       >
                         Chỉnh sửa
                       </Button>

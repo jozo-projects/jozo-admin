@@ -92,7 +92,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
         {hasSuffix && (
           <div className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-full flex items-center justify-center rounded-r-md pointer-events-none">
-            {React.cloneElement(suffix as React.ReactElement, {
+            {React.cloneElement(suffix as React.ReactElement<{ className?: string }>, {
               className: "pointer-events-auto",
             })}
           </div>

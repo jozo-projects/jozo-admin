@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import authorizationApis from "@/apis/authorization.apis";
 import { AUTH_EVENTS } from "@/constants/events";
 import PATHS from "@/constants/paths";
@@ -25,7 +25,7 @@ export const useLogout = () => {
       });
 
       // Chuyển hướng về trang login
-      navigate(PATHS.LOGIN, { replace: true });
+      navigate({ to: PATHS.LOGIN, replace: true });
     },
     onError: () => {
       // Ngay cả khi API logout thất bại, vẫn xóa token và chuyển hướng
@@ -41,7 +41,7 @@ export const useLogout = () => {
       });
 
       // Chuyển hướng về trang login
-      navigate(PATHS.LOGIN, { replace: true });
+      navigate({ to: PATHS.LOGIN, replace: true });
     },
   });
 
@@ -63,7 +63,7 @@ export const useLogout = () => {
         description: "Bạn đã được đăng xuất khỏi hệ thống",
       });
 
-      navigate(PATHS.LOGIN, { replace: true });
+      navigate({ to: PATHS.LOGIN, replace: true });
     }
   };
 

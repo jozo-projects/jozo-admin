@@ -14,7 +14,7 @@ import {
 import type { DragEndEvent } from "@dnd-kit/core";
 import { AlertTriangle, ListMusic, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "@tanstack/react-router";
 import AssignedSongsTable from "./components/AssignedSongsTable";
 import SongPickerDialog from "./components/SongPickerDialog";
 import { canReorderFullList, reorderById } from "./utils/reorder";
@@ -22,7 +22,7 @@ import { canReorderFullList, reorderById } from "./utils/reorder";
 const ADMIN_SONG_LIMIT = 500;
 
 export default function MusicCategoryDetailPage() {
-  const { categoryId = "" } = useParams();
+  const { categoryId = "" } = useParams({ from: "/music-categories/$categoryId" });
   const categoryQuery = useMusicCategory(categoryId);
   const songsQuery = useAdminCategorySongs(categoryId, { page: 1, limit: ADMIN_SONG_LIMIT });
   const removeMutation = useRemoveCategorySongs();

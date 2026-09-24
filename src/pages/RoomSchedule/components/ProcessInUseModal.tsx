@@ -188,18 +188,30 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   });
   const photoDisplay = photoDisplayData?.data?.result;
   const photoMutation = useMutation({
-    mutationFn: (file: File) => roomsScheduleApis.uploadPhoto(schedule._id, file),
-    onSuccess: () => { setPhotoFiles([]); setPhotoPreview(""); refetchPhotoDisplay(); toast({ title: "Đã tải ảnh", description: "Ảnh đang ở trạng thái ẩn." }); },
+    mutationFn: (file: File) =>
+      roomsScheduleApis.uploadPhoto(schedule._id, file),
+    onSuccess: () => {
+      setPhotoFiles([]);
+      setPhotoPreview("");
+      refetchPhotoDisplay();
+      toast({ title: "Đã tải ảnh", description: "Ảnh đang ở trạng thái ẩn." });
+    },
   });
   const displayMutation = useMutation({
-    mutationFn: (state: "hidden" | "showing") => roomsScheduleApis.setPhotoDisplay(schedule._id, state),
-    onSuccess: () => { refetchPhotoDisplay(); toast({ title: "Đã cập nhật hiển thị ảnh" }); },
+    mutationFn: (state: "hidden" | "showing") =>
+      roomsScheduleApis.setPhotoDisplay(schedule._id, state),
+    onSuccess: () => {
+      refetchPhotoDisplay();
+      toast({ title: "Đã cập nhật hiển thị ảnh" });
+    },
   });
   const deletePhotosMutation = useMutation({
     mutationFn: () => roomsScheduleApis.deletePhotos(schedule._id),
-    onSuccess: () => { refetchPhotoDisplay(); toast({ title: "Đã xóa ảnh" }); },
+    onSuccess: () => {
+      refetchPhotoDisplay();
+      toast({ title: "Đã xóa ảnh" });
+    },
   });
-
 
   const member = useScheduleMemberPhone({
     scheduleId: schedule._id,
@@ -507,10 +519,15 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   };
 
   const handleMoveQueue = () => {
-    if (!targetRoomId || !selectedTargetRoom || targetRoomId === schedule.roomId) {
+    if (
+      !targetRoomId ||
+      !selectedTargetRoom ||
+      targetRoomId === schedule.roomId
+    ) {
       toast({
         title: "Chưa chọn phòng đích",
-        description: "Vui lòng chọn một phòng khác trước khi chuyển danh sách nhạc.",
+        description:
+          "Vui lòng chọn một phòng khác trước khi chuyển danh sách nhạc.",
         variant: "destructive",
       });
       return;
@@ -1375,8 +1392,80 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                       </div>
                     </div>
                     <div className="mx-3 mb-3 rounded-md border bg-card text-sm">
-                      <div className="flex items-center justify-between border-b px-3 py-2"><div><h4 className="font-semibold">Hình ảnh khách hàng</h4><p className="text-[11px] text-muted-foreground">Tối đa 1 ảnh · Staff có thể hiện hoặc ẩn</p></div><span className="text-[11px] text-muted-foreground">{photoDisplay?.state === "showing" ? "Đang hiển thị" : "Đang ẩn"}</span></div>
-                      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center"><ImagePicker currentImage={photoPreview || photoDisplay?.photos?.[0]?.url} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; setPhotoFiles([file]); setPhotoPreview(URL.createObjectURL(file)); }} onRemove={() => { setPhotoFiles([]); setPhotoPreview(""); }} /><div className="flex flex-wrap gap-2">{photoFiles.length > 0 && <Button size="sm" onClick={() => photoFiles.forEach((file) => photoMutation.mutate(file))} loading={photoMutation.isPending}>Tải ảnh lên</Button>}<Button size="sm" onClick={() => displayMutation.mutate("showing")} disabled={!photoDisplay?.photos?.length || displayMutation.isPending}>Hiện ảnh</Button><Button size="sm" variant="outline" onClick={() => displayMutation.mutate("hidden")} disabled={displayMutation.isPending}>Ẩn ảnh</Button><Button size="sm" variant="destructive" onClick={() => deletePhotosMutation.mutate()} disabled={!photoDisplay?.photos?.length || deletePhotosMutation.isPending}>Xóa ảnh</Button></div></div>
+                      <div className="flex items-center justify-between border-b px-3 py-2">
+                        <div>
+                          <h4 className="font-semibold">Hình ảnh khách hàng</h4>
+                          <p className="text-[11px] text-muted-foreground">
+                            Tối đa 1 ảnh · Staff có thể hiện hoặc ẩn
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          {photoDisplay?.state === "showing"
+                            ? "Đang hiển thị"
+                            : "Đang ẩn"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                        <ImagePicker
+                          currentImage={
+                            photoPreview || photoDisplay?.photos?.[0]?.url
+                          }
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            setPhotoFiles([file]);
+                            setPhotoPreview(URL.createObjectURL(file));
+                          }}
+                          onRemove={() => {
+                            setPhotoFiles([]);
+                            setPhotoPreview("");
+                          }}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {photoFiles.length > 0 && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                photoFiles.forEach((file) =>
+                                  photoMutation.mutate(file),
+                                )
+                              }
+                              loading={photoMutation.isPending}
+                            >
+                              Tải ảnh lên
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            onClick={() => displayMutation.mutate("showing")}
+                            disabled={
+                              !photoDisplay?.photos?.length ||
+                              displayMutation.isPending
+                            }
+                          >
+                            Hiện ảnh
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => displayMutation.mutate("hidden")}
+                            disabled={displayMutation.isPending}
+                          >
+                            Ẩn ảnh
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deletePhotosMutation.mutate()}
+                            disabled={
+                              !photoDisplay?.photos?.length ||
+                              deletePhotosMutation.isPending
+                            }
+                          >
+                            Xóa ảnh
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="border-t" />
@@ -2054,7 +2143,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                     disabled={availableRooms.length === 0 || !targetRoomId}
                     className="h-9 w-full sm:w-auto"
                   >
-                    Chuyển danh sách nhạc sang phòng đã chọn
+                    Chuyển danh sách nhạc
                   </Button>
                 </div>
               </TabsContent>

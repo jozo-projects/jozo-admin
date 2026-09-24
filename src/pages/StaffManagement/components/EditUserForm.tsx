@@ -24,7 +24,7 @@ import {
 import { Role } from "@/constants/enum";
 import { UpdateUserRequest, User } from "@/@types/user";
 import { useUsers } from "@/hooks/use-users";
-import { useNavigate, useParams } from "react-router-dom";
+import { useRouter, useParams } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 import { format } from "date-fns";
 import { cn } from "@/utils";
@@ -114,8 +114,9 @@ const updateUserSchema = z
 type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
 const EditUserForm = () => {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const staffParams = useParams({ from: "/staff-management/$id/edit" });
+  const id = staffParams.id;
   const { updateUser, useUserById, isUpdatingUser } = useUsers();
   const { toast } = useToast();
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
@@ -233,7 +234,7 @@ const EditUserForm = () => {
       { id, data: updateData },
       {
         onSuccess: () => {
-          navigate(PATHS.STAFF_MANAGEMENT);
+          router.navigate({ to: PATHS.STAFF_MANAGEMENT });
         },
       },
     );
@@ -574,7 +575,7 @@ const EditUserForm = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(PATHS.STAFF_MANAGEMENT)}
+                onClick={() => router.navigate({ to: PATHS.STAFF_MANAGEMENT })}
                 className="flex-1"
               >
                 Cancel

@@ -27,7 +27,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import * as z from "zod";
 import { RoomType } from "@/constants/enum";
 
@@ -49,7 +49,11 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 function UpsertRoomTypePage() {
-  const { id = "" } = useParams();
+  const roomTypeParams = useParams({
+    from: "/room-types/$id/edit",
+    shouldThrow: false,
+  });
+  const id = roomTypeParams?.id ?? "";
   const title = id ? "Edit Room Type" : "New Room Type";
   const navigate = useNavigate();
 
@@ -92,7 +96,7 @@ function UpsertRoomTypePage() {
         description: "Room type created successfully",
       });
       form.reset();
-      navigate(PATHS.ROOM_TYPES_LISTS);
+      navigate({ to: PATHS.ROOM_TYPES_LISTS });
     },
 
     onError: (error) => {
@@ -112,7 +116,7 @@ function UpsertRoomTypePage() {
         title: "Success",
         description: "Room type updated successfully",
       });
-      navigate(PATHS.ROOM_TYPES_LISTS);
+      navigate({ to: PATHS.ROOM_TYPES_LISTS });
     },
     onError: (error) => {
       toast({
