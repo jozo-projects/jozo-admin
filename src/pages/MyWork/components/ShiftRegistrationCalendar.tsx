@@ -156,47 +156,50 @@ export function ShiftRegistrationCalendar({
   return (
     <div className="w-full">
       {/* Calendar Header */}
-      <div className="mb-4 rounded-xl border bg-white p-3 shadow-sm sm:mb-5 sm:p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handlePrevMonth}
-              className="h-9 w-9 rounded-full sm:h-10 sm:w-10"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleNextMonth}
-              className="h-9 w-9 rounded-full sm:h-10 sm:w-10"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
+      <div className="mb-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:mb-5 sm:rounded-xl sm:p-4">
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handlePrevMonth}
+            className="h-10 w-10 shrink-0 rounded-full text-slate-600 hover:bg-slate-100 sm:h-9 sm:w-9"
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+
+          <div className="min-w-0 flex-1 text-center">
+            <h2 className="truncate text-base font-semibold capitalize tracking-tight text-slate-900 sm:text-xl md:text-2xl">
+              {currentDate.format("MMMM YYYY")}
+            </h2>
+            <button
+              type="button"
               onClick={handleToday}
-              className="h-9 rounded-full px-3 text-sm sm:h-10 sm:px-4"
+              className="mt-0.5 text-xs font-medium text-blue-600 transition-colors hover:text-blue-700 sm:text-sm"
             >
               Today
-            </Button>
+            </button>
           </div>
 
-          <h2 className="text-lg font-semibold capitalize tracking-tight sm:text-xl md:text-2xl">
-            {currentDate.format("MMMM YYYY")}
-          </h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleNextMonth}
+            className="h-10 w-10 shrink-0 rounded-full text-slate-600 hover:bg-slate-100 sm:h-9 sm:w-9"
+            aria-label="Next month"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
         </div>
       </div>
 
       {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-px rounded-xl bg-slate-200/80 overflow-hidden border">
+      <div className="grid grid-cols-7 gap-1.5 bg-transparent sm:gap-px sm:overflow-hidden sm:rounded-xl sm:border sm:border-slate-200/80 sm:bg-slate-200/80">
         {/* Weekday Headers */}
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <div
             key={day}
-            className="bg-slate-50 py-2 text-center text-[11px] font-semibold text-slate-600 sm:py-3 sm:text-sm"
+            className="rounded-lg bg-transparent py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400 sm:rounded-none sm:bg-slate-50 sm:py-3 sm:text-sm sm:text-slate-500"
           >
             {day}
           </div>
@@ -216,7 +219,7 @@ export function ShiftRegistrationCalendar({
               <div
                 key={`${weekIndex}-${dayIndex}`}
                 className={cn(
-                  "relative min-h-[84px] bg-white px-1.5 py-2 transition-colors sm:min-h-[110px] sm:p-2 md:min-h-[120px] md:p-2.5 lg:min-h-[132px]",
+                  "relative min-h-[72px] rounded-xl border border-slate-200/80 bg-white px-1.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all sm:min-h-[110px] sm:rounded-none sm:border-0 sm:bg-white sm:px-2 sm:py-2 md:min-h-[120px] md:p-2.5 lg:min-h-[132px]",
                   !isDisabled && "cursor-pointer active:scale-[0.99]",
                   !day.isCurrentMonth && "text-gray-400",
                   isToday && "bg-blue-50 ring-1 ring-inset ring-blue-200",
@@ -244,7 +247,7 @@ export function ShiftRegistrationCalendar({
                   </div>
 
                   {daySchedules.length > 0 && !isPast && (
-                    <div className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 sm:text-xs">
+                      <div className="hidden rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 sm:block sm:text-xs">
                       {daySchedules.length} shift
                       {daySchedules.length !== 1 ? "s" : ""}
                     </div>
@@ -261,7 +264,7 @@ export function ShiftRegistrationCalendar({
                           <span
                             key={idx}
                             className={cn(
-                              "inline-flex min-h-6 items-center rounded-full border px-2 py-1 text-[10px] font-semibold leading-none",
+                              "inline-flex min-h-5 items-center rounded-full border px-1.5 py-0.5 text-[9px] font-semibold leading-none",
                               styles.mobile,
                             )}
                           >

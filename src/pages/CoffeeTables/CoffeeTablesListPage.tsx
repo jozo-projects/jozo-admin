@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { Coffee, PencilIcon, TrashIcon } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 
 function CoffeeTablesListPage() {
   const isAdmin = useIsAdmin();
@@ -73,7 +73,11 @@ function CoffeeTablesListPage() {
       cell: ({ row }) =>
         isAdmin ? (
           <div className="flex items-center justify-center gap-2">
-            <Link to={`${PATHS.COFFEE_TABLES}/${row.original._id}/edit`}>
+            <Link
+              preload="intent"
+              to="/coffee-tables/$id/edit"
+              params={{ id: row.original._id as string }}
+            >
               <Button variant="ghost" size="icon">
                 <PencilIcon size={16} />
               </Button>
@@ -98,7 +102,7 @@ function CoffeeTablesListPage() {
         icon={Coffee}
         actions={
           isAdmin ? (
-            <Link to={PATHS.COFFEE_TABLES_NEW}>
+            <Link preload="intent" to={PATHS.COFFEE_TABLES_NEW}>
               <Button>New Station</Button>
             </Link>
           ) : undefined

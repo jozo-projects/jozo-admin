@@ -32,12 +32,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 
 const ITEMS_PER_PAGE = 20;
 
 function NotificationsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const { data: notificationsData, isLoading } = useNotifications({
     page: currentPage,
@@ -55,7 +55,7 @@ function NotificationsPage() {
   const handleNotificationClick = (notification: INotification) => {
     if (!notification.isRead) markAsRead(notification._id);
     if (notification.data?.scheduleId) {
-      navigate(`${PATHS.MY_SCHEDULE}?scheduleId=${notification.data.scheduleId}`);
+      router.navigate({ to: PATHS.MY_SCHEDULE as never, search: { scheduleId: notification.data.scheduleId } as never });
     }
   };
 

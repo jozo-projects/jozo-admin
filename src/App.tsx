@@ -1,9 +1,10 @@
-import useRoute from "@/hooks/useRoute";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { RouterProvider } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/toaster";
 import { lazy, Suspense } from "react";
 import { AuthProvider } from "./context/Authorization.context";
 import { RoomEventsProvider } from "./context/RoomEventsContext";
+import { createAppRouter } from "./router/router";
 
 const ReactQueryDevtools = import.meta.env.DEV
   ? lazy(() =>
@@ -22,13 +23,15 @@ const queryClient = new QueryClient({
   },
 });
 
-function App() {
-  const route = useRoute();
+const router = createAppRouter(queryClient);
 
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <RoomEventsProvider>{route}</RoomEventsProvider>
+        <RoomEventsProvider>
+          <RouterProvider router={router} />
+        </RoomEventsProvider>
       </AuthProvider>
       <Toaster />
       {ReactQueryDevtools && (

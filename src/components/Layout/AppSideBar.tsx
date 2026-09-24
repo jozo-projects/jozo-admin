@@ -26,12 +26,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MenuItem } from "@/constants/menuItems";
 import PATHS from "@/constants/paths";
+import retailSaleApis from "@/apis/retailSale.apis";
+import fnbShiftCountApis from "@/apis/fnbShiftCount.apis";
+import roomApis from "@/apis/room.apis";
+import roomsScheduleApis from "@/apis/roomSchedule.api";
 import useAuth from "@/hooks/useAuth";
 import { useMenuItems } from "@/hooks/useMenuItems";
 import { cn } from "@/lib/utils";
 import { ChevronRight, Settings, User } from "lucide-react";
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { fnbShiftCountQueryKey } from "@/pages/FnbShiftCount/hooks/useFnbShiftCount";
+import { getFnbBusinessDate } from "@/pages/FnbShiftCount/utils";
+import {
+  getDefaultBusinessDate,
+} from "@/pages/RoomSchedule/utils/timelineHours";
+import { getRoomSchedulesQueryKey } from "@/hooks/room-schedule";
 import { JozoLogo } from "../shared/JozoLogo";
 import { LogoutButton } from "../shared/LogoutButton";
 
@@ -40,6 +51,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { user } = useAuth();
   const menuItems = useMenuItems();
+  const queryClient = useQueryClient();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const closeMobileSidebar = () => {
@@ -57,6 +69,53 @@ export function AppSidebar() {
 
   const toggleGroup = (title: string) => {
     setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
+  };
+
+  const prefetchRouteData = (url?: string) => {
+    if (url === "/") {
+      const today = getDefaultBusinessDate();
+      const tomorrow = today.add(1, "day");
+
+      void queryClient.prefetchQuery({
+        queryKey: ["rooms"],
+        queryFn: async () => (await roomApis.getRooms()).data.result ?? [],
+      });
+
+      for (const date of [today, tomorrow]) {
+        const queryKey = getRoomSchedulesQueryKey(date);
+        void queryClient.prefetchQuery({
+          queryKey,
+          queryFn: async () => {
+            const response = await roomsScheduleApis.getRoomSchedules(queryKey[1]);
+            return response.data.result ?? [];
+          },
+        });
+      }
+    }
+
+    if (url === PATHS.RETAIL_SALES) {
+      void queryClient.prefetchQuery({
+        queryKey: ["retail-products"],
+        queryFn: async () => (await retailSaleApis.getProducts()).data.result || [],
+        staleTime: 60_000,
+      });
+    }
+
+    if (url === PATHS.FNB_SHIFT_COUNT) {
+      const date = getFnbBusinessDate();
+
+      void queryClient.prefetchQuery({
+        queryKey: fnbShiftCountQueryKey.detail(date),
+        queryFn: () => fnbShiftCountApis.getShiftCount({ date }),
+        staleTime: Infinity,
+      });
+
+      void queryClient.prefetchQuery({
+        queryKey: fnbShiftCountQueryKey.template(),
+        queryFn: () => fnbShiftCountApis.getItemsTemplate(),
+        staleTime: 5 * 60 * 1000,
+      });
+    }
   };
 
   const quickAccessItems = menuItems.filter(
@@ -80,7 +139,13 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild className="rounded-xl">
-              <Link to="/" onClick={closeMobileSidebar}>
+              <Link
+                to="/"
+                preload="intent"
+                onMouseEnter={() => prefetchRouteData("/")}
+                onFocus={() => prefetchRouteData("/")}
+                onClick={closeMobileSidebar}
+              >
                 <JozoLogo
                   showText={state !== "collapsed" || isMobile}
                   iconClassName="size-8 rounded-lg"
@@ -110,7 +175,13 @@ export function AppSidebar() {
                         activeMenuButtonClassName,
                       )}
                     >
-                      <Link to={item.url || "#"} onClick={closeMobileSidebar}>
+                      <Link
+                        to={item.url || "#"}
+                        preload="intent"
+                        onMouseEnter={() => prefetchRouteData(item.url)}
+                        onFocus={() => prefetchRouteData(item.url)}
+                        onClick={closeMobileSidebar}
+                      >
                         <item.icon />
                         <span>{item.title}</span>
                       </Link>
@@ -174,6 +245,9 @@ export function AppSidebar() {
                               >
                                 <Link
                                   to={subItem.url || "#"}
+                                  preload="intent"
+                                  onMouseEnter={() => prefetchRouteData(subItem.url)}
+                                  onFocus={() => prefetchRouteData(subItem.url)}
                                   onClick={closeMobileSidebar}
                                 >
                                   <subItem.icon />
@@ -259,13 +333,21 @@ export function AppSidebar() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to={PATHS.PROFILE} onClick={closeMobileSidebar}>
+                  <Link
+                    to={PATHS.PROFILE as never}
+                    preload="intent"
+                    onClick={closeMobileSidebar}
+                  >
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to={PATHS.CHANGE_PASSWORD} onClick={closeMobileSidebar}>
+                  <Link
+                    to={PATHS.CHANGE_PASSWORD as never}
+                    preload="intent"
+                    onClick={closeMobileSidebar}
+                  >
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Change Password</span>
                   </Link>

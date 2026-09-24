@@ -21,7 +21,7 @@ import { useMutation } from "@tanstack/react-query";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "@tanstack/react-router";
 
 type FormValues = {
   username: string;
@@ -41,7 +41,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(PATHS.HOME, { replace: true });
+      navigate({ to: PATHS.HOME, replace: true });
     }
   }, [isAuthenticated, navigate]);
 

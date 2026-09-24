@@ -56,6 +56,12 @@ const MENU_ITEMS: MenuItem[] = [
     roles: STAFF_AND_ADMIN,
   },
   {
+    title: "My Work Statistics",
+    url: PATHS.MY_EARNINGS_DETAIL,
+    icon: BarChart3,
+    roles: STAFF_AND_ADMIN,
+  },
+  {
     title: "My Error Logs",
     url: PATHS.MY_ERROR_LOGS,
     icon: BellRing,
