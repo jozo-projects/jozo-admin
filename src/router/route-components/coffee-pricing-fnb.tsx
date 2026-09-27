@@ -1,17 +1,18 @@
 import { Role } from "@/constants/enum";
-import { lazyRouteComponent } from "@tanstack/react-router";
-import ProtectedRoute from "./ProtectedRoute";
+import { lazy } from "react"
+import ProtectedRoute from "../guards/protected-route";
 
-const CoffeePricingPage = lazyRouteComponent(
+
+const CoffeePricingPage = lazy(
   () => import("@/pages/CoffeePricingPage"),
 );
-const MenuItemsPage = lazyRouteComponent(
+const MenuItemsPage = lazy(
   () => import("@/pages/FnB/MenuItemsPage"),
 );
-const CustomizationGroupTemplatesPage = lazyRouteComponent(
+const CustomizationGroupTemplatesPage = lazy(
   () => import("@/pages/FnB/CustomizationGroupTemplatesPage"),
 );
-const FnbStatsPage = lazyRouteComponent(
+const FnbStatsPage = lazy(
   () => import("@/pages/FnB/FnbStatsPage"),
 );
 

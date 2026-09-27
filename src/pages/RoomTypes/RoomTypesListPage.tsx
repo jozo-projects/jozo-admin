@@ -142,7 +142,6 @@ function RoomTypesListPage() {
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-2">
           <Link
-            preload="intent"
             to="/room-types/$id/edit"
             params={{ id: row.original._id as string }}
           >
@@ -170,7 +169,7 @@ function RoomTypesListPage() {
         description="Danh sách các loại phòng"
         icon={Building2}
         actions={
-<Link preload="intent" to={PATHS.ROOM_TYPES_NEW}>
+<Link to={PATHS.ROOM_TYPES_NEW}>
             <Button>New room type</Button>
       </Link>
         }

@@ -74,7 +74,6 @@ function CoffeeTablesListPage() {
         isAdmin ? (
           <div className="flex items-center justify-center gap-2">
             <Link
-              preload="intent"
               to="/coffee-tables/$id/edit"
               params={{ id: row.original._id as string }}
             >
@@ -102,7 +101,7 @@ function CoffeeTablesListPage() {
         icon={Coffee}
         actions={
           isAdmin ? (
-            <Link preload="intent" to={PATHS.COFFEE_TABLES_NEW}>
+            <Link to={PATHS.COFFEE_TABLES_NEW}>
               <Button>New Station</Button>
             </Link>
           ) : undefined

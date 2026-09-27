@@ -2100,7 +2100,6 @@ const RoomTimelineTable: React.FC = () => {
         <ScheduleModal
           isOpen={true}
           onClose={closeModal}
-          refetchSchedules={refetch}
           room={selectedRoom}
           selectedDate={roomsDate.toDate()}
         />

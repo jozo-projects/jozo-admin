@@ -28,8 +28,7 @@ import { MenuItem } from "@/constants/menuItems";
 import PATHS from "@/constants/paths";
 import retailSaleApis from "@/apis/retailSale.apis";
 import fnbShiftCountApis from "@/apis/fnbShiftCount.apis";
-import roomApis from "@/apis/room.apis";
-import roomsScheduleApis from "@/apis/roomSchedule.api";
+
 import useAuth from "@/hooks/useAuth";
 import { useMenuItems } from "@/hooks/useMenuItems";
 import { cn } from "@/lib/utils";
@@ -40,9 +39,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { fnbShiftCountQueryKey } from "@/pages/FnbShiftCount/hooks/useFnbShiftCount";
 import { getFnbBusinessDate } from "@/pages/FnbShiftCount/utils";
 import {
-  getDefaultBusinessDate,
-} from "@/pages/RoomSchedule/utils/timelineHours";
-import { getRoomSchedulesQueryKey } from "@/hooks/room-schedule";
+  fetchMenuItems,
+  menuItemsQueryKeys,
+} from "@/hooks/use-menu-items";
+
 import { JozoLogo } from "../shared/JozoLogo";
 import { LogoutButton } from "../shared/LogoutButton";
 
@@ -72,27 +72,6 @@ export function AppSidebar() {
   };
 
   const prefetchRouteData = (url?: string) => {
-    if (url === "/") {
-      const today = getDefaultBusinessDate();
-      const tomorrow = today.add(1, "day");
-
-      void queryClient.prefetchQuery({
-        queryKey: ["rooms"],
-        queryFn: async () => (await roomApis.getRooms()).data.result ?? [],
-      });
-
-      for (const date of [today, tomorrow]) {
-        const queryKey = getRoomSchedulesQueryKey(date);
-        void queryClient.prefetchQuery({
-          queryKey,
-          queryFn: async () => {
-            const response = await roomsScheduleApis.getRoomSchedules(queryKey[1]);
-            return response.data.result ?? [];
-          },
-        });
-      }
-    }
-
     if (url === PATHS.RETAIL_SALES) {
       void queryClient.prefetchQuery({
         queryKey: ["retail-products"],
@@ -116,10 +95,26 @@ export function AppSidebar() {
         staleTime: 5 * 60 * 1000,
       });
     }
+
+    if (url === PATHS.MENU_ITEMS) {
+      void queryClient.prefetchQuery({
+        queryKey: menuItemsQueryKeys.lists(),
+        queryFn: fetchMenuItems,
+        staleTime: 5 * 60 * 1000,
+      });
+    }
+
   };
 
   const quickAccessItems = menuItems.filter(
-    (item) => !item.subItems || item.subItems.length === 0,
+    (item) =>
+      item.section === "quick-access" &&
+      (!item.subItems || item.subItems.length === 0),
+  );
+  const personalItems = menuItems.filter(
+    (item) =>
+      item.section === "personal" &&
+      (!item.subItems || item.subItems.length === 0),
   );
   const managementGroups = menuItems.filter(
     (item) => item.subItems && item.subItems.length > 0,
@@ -141,7 +136,6 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild className="rounded-xl">
               <Link
                 to="/"
-                preload="intent"
                 onMouseEnter={() => prefetchRouteData("/")}
                 onFocus={() => prefetchRouteData("/")}
                 onClick={closeMobileSidebar}
@@ -177,7 +171,6 @@ export function AppSidebar() {
                     >
                       <Link
                         to={item.url || "#"}
-                        preload="intent"
                         onMouseEnter={() => prefetchRouteData(item.url)}
                         onFocus={() => prefetchRouteData(item.url)}
                         onClick={closeMobileSidebar}
@@ -193,7 +186,47 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {quickAccessItems.length > 0 && managementGroups.length > 0 && (
+        {quickAccessItems.length > 0 && personalItems.length > 0 && (
+          <SidebarSeparator className="my-2" />
+        )}
+
+        {personalItems.length > 0 && (
+          <SidebarGroup className="p-0">
+            <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-wide">
+              Personal
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {personalItems.map((item: MenuItem) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
+                      className={cn(
+                        menuButtonClassName,
+                        activeMenuButtonClassName,
+                      )}
+                    >
+                      <Link
+                        to={item.url || "#"}
+                        onMouseEnter={() => prefetchRouteData(item.url)}
+                        onFocus={() => prefetchRouteData(item.url)}
+                        onClick={closeMobileSidebar}
+                      >
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {(quickAccessItems.length > 0 || personalItems.length > 0) &&
+          managementGroups.length > 0 && (
           <SidebarSeparator className="my-2" />
         )}
 
@@ -245,7 +278,6 @@ export function AppSidebar() {
                               >
                                 <Link
                                   to={subItem.url || "#"}
-                                  preload="intent"
                                   onMouseEnter={() => prefetchRouteData(subItem.url)}
                                   onFocus={() => prefetchRouteData(subItem.url)}
                                   onClick={closeMobileSidebar}
@@ -335,7 +367,6 @@ export function AppSidebar() {
                 <DropdownMenuItem asChild>
                   <Link
                     to={PATHS.PROFILE as never}
-                    preload="intent"
                     onClick={closeMobileSidebar}
                   >
                     <User className="mr-2 h-4 w-4" />
@@ -345,7 +376,6 @@ export function AppSidebar() {
                 <DropdownMenuItem asChild>
                   <Link
                     to={PATHS.CHANGE_PASSWORD as never}
-                    preload="intent"
                     onClick={closeMobileSidebar}
                   >
                     <Settings className="mr-2 h-4 w-4" />

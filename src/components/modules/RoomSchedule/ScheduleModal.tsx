@@ -102,7 +102,6 @@ type FormValues = z.infer<ReturnType<typeof buildScheduleSchema>>;
 interface ScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  refetchSchedules: () => void;
   // Nếu có scheduleId thì chế độ cập nhật; nếu không là chế độ tạo mới
   scheduleId?: string;
   // Khi tạo mới, cần cung cấp thông tin phòng
@@ -114,7 +113,6 @@ interface ScheduleModalProps {
 const ScheduleModal: React.FC<ScheduleModalProps> = ({
   isOpen,
   onClose,
-  refetchSchedules,
   scheduleId,
   room,
   selectedDate = new Date(),
@@ -234,7 +232,6 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
       schedule: Partial<ICreateRoomScheduleRequest>;
     }) => roomsScheduleApis.updateSchedule(payload.id, payload.schedule),
     onSuccess: () => {
-      refetchSchedules();
       onClose();
     },
     onError: (error) => {
@@ -261,7 +258,6 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
           console.error("Tạo order thất bại:", err);
         }
       }
-      refetchSchedules();
       onClose();
     },
     onError: (error) => {

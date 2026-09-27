@@ -31,6 +31,7 @@ export type MenuItem = {
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
   subItems?: MenuItem[];
   roles?: Role[]; // Restrict visibility by role
+  section?: "quick-access" | "personal";
 };
 
 const STAFF_AND_ADMIN = [Role.Admin, Role.Staff];
@@ -42,42 +43,49 @@ const MENU_ITEMS: MenuItem[] = [
     url: PATHS.HOME,
     icon: Home,
     roles: STAFF_AND_ADMIN,
+    section: "quick-access",
   },
   {
     title: "Lịch sử hỗ trợ",
     url: PATHS.SUPPORT_HISTORY,
     icon: ClipboardList,
     roles: STAFF_AND_ADMIN,
+    section: "quick-access",
   },
   {
     title: "My Schedule",
     url: PATHS.MY_SCHEDULE,
     icon: Briefcase,
     roles: STAFF_AND_ADMIN,
+    section: "personal",
   },
   {
     title: "My Work Statistics",
     url: PATHS.MY_EARNINGS_DETAIL,
     icon: BarChart3,
     roles: STAFF_AND_ADMIN,
+    section: "personal",
   },
   {
     title: "My Error Logs",
     url: PATHS.MY_ERROR_LOGS,
     icon: BellRing,
     roles: STAFF_AND_ADMIN,
+    section: "personal",
   },
   {
     title: "Calendar",
     url: PATHS.CALENDAR,
     icon: Calendar,
-    roles: STAFF_AND_ADMIN,
+    roles: ADMIN_ONLY,
+    section: "quick-access",
   },
   {
     title: "Total Revenue",
     url: PATHS.TOTAL_REVENUE,
     icon: BarChart3,
     roles: STAFF_AND_ADMIN,
+    section: "quick-access",
   },
   {
     title: "Rooms",

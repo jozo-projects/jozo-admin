@@ -3,14 +3,13 @@ import {
   type Router,
 } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
-import { routeTree } from "./routeTree";
+import { routeTree } from "./route-tree";
+import type { RouterAuth } from "./router-auth";
 
-export function createAppRouter(queryClient: QueryClient) {
+export function createAppRouter(queryClient: QueryClient, auth: RouterAuth) {
   return createRouter({
     routeTree,
-    context: { queryClient },
-    defaultPreload: "intent",
-    defaultPreloadDelay: 50,
+    context: { queryClient, auth },
     scrollRestoration: true,
   });
 }

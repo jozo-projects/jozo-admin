@@ -2,7 +2,7 @@ import { Role } from "@/constants/enum";
 import useAuth from "@/hooks/useAuth";
 import { useNavigate } from "@tanstack/react-router";
 import { ReactNode, useEffect } from "react";
-import { RouterLoading } from "./routerComponents";
+import { RouterLoading } from "../router-boundaries";
 
 interface ProtectedRouteProps {
   children: ReactNode;

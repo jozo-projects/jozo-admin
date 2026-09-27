@@ -114,6 +114,7 @@ export const useRoomSchedules = (date: Dayjs = dayjs()) => {
       }
       return response.data.result;
     },
+    refetchOnWindowFocus: false,
   });
 };
 

@@ -94,8 +94,7 @@ function RoomsListPage() {
         isAdmin ? (
           <div className="flex items-center justify-center gap-2">
             <Link
-              preload="intent"
-              to="/rooms/$id/edit"
+                to="/rooms/$id/edit"
               params={{ id: row.original._id }}
             >
               <Button variant="ghost" size="icon">
@@ -122,7 +121,7 @@ function RoomsListPage() {
         icon={DoorOpen}
         actions={
           isAdmin ? (
-            <Link preload="intent" to={PATHS.NEW_ROOM}>
+            <Link to={PATHS.NEW_ROOM}>
               <Button>New room</Button>
             </Link>
           ) : undefined

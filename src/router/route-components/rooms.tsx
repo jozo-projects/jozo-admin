@@ -1,11 +1,11 @@
 import { Role } from "@/constants/enum";
-import { lazyRouteComponent } from "@tanstack/react-router";
-import ProtectedRoute from "./ProtectedRoute";
+import { lazy } from "react";
+import ProtectedRoute from "../guards/protected-route";
 
-const RoomsListPage = lazyRouteComponent(
+const RoomsListPage = lazy(
   () => import("@/pages/RoomsManagement/pages/RoomsListPage"),
 );
-const UpsertRoomPage = lazyRouteComponent(
+const UpsertRoomPage = lazy(
   () => import("@/pages/RoomsManagement/pages/UpsertRoomPage"),
 );
 

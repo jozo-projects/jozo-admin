@@ -4,7 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { lazy, Suspense } from "react";
 import { AuthProvider } from "./context/Authorization.context";
 import { RoomEventsProvider } from "./context/RoomEventsContext";
-import { createAppRouter } from "./router/router";
+import { createAppRouter } from "./router/app-router";
+import { createRouterAuth } from "./router/router-auth";
 
 const ReactQueryDevtools = import.meta.env.DEV
   ? lazy(() =>
@@ -23,7 +24,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const router = createAppRouter(queryClient);
+const router = createAppRouter(queryClient, createRouterAuth());
 
 function App() {
   return (

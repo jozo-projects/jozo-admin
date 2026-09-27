@@ -309,11 +309,14 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     (room) => String(room._id) === targetRoomId,
   );
 
-  const { mutate, isPending } = useMutation({
+  const { mutateAsync: updateScheduleAsync, isPending } = useMutation({
     mutationFn: (payload: Partial<IRoomSchedule>) =>
       roomsScheduleApis.updateSchedule(schedule._id, payload),
     onSuccess: (_, variables) => {
-      refetchSchedules?.();
+      void queryClient.invalidateQueries({
+        queryKey: getRoomSchedulesQueryKeyForSchedule(schedule),
+        refetchType: "active",
+      });
       onClose();
 
       if (variables.status === RoomStatus.Finished) {
@@ -392,9 +395,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   const { mutate: updateNote, isPending: isUpdatingNote } = useMutation({
     mutationFn: (note: string) =>
       roomsScheduleApis.updateSchedule(schedule._id, { note }),
-    onSuccess: () => {
-      refetchSchedules?.();
-    },
+    onSuccess: () => {},
     onError: (error) => {
       console.error("Error updating note:", error);
       toast({
@@ -414,7 +415,6 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
           startTime: variables.startTime,
           endTime: variables.endTime,
         });
-        refetchSchedules?.();
         queryClient.invalidateQueries({ queryKey: billQueryKey });
         toast({
           title: "Đã cập nhật giờ",
@@ -436,7 +436,6 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     mutationFn: (payload: IChangeRoomRequest) =>
       roomsScheduleApis.changeRoom(schedule._id, payload),
     onSuccess: () => {
-      refetchSchedules?.();
       toast({
         title: "Đã đổi phòng",
         description: "Phòng đã được cập nhật. Danh sách nhạc chưa được chuyển.",
@@ -483,7 +482,6 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   // invalidate query bill để backend trả về giá đúng với roomType mới.
   const handleRoomTypeUpdated = () => {
     queryClient.invalidateQueries({ queryKey: billQueryKey });
-    refetchSchedules?.();
   };
 
   const handleChangeRoom = () => {
@@ -976,35 +974,39 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       promotionId: selectedPromotion || undefined,
     };
 
-    // Save bill trước khi update schedule status
-    saveBillMutation(billToSave, {
-      onSuccess: () => {
-        // Invalidate membership/streak queries để refresh member info
-        if (customerPhone) {
-          queryClient.invalidateQueries({
-            queryKey: ["streak-gifts", customerPhone],
-          });
-        }
+    try {
+      // Bước 1: lưu bill trước.
+      await saveBillAsync(billToSave);
 
-        const { customerName, customerEmail } = getScheduleCustomerContact({
-          memberInfo: member.memberInfo,
-          scheduleCustomerName: schedule.customerName,
-          scheduleCustomerEmail: schedule.customerEmail,
+      // Invalidate membership/streak queries để refresh member info
+      if (customerPhone) {
+        await queryClient.invalidateQueries({
+          queryKey: ["streak-gifts", customerPhone],
         });
+      }
 
-        // Sau khi save bill thành công, update schedule status
-        const updateData: Partial<IRoomSchedule> = {
-          ...schedule,
-          status: RoomStatus.Finished,
-          endTime: actualEndTime,
-          startTime: actualStartTime,
-          customerPhone,
-          customerName,
-          customerEmail,
-        };
-        mutate(updateData, { onSuccess: () => refetchSchedules?.() });
-      },
-    });
+      const { customerName, customerEmail } = getScheduleCustomerContact({
+        memberInfo: member.memberInfo,
+        scheduleCustomerName: schedule.customerName,
+        scheduleCustomerEmail: schedule.customerEmail,
+      });
+
+      // Bước 2: bắt buộc chuyển schedule sang finished.
+      // Dùng mutateAsync để nếu PUT lỗi thì không đóng modal và hiện lỗi rõ ràng.
+      const updateData: Partial<IRoomSchedule> = {
+        ...schedule,
+        status: RoomStatus.Finished,
+        endTime: actualEndTime,
+        startTime: actualStartTime,
+        customerPhone,
+        customerName,
+        customerEmail,
+      };
+      await updateScheduleAsync(updateData);
+    } catch (error) {
+      // onError của mutation đã hiển thị toast tương ứng.
+      console.error("Không thể hoàn tất phiên sau khi lưu bill:", error);
+    }
   };
 
   const handleExtendSession = () => {
@@ -1275,7 +1277,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   });
 
   // Mutation để save bill vào collection bills
-  const { mutate: saveBillMutation, isPending: isSavingBill } = useMutation({
+  const { mutateAsync: saveBillAsync, isPending: isSavingBill } = useMutation({
     mutationFn: billAPis.saveBill,
     onSuccess: () => {},
     onError: (error) => {
@@ -2273,7 +2275,9 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                 ? "Đang lưu SĐT..."
                 : isSavingBill
                   ? "Đang lưu hóa đơn..."
-                  : "Tiếp tục kết thúc"}
+                  : isPending
+                    ? "Đang kết thúc phiên..."
+                    : "Tiếp tục kết thúc"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
