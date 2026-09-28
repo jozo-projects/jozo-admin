@@ -1,4 +1,4 @@
-import { INotification } from "@/@types/Notification";
+import type { INotification } from "@/@types/Notification";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
-  useMarkAllAsRead,
   useMarkAsRead,
   useNotifications,
   NOTIFICATION_QUERY_KEYS,
@@ -47,12 +46,11 @@ export const NotificationBell = () => {
   // Fetch notifications (unread count tính từ danh sách đã fetch)
   const { data: notificationsData, isLoading } = useNotifications({
     page: 1,
-    limit: 10,
+    limit: 30,
   });
 
   // Mutations
   const { mutate: markAsRead } = useMarkAsRead();
-  const { mutate: markAllAsRead } = useMarkAllAsRead();
   const { mutate: deleteNotification } = useDeleteNotification();
 
 
@@ -62,6 +60,8 @@ export const NotificationBell = () => {
   // Listen for new notifications via socket
   useEffect(() => {
     const handleNewNotification = (notification: INotification) => {
+      if (notification.type === "messenger_message_received") return;
+
       console.log("Nhận notification mới:", notification);
 
       // Show toast
@@ -84,7 +84,9 @@ export const NotificationBell = () => {
     };
   }, [onNewNotification, offNewNotification, toast, queryClient]);
 
-  const notifications = notificationsData?.notifications || [];
+  const notifications = (notificationsData?.notifications || [])
+    .filter((notification) => notification.type !== "messenger_message_received")
+    .slice(0, 10);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const handleNotificationClick = (notification: INotification) => {
@@ -104,7 +106,9 @@ export const NotificationBell = () => {
   const handleMarkAllAsRead = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    markAllAsRead();
+    const unreadNotifications = notifications.filter((notification) => !notification.isRead);
+    if (unreadNotifications.length === 0) return;
+    unreadNotifications.forEach((notification) => markAsRead(notification._id));
   };
 
   const handleDeleteNotification = (
@@ -216,19 +220,6 @@ export const NotificationBell = () => {
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
                         {notification.body}
                       </p>
-                      {notification.type === "messenger_message_received" && notification.data?.actionUrl && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="mt-2 h-7 text-xs"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            window.open((notification.data || {}).actionUrl, "_blank", "noopener,noreferrer");
-                          }}
-                        >
-                          Mở Messenger Inbox
-                        </Button>
-                      )}
                       <div className="flex items-center justify-between mt-2">
                         <p className="text-xs text-muted-foreground">
                           {timeAgo(notification.createdAt)}

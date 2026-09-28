@@ -23,16 +23,21 @@ import { toast } from "@/hooks/use-toast";
 import { formatUTCToLocal } from "@/lib/dayjs";
 import { cn } from "@/lib/utils";
 import { MessageCircle, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useRouterState } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const ITEMS_PER_PAGE = 20;
 
 function MessengerMessagesPage() {
   const { user } = useAuth();
+  const href = useRouterState({ select: (state) => state.location.href });
+  const consumedHref = useRef<string | null>(null);
   const isAdmin = user?.role === Role.Admin;
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [messageToDelete, setMessageToDelete] = useState<IMessengerMessage | null>(null);
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
+  const [flashToken, setFlashToken] = useState(0);
   const debouncedSearch = useDebounce(search, 350);
   const { data, isLoading } = useMessengerMessages({
     page: currentPage,
@@ -43,6 +48,37 @@ function MessengerMessagesPage() {
 
   const messages = data?.messages ?? [];
   const totalPages = data?.totalPages ?? 1;
+  const highlightedMessageId = useMemo(() => {
+    if (!highlightKey || messages.length === 0) return null;
+    if (highlightKey === "latest") return messages[0]._id;
+    const match = messages.find(
+      (message) => message._id === highlightKey || message.messageId === highlightKey,
+    );
+    return (match ?? messages[0])._id;
+  }, [highlightKey, messages]);
+
+  useEffect(() => {
+    if (consumedHref.current === href) return;
+    const params = new URLSearchParams(window.location.search);
+    const messageId = params.get("messageId");
+    const highlight = params.get("highlight");
+    if (!messageId && highlight !== "latest") return;
+    consumedHref.current = href;
+    setHighlightKey(messageId || "latest");
+    setFlashToken((token) => token + 1);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("messageId");
+    url.searchParams.delete("highlight");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}`);
+  }, [href]);
+
+  useEffect(() => {
+    if (!highlightedMessageId || isLoading) return;
+    document.getElementById(`messenger-message-${highlightedMessageId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [highlightedMessageId, flashToken, isLoading]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -94,7 +130,18 @@ function MessengerMessagesPage() {
           ) : (
             <div className="space-y-3">
               {messages.map((message) => (
-                <div key={message._id} className="rounded-lg border p-4">
+                <div
+                  key={
+                    message._id === highlightedMessageId
+                      ? `${message._id}-${flashToken}`
+                      : message._id
+                  }
+                  id={`messenger-message-${message._id}`}
+                  className={cn(
+                    "rounded-lg border p-4",
+                    message._id === highlightedMessageId && "animate-messenger-border-fade",
+                  )}
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -105,7 +152,9 @@ function MessengerMessagesPage() {
                         </span>
                       </div>
                       <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
-                      <p className="mt-2 text-xs text-muted-foreground">Message ID: {message.messageId}</p>
+                      {isAdmin && (
+                        <p className="mt-2 text-xs text-muted-foreground">Message ID: {message.messageId}</p>
+                      )}
                     </div>
                     {isAdmin && (
                       <Button
