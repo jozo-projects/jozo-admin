@@ -115,7 +115,9 @@ type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
 const EditUserForm = () => {
   const router = useRouter();
-  const staffParams = useParams({ from: "/staff-management/$id/edit" });
+  const staffParams = useParams({
+    from: "/_authenticated/staff-management/$id/edit",
+  });
   const id = staffParams.id;
   const { updateUser, useUserById, isUpdatingUser } = useUsers();
   const { toast } = useToast();

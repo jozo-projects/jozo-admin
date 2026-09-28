@@ -34,7 +34,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 function UpsertCoffeeTablePage() {
   const coffeeTableParams = useParams({
-    from: "/coffee-tables/$id/edit",
+    from: "/_authenticated/coffee-tables/$id/edit",
     shouldThrow: false,
   });
   const id = coffeeTableParams?.id ?? "";

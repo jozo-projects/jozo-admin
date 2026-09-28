@@ -50,7 +50,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 function UpsertRoomTypePage() {
   const roomTypeParams = useParams({
-    from: "/room-types/$id/edit",
+    from: "/_authenticated/room-types/$id/edit",
     shouldThrow: false,
   });
   const id = roomTypeParams?.id ?? "";

@@ -45,7 +45,9 @@ import StaffEarningsMobileView from "./components/StaffEarningsMobileView";
 
 const StaffEarningsDetailPage = () => {
   const router = useRouter();
-  const { userId = "" } = useParams({ from: "/staff-schedule/$userId/earnings" });
+  const { userId = "" } = useParams({
+    from: "/_authenticated/staff-schedule/$userId/earnings",
+  });
   const isMobile = useIsMobile();
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
 
