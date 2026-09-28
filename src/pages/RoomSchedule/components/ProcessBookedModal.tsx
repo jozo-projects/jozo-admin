@@ -468,8 +468,24 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
   const { mutate, isPending } = useMutation({
     mutationFn: (updateData: Partial<IRoomSchedule>) =>
       roomsScheduleApis.updateSchedule(schedule._id, updateData),
-    onSuccess: (_, variables) => {
-      refetchSchedules();
+    onMutate: async (variables) => {
+      const queryKey = getRoomSchedulesQueryKeyForSchedule(schedule);
+      await queryClient.cancelQueries({ queryKey });
+      const previousSchedules =
+        queryClient.getQueryData<IRoomSchedule[]>(queryKey);
+
+      patchScheduleInRoomSchedulesCache(queryClient, schedule, variables);
+
+      return { previousSchedules, queryKey };
+    },
+    onSuccess: (_, variables, context) => {
+      if (context?.queryKey) {
+        patchScheduleInRoomSchedulesCache(queryClient, schedule, variables);
+        void queryClient.invalidateQueries({
+          queryKey: context.queryKey,
+          refetchType: "active",
+        });
+      }
       if (variables.status) {
         onClose();
         toast({
@@ -482,6 +498,17 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
           description: "Thời gian đã được cập nhật",
         });
       }
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previousSchedules && context.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousSchedules);
+      }
+      console.error("Error updating schedule:", error);
+      toast({
+        title: "Error",
+        description: "Không thể cập nhật lịch trình",
+        variant: "destructive",
+      });
     },
   });
 
@@ -606,12 +633,11 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
     mutationFn: (payload: IChangeRoomRequest) =>
       roomsScheduleApis.changeRoom(schedule._id, payload),
     onSuccess: () => {
-      refetchSchedules();
-      onClose();
       toast({
         title: "Đã đổi phòng",
         description: "Phòng đã được cập nhật. Danh sách nhạc chưa được chuyển.",
       });
+      onClose();
     },
     onError: () => {
       toast({

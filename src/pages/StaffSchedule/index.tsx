@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeScheduleStatus, Role, ShiftType } from "@/constants/enum";
-import PATHS from "@/constants/paths";
 import { useStaffSchedules, ViewMode } from "@/hooks/use-staff-schedules";
 import { useToast } from "@/hooks/use-toast";
 import { useIsAdmin } from "@/hooks/usePermission";
@@ -29,7 +28,7 @@ import StaffScheduleRegistrationModal from "@/pages/RoomSchedule/components/Staf
 import dayjs, { Dayjs } from "dayjs";
 import { CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import { Calendar } from "@/components/ui/calendar";
 import StaffScheduleDetailModal from "./components/StaffScheduleDetailModal";
 import StaffScheduleShiftFilter, {
@@ -41,7 +40,7 @@ import PaginationContainer from "@/pages/RecruitmentPage/components/PaginationCo
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 const StaffSchedulePage = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs());
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -324,7 +323,7 @@ const StaffSchedulePage = () => {
   };
 
   const handleStaffClick = (userId: string) => {
-    navigate(PATHS.STAFF_EARNINGS_DETAIL.replace(":userId", userId));
+    router.navigate({ to: "/staff-schedule/$userId/earnings", params: { userId } });
   };
 
   const handleCloseModal = () => {

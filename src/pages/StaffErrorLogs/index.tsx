@@ -42,7 +42,6 @@ import {
 import { useUsers } from "@/hooks/use-users";
 import { Plus, ShieldAlert, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 
 const formatDateTime = (value?: string) => {
   if (!value) return "-";
@@ -101,7 +100,7 @@ const StatusBadge = ({ status }: { status: StaffErrorLogStatus }) =>
   );
 
 const StaffErrorLogsPage = () => {
-  const [searchParams] = useSearchParams();
+  const searchParams = new URLSearchParams(window.location.search);
   const [filters, setFilters] = useState<StaffErrorLogFilters>(() => ({
     userId: searchParams.get("userId") || undefined,
     type: (searchParams.get("type") as StaffErrorLogType | null) || undefined,

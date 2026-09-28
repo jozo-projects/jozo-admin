@@ -1,6 +1,6 @@
 import { IEmployeeSchedule } from "@/apis/staffSchedule.apis";
 import staffScheduleApis from "@/apis/staffSchedule.apis";
-import { PageHeader, StatCard, StatGrid } from "@/components/shared";
+import { PageHeader } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -47,24 +47,21 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  DollarSign,
   Loader2,
   PlayCircle,
   Plus,
-  TrendingUp,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useSocket } from "@/hooks/useSocket";
 import { useToast } from "@/hooks/use-toast";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import PATHS from "@/constants/paths";
 
 const MySchedulePage = () => {
   type ShiftFilterValue = ShiftType | "all_shifts" | "custom" | undefined;
 
-  const navigate = useNavigate();
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs());
   const [selectedStatus, setSelectedStatus] = useState<
@@ -94,7 +91,10 @@ const MySchedulePage = () => {
   } = useSocket();
 
   // Deeplink support: read scheduleId from URL
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = new URLSearchParams(window.location.search);
+  const setSearchParams = useCallback((next: Record<string, string>) => {
+    void router.navigate({ to: "/my-schedule", search: next as never, replace: true });
+  }, [router]);
   const scheduleIdFromUrl = searchParams.get("scheduleId");
 
   // Calculate date range based on view mode
@@ -176,20 +176,12 @@ const MySchedulePage = () => {
     selectedShiftType,
   ]);
 
-  const {
-    data: { schedules = [], summary } = { schedules: [], summary: null },
-    isLoading,
-    refetch,
-  } = useMySchedules(options);
-
-  // Get all schedules for current month (for salary calculation, no filters)
-  const {
-    data: { schedules: monthSchedules = [] } = { schedules: [] },
-    refetch: refetchMonthSchedules,
-  } = useMySchedules({
-    filterType: "month",
-    date: currentDate,
-  });
+  const scheduleQuery = useMySchedules(options);
+  const schedules = useMemo(
+    () => scheduleQuery.data?.schedules ?? [],
+    [scheduleQuery.data?.schedules],
+  );
+  const { isLoading, refetch } = scheduleQuery;
 
   // Get all schedules for calendar month (for calendar display, no filters)
   const {
@@ -278,7 +270,6 @@ const MySchedulePage = () => {
 
       // Refetch schedules to update the view
       refetch();
-      refetchMonthSchedules();
       refetchCalendarSchedules();
     };
 
@@ -305,7 +296,6 @@ const MySchedulePage = () => {
 
       // Refetch schedules to update the view
       refetch();
-      refetchMonthSchedules();
       refetchCalendarSchedules();
     };
 
@@ -322,7 +312,6 @@ const MySchedulePage = () => {
     onScheduleAssigned,
     offScheduleAssigned,
     refetch,
-    refetchMonthSchedules,
     refetchCalendarSchedules,
     toast,
   ]);
@@ -386,7 +375,6 @@ const MySchedulePage = () => {
     // Clear scheduleId from URL
     setSearchParams({});
     refetch();
-    refetchMonthSchedules();
     refetchCalendarSchedules();
   };
 
@@ -500,64 +488,6 @@ const MySchedulePage = () => {
     return "bg-gray-100 text-gray-800";
   };
 
-  // Calculate salary information based on current month (not filtered)
-  const salaryInfo = useMemo(() => {
-    const hourlyRate = 22000; // 22k VND per hour
-    const completedSchedules = monthSchedules.filter(
-      (s) => s.status === EmployeeScheduleStatus.Completed,
-    );
-
-    // Calculate total hours for completed shifts
-    let totalHours = 0;
-    completedSchedules.forEach((schedule) => {
-      if (schedule.customStartTime && schedule.customEndTime) {
-        // Calculate hours from custom times
-        const [startHour, startMin] = schedule.customStartTime
-          .split(":")
-          .map(Number);
-        const [endHour, endMin] = schedule.customEndTime.split(":").map(Number);
-        const startTotal = startHour * 60 + startMin;
-        let endTotal = endHour * 60 + endMin;
-        if (endTotal <= startTotal) {
-          endTotal += 24 * 60;
-        }
-        const diffMinutes = endTotal - startTotal;
-        totalHours += diffMinutes / 60;
-      } else {
-        // Default shift hours (5 hours per shift)
-        const shift = schedule.shift || schedule.shiftType;
-        if (
-          shift === "shift1" ||
-          shift === "shift2" ||
-          shift === "morning" ||
-          shift === "afternoon" ||
-          shift === "evening" ||
-          shift === "shift3" ||
-          shift === "all"
-        ) {
-          totalHours += 5; // 5 hours per shift
-        } else {
-          // Default to 5 hours if unknown
-          totalHours += 5;
-        }
-      }
-    });
-
-    const totalSalary = totalHours * hourlyRate;
-    const totalRegistered = monthSchedules.length;
-    const totalCompleted = completedSchedules.length;
-    const completionRate =
-      totalRegistered > 0 ? (totalCompleted / totalRegistered) * 100 : 0;
-
-    return {
-      totalRegistered,
-      totalCompleted,
-      totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal
-      totalSalary,
-      completionRate: Math.round(completionRate * 10) / 10,
-    };
-  }, [monthSchedules]);
-
   return (
     <div className="flex w-full flex-col gap-6">
       <PageHeader
@@ -565,82 +495,6 @@ const MySchedulePage = () => {
         description="View and manage your work schedule"
         icon={Briefcase}
       />
-
-      {/* Summary Cards */}
-      {summary && (
-        <StatGrid className="md:grid-cols-2 lg:grid-cols-5">
-          <StatCard
-            label="Total Shifts"
-            value={summary.totalShifts}
-            hint={`${summary.totalDays} days`}
-            icon={Clock}
-          />
-          <StatCard
-            label="Upcoming"
-            value={summary.upcoming}
-            hint={`${summary.byStatus.approved} approved shifts`}
-            icon={TrendingUp}
-            tone="info"
-          />
-          <StatCard
-            label="In Progress"
-            value={summary.inProgress}
-            hint={`${summary.byStatus["in-progress"]} active shifts`}
-            icon={PlayCircle}
-            tone="warning"
-          />
-          <StatCard
-            label="Completed"
-            value={summary.completed}
-            hint={`${summary.byStatus.completed} completed shifts`}
-            icon={CheckCircle2}
-            tone="success"
-          />
-
-          {/* Salary Card */}
-          <Card
-            className="cursor-pointer border-success/30 bg-success/5 transition-shadow hover:shadow-md"
-            onClick={() => navigate(PATHS.MY_EARNINGS_DETAIL)}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-4 pb-2">
-              <div>
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Earnings
-                </CardTitle>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {currentDate.format("MM/YYYY")}
-                </p>
-              </div>
-              <DollarSign className="size-4 text-success" />
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="text-2xl font-semibold tabular-nums tracking-tight text-success">
-                {summary.totalSalary.toLocaleString("vi-VN")}₫
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {salaryInfo.totalCompleted} completed shifts
-              </p>
-              <div className="mt-2">
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium">
-                    {salaryInfo.totalCompleted}/{salaryInfo.totalRegistered}
-                  </span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-muted">
-                  <div
-                    className="h-2 rounded-full bg-success transition-all"
-                    style={{ width: `${salaryInfo.completionRate}%` }}
-                  />
-                </div>
-              </div>
-              <p className="mt-2 text-xs font-medium text-success">
-                Details →
-              </p>
-            </CardContent>
-          </Card>
-        </StatGrid>
-      )}
 
       {/* Controls */}
       <Card>
@@ -973,13 +827,16 @@ const MySchedulePage = () => {
         open={isCalendarModalOpen}
         onOpenChange={handleCloseCalendarModal}
       >
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[90vw] sm:max-w-[90vw] md:max-w-3xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-4 md:p-6">
-          <DialogHeader className="px-1 sm:px-0">
-            <DialogTitle className="text-base sm:text-lg md:text-xl">
+        <DialogContent className="overflow-y-auto p-0 sm:max-w-3xl sm:p-5 lg:max-w-4xl lg:p-6">
+          <DialogHeader className="border-b px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] text-left sm:border-0 sm:px-0 sm:pb-2 sm:pt-0">
+            <DialogTitle className="text-lg tracking-tight sm:text-xl">
               Register Work Shift
             </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Choose an available date to register your shift
+            </p>
           </DialogHeader>
-          <div className="px-1 sm:px-0">
+          <div className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-0 sm:pb-0 sm:pt-0">
             <ShiftRegistrationCalendar
               schedules={calendarSchedules}
               onDateClick={handleCalendarDateClick}

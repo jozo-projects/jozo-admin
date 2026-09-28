@@ -40,12 +40,12 @@ import {
   User,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useRouter, useParams } from "@tanstack/react-router";
 import StaffEarningsMobileView from "./components/StaffEarningsMobileView";
 
 const StaffEarningsDetailPage = () => {
-  const navigate = useNavigate();
-  const { userId } = useParams<{ userId: string }>();
+  const router = useRouter();
+  const { userId = "" } = useParams({ from: "/staff-schedule/$userId/earnings" });
   const isMobile = useIsMobile();
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
 
@@ -325,7 +325,7 @@ const StaffEarningsDetailPage = () => {
       startDate: startDate.format("YYYY-MM-DD"),
       endDate: endDate.format("YYYY-MM-DD"),
     });
-    navigate(`${PATHS.STAFF_ERROR_LOGS}?${params.toString()}`);
+    router.navigate({ to: PATHS.STAFF_ERROR_LOGS as never, search: Object.fromEntries(params) as never });
   };
 
   // Generate month options (current month and 11 previous months)
@@ -345,7 +345,7 @@ const StaffEarningsDetailPage = () => {
           <p className="text-red-500">Không tìm thấy thông tin nhân viên</p>
           <Button
             variant="outline"
-            onClick={() => navigate(PATHS.STAFF_SCHEDULE)}
+            onClick={() => router.navigate({ to: PATHS.STAFF_SCHEDULE })}
             className="mt-4"
           >
             Quay lại

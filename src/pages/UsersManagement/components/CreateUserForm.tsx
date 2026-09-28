@@ -12,7 +12,7 @@ import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { Role } from "@/constants/enum";
 import { CreateUserRequest } from "@/@types/user";
 import { useUsers } from "@/hooks/use-users";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -48,7 +48,7 @@ const createUserSchema = z
 type CreateUserFormData = z.infer<typeof createUserSchema>;
 
 const CreateUserForm = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { createUser, isCreatingUser } = useUsers();
   const [hidePassword, setHidePassword] = useState<boolean>(true);
   const [hideConfirmPassword, setHideConfirmPassword] = useState<boolean>(true);
@@ -88,7 +88,7 @@ const CreateUserForm = () => {
 
     createUser(createData, {
       onSuccess: () => {
-        navigate(PATHS.USERS_MANAGEMENT);
+        router.navigate({ to: PATHS.USERS_MANAGEMENT });
       },
     });
   };
@@ -282,7 +282,7 @@ const CreateUserForm = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(PATHS.USERS_MANAGEMENT)}
+                onClick={() => router.navigate({ to: PATHS.USERS_MANAGEMENT })}
                 className="flex-1"
               >
                 Hủy

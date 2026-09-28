@@ -9,7 +9,7 @@ import { User } from "@/@types/user";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 import { DeleteModal } from "@/components/shared/DeleteModal";
 import { toast } from "@/hooks/use-toast";
@@ -19,7 +19,7 @@ import PaginationContainer from "@/pages/RecruitmentPage/components/PaginationCo
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 const StaffManagementPage = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -97,7 +97,7 @@ const StaffManagementPage = () => {
         description="Quản lý danh sách quản trị viên và nhân viên"
         icon={Users}
         actions={
-          <Button onClick={() => navigate(PATHS.STAFF_MANAGEMENT_NEW)}>
+          <Button onClick={() => router.navigate({ to: PATHS.STAFF_MANAGEMENT_NEW })}>
             <Plus className="mr-2 h-4 w-4" />
             Thêm Admin/Staff
           </Button>
@@ -156,11 +156,7 @@ const StaffManagementPage = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() =>
-                      navigate(
-                        PATHS.STAFF_MANAGEMENT_EDIT.replace(":id", user._id)
-                      )
-                    }
+                    onClick={() => router.navigate({ to: "/staff-management/$id/edit", params: { id: user._id } })}
                   >
                     Chỉnh sửa
                   </Button>

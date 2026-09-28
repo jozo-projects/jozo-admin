@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { ArrowLeft, LucideIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -26,13 +26,13 @@ export function PageHeader({
   className,
   showSeparator = true,
 }: PageHeaderProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleBack = () => {
     if (backUrl) {
-      navigate(backUrl);
+      router.navigate({ to: backUrl as never });
     } else {
-      navigate(-1);
+      router.history.back();
     }
   };
 

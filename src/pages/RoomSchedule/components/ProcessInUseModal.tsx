@@ -188,18 +188,30 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   });
   const photoDisplay = photoDisplayData?.data?.result;
   const photoMutation = useMutation({
-    mutationFn: (file: File) => roomsScheduleApis.uploadPhoto(schedule._id, file),
-    onSuccess: () => { setPhotoFiles([]); setPhotoPreview(""); refetchPhotoDisplay(); toast({ title: "Đã tải ảnh", description: "Ảnh đang ở trạng thái ẩn." }); },
+    mutationFn: (file: File) =>
+      roomsScheduleApis.uploadPhoto(schedule._id, file),
+    onSuccess: () => {
+      setPhotoFiles([]);
+      setPhotoPreview("");
+      refetchPhotoDisplay();
+      toast({ title: "Đã tải ảnh", description: "Ảnh đang ở trạng thái ẩn." });
+    },
   });
   const displayMutation = useMutation({
-    mutationFn: (state: "hidden" | "showing") => roomsScheduleApis.setPhotoDisplay(schedule._id, state),
-    onSuccess: () => { refetchPhotoDisplay(); toast({ title: "Đã cập nhật hiển thị ảnh" }); },
+    mutationFn: (state: "hidden" | "showing") =>
+      roomsScheduleApis.setPhotoDisplay(schedule._id, state),
+    onSuccess: () => {
+      refetchPhotoDisplay();
+      toast({ title: "Đã cập nhật hiển thị ảnh" });
+    },
   });
   const deletePhotosMutation = useMutation({
     mutationFn: () => roomsScheduleApis.deletePhotos(schedule._id),
-    onSuccess: () => { refetchPhotoDisplay(); toast({ title: "Đã xóa ảnh" }); },
+    onSuccess: () => {
+      refetchPhotoDisplay();
+      toast({ title: "Đã xóa ảnh" });
+    },
   });
-
 
   const member = useScheduleMemberPhone({
     scheduleId: schedule._id,
@@ -297,11 +309,14 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     (room) => String(room._id) === targetRoomId,
   );
 
-  const { mutate, isPending } = useMutation({
+  const { mutateAsync: updateScheduleAsync, isPending } = useMutation({
     mutationFn: (payload: Partial<IRoomSchedule>) =>
       roomsScheduleApis.updateSchedule(schedule._id, payload),
     onSuccess: (_, variables) => {
-      refetchSchedules?.();
+      void queryClient.invalidateQueries({
+        queryKey: getRoomSchedulesQueryKeyForSchedule(schedule),
+        refetchType: "active",
+      });
       onClose();
 
       if (variables.status === RoomStatus.Finished) {
@@ -380,9 +395,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   const { mutate: updateNote, isPending: isUpdatingNote } = useMutation({
     mutationFn: (note: string) =>
       roomsScheduleApis.updateSchedule(schedule._id, { note }),
-    onSuccess: () => {
-      refetchSchedules?.();
-    },
+    onSuccess: () => {},
     onError: (error) => {
       console.error("Error updating note:", error);
       toast({
@@ -402,7 +415,6 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
           startTime: variables.startTime,
           endTime: variables.endTime,
         });
-        refetchSchedules?.();
         queryClient.invalidateQueries({ queryKey: billQueryKey });
         toast({
           title: "Đã cập nhật giờ",
@@ -424,7 +436,6 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     mutationFn: (payload: IChangeRoomRequest) =>
       roomsScheduleApis.changeRoom(schedule._id, payload),
     onSuccess: () => {
-      refetchSchedules?.();
       toast({
         title: "Đã đổi phòng",
         description: "Phòng đã được cập nhật. Danh sách nhạc chưa được chuyển.",
@@ -471,7 +482,6 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   // invalidate query bill để backend trả về giá đúng với roomType mới.
   const handleRoomTypeUpdated = () => {
     queryClient.invalidateQueries({ queryKey: billQueryKey });
-    refetchSchedules?.();
   };
 
   const handleChangeRoom = () => {
@@ -507,10 +517,15 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   };
 
   const handleMoveQueue = () => {
-    if (!targetRoomId || !selectedTargetRoom || targetRoomId === schedule.roomId) {
+    if (
+      !targetRoomId ||
+      !selectedTargetRoom ||
+      targetRoomId === schedule.roomId
+    ) {
       toast({
         title: "Chưa chọn phòng đích",
-        description: "Vui lòng chọn một phòng khác trước khi chuyển danh sách nhạc.",
+        description:
+          "Vui lòng chọn một phòng khác trước khi chuyển danh sách nhạc.",
         variant: "destructive",
       });
       return;
@@ -959,35 +974,39 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       promotionId: selectedPromotion || undefined,
     };
 
-    // Save bill trước khi update schedule status
-    saveBillMutation(billToSave, {
-      onSuccess: () => {
-        // Invalidate membership/streak queries để refresh member info
-        if (customerPhone) {
-          queryClient.invalidateQueries({
-            queryKey: ["streak-gifts", customerPhone],
-          });
-        }
+    try {
+      // Bước 1: lưu bill trước.
+      await saveBillAsync(billToSave);
 
-        const { customerName, customerEmail } = getScheduleCustomerContact({
-          memberInfo: member.memberInfo,
-          scheduleCustomerName: schedule.customerName,
-          scheduleCustomerEmail: schedule.customerEmail,
+      // Invalidate membership/streak queries để refresh member info
+      if (customerPhone) {
+        await queryClient.invalidateQueries({
+          queryKey: ["streak-gifts", customerPhone],
         });
+      }
 
-        // Sau khi save bill thành công, update schedule status
-        const updateData: Partial<IRoomSchedule> = {
-          ...schedule,
-          status: RoomStatus.Finished,
-          endTime: actualEndTime,
-          startTime: actualStartTime,
-          customerPhone,
-          customerName,
-          customerEmail,
-        };
-        mutate(updateData, { onSuccess: () => refetchSchedules?.() });
-      },
-    });
+      const { customerName, customerEmail } = getScheduleCustomerContact({
+        memberInfo: member.memberInfo,
+        scheduleCustomerName: schedule.customerName,
+        scheduleCustomerEmail: schedule.customerEmail,
+      });
+
+      // Bước 2: bắt buộc chuyển schedule sang finished.
+      // Dùng mutateAsync để nếu PUT lỗi thì không đóng modal và hiện lỗi rõ ràng.
+      const updateData: Partial<IRoomSchedule> = {
+        ...schedule,
+        status: RoomStatus.Finished,
+        endTime: actualEndTime,
+        startTime: actualStartTime,
+        customerPhone,
+        customerName,
+        customerEmail,
+      };
+      await updateScheduleAsync(updateData);
+    } catch (error) {
+      // onError của mutation đã hiển thị toast tương ứng.
+      console.error("Không thể hoàn tất phiên sau khi lưu bill:", error);
+    }
   };
 
   const handleExtendSession = () => {
@@ -1258,7 +1277,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   });
 
   // Mutation để save bill vào collection bills
-  const { mutate: saveBillMutation, isPending: isSavingBill } = useMutation({
+  const { mutateAsync: saveBillAsync, isPending: isSavingBill } = useMutation({
     mutationFn: billAPis.saveBill,
     onSuccess: () => {},
     onError: (error) => {
@@ -1375,8 +1394,80 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                       </div>
                     </div>
                     <div className="mx-3 mb-3 rounded-md border bg-card text-sm">
-                      <div className="flex items-center justify-between border-b px-3 py-2"><div><h4 className="font-semibold">Hình ảnh khách hàng</h4><p className="text-[11px] text-muted-foreground">Tối đa 1 ảnh · Staff có thể hiện hoặc ẩn</p></div><span className="text-[11px] text-muted-foreground">{photoDisplay?.state === "showing" ? "Đang hiển thị" : "Đang ẩn"}</span></div>
-                      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center"><ImagePicker currentImage={photoPreview || photoDisplay?.photos?.[0]?.url} onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; setPhotoFiles([file]); setPhotoPreview(URL.createObjectURL(file)); }} onRemove={() => { setPhotoFiles([]); setPhotoPreview(""); }} /><div className="flex flex-wrap gap-2">{photoFiles.length > 0 && <Button size="sm" onClick={() => photoFiles.forEach((file) => photoMutation.mutate(file))} loading={photoMutation.isPending}>Tải ảnh lên</Button>}<Button size="sm" onClick={() => displayMutation.mutate("showing")} disabled={!photoDisplay?.photos?.length || displayMutation.isPending}>Hiện ảnh</Button><Button size="sm" variant="outline" onClick={() => displayMutation.mutate("hidden")} disabled={displayMutation.isPending}>Ẩn ảnh</Button><Button size="sm" variant="destructive" onClick={() => deletePhotosMutation.mutate()} disabled={!photoDisplay?.photos?.length || deletePhotosMutation.isPending}>Xóa ảnh</Button></div></div>
+                      <div className="flex items-center justify-between border-b px-3 py-2">
+                        <div>
+                          <h4 className="font-semibold">Hình ảnh khách hàng</h4>
+                          <p className="text-[11px] text-muted-foreground">
+                            Tối đa 1 ảnh · Staff có thể hiện hoặc ẩn
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          {photoDisplay?.state === "showing"
+                            ? "Đang hiển thị"
+                            : "Đang ẩn"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                        <ImagePicker
+                          currentImage={
+                            photoPreview || photoDisplay?.photos?.[0]?.url
+                          }
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            setPhotoFiles([file]);
+                            setPhotoPreview(URL.createObjectURL(file));
+                          }}
+                          onRemove={() => {
+                            setPhotoFiles([]);
+                            setPhotoPreview("");
+                          }}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {photoFiles.length > 0 && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                photoFiles.forEach((file) =>
+                                  photoMutation.mutate(file),
+                                )
+                              }
+                              loading={photoMutation.isPending}
+                            >
+                              Tải ảnh lên
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            onClick={() => displayMutation.mutate("showing")}
+                            disabled={
+                              !photoDisplay?.photos?.length ||
+                              displayMutation.isPending
+                            }
+                          >
+                            Hiện ảnh
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => displayMutation.mutate("hidden")}
+                            disabled={displayMutation.isPending}
+                          >
+                            Ẩn ảnh
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deletePhotosMutation.mutate()}
+                            disabled={
+                              !photoDisplay?.photos?.length ||
+                              deletePhotosMutation.isPending
+                            }
+                          >
+                            Xóa ảnh
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="border-t" />
@@ -2054,7 +2145,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                     disabled={availableRooms.length === 0 || !targetRoomId}
                     className="h-9 w-full sm:w-auto"
                   >
-                    Chuyển danh sách nhạc sang phòng đã chọn
+                    Chuyển danh sách nhạc
                   </Button>
                 </div>
               </TabsContent>
@@ -2184,7 +2275,9 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                 ? "Đang lưu SĐT..."
                 : isSavingBill
                   ? "Đang lưu hóa đơn..."
-                  : "Tiếp tục kết thúc"}
+                  : isPending
+                    ? "Đang kết thúc phiên..."
+                    : "Tiếp tục kết thúc"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

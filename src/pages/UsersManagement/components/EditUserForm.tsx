@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UpdateUserRequest, User } from "@/@types/user";
 import { useUsers } from "@/hooks/use-users";
-import { useNavigate, useParams } from "react-router-dom";
+import { useRouter, useParams } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 import { format } from "date-fns";
 import {
@@ -94,8 +94,9 @@ const updateStreakSchema = z.object({
 type UpdateStreakFormData = z.infer<typeof updateStreakSchema>;
 
 const EditUserForm = () => {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const userParams = useParams({ from: "/users-management/$id/edit" });
+  const id = userParams.id;
   const [activeSection, setActiveSection] = useState("overview");
   const { updateUser, useUserById, useUserMembership, isUpdatingUser } =
     useUsers();
@@ -256,7 +257,7 @@ const EditUserForm = () => {
       { id, data: updateData },
       {
         onSuccess: () => {
-          navigate(PATHS.USERS_MANAGEMENT);
+          router.navigate({ to: PATHS.USERS_MANAGEMENT });
         },
       },
     );
@@ -943,7 +944,7 @@ const EditUserForm = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(PATHS.USERS_MANAGEMENT)}
+                onClick={() => router.navigate({ to: PATHS.USERS_MANAGEMENT })}
                 className="flex-1"
               >
                 Hủy

@@ -20,7 +20,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Coffee } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import * as z from "zod";
 
 const formSchema = z.object({
@@ -33,7 +33,11 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 function UpsertCoffeeTablePage() {
-  const { id = "" } = useParams();
+  const coffeeTableParams = useParams({
+    from: "/coffee-tables/$id/edit",
+    shouldThrow: false,
+  });
+  const id = coffeeTableParams?.id ?? "";
   const navigate = useNavigate();
   const isEditMode = Boolean(id);
 
@@ -72,7 +76,7 @@ function UpsertCoffeeTablePage() {
         title: "Table created successfully",
         description: "The coffee table has been created.",
       });
-      navigate(PATHS.COFFEE_TABLES);
+      navigate({ to: PATHS.COFFEE_TABLES });
     },
     onError: (error) => {
       toast({
@@ -90,7 +94,7 @@ function UpsertCoffeeTablePage() {
         title: "Table updated successfully",
         description: "Coffee table information has been updated.",
       });
-      navigate(PATHS.COFFEE_TABLES);
+      navigate({ to: PATHS.COFFEE_TABLES });
     },
     onError: (error) => {
       toast({

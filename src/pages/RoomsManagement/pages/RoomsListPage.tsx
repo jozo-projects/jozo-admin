@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { PencilIcon, TrashIcon } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 // import { toast } from "sonner";
 
 function RoomsListPage() {
@@ -93,7 +93,10 @@ function RoomsListPage() {
       cell: ({ row }) =>
         isAdmin ? (
           <div className="flex items-center justify-center gap-2">
-            <Link to={`/rooms/${row.original._id}/edit`}>
+            <Link
+                to="/rooms/$id/edit"
+              params={{ id: row.original._id }}
+            >
               <Button variant="ghost" size="icon">
                 <PencilIcon size={16} />
               </Button>

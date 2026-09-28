@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ElementType, ReactNode } from "react";
 
 // Định nghĩa các kiểu cho variant
 type Variant = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p" | "span";
@@ -29,7 +29,7 @@ function Typography({
   ...props
 }: TypographyProps) {
   // Xác định thẻ HTML tương ứng dựa trên variant
-  const Component = variant as keyof JSX.IntrinsicElements;
+  const Component: ElementType = variant;
   const variantClass = variantClasses[variant]; // Lấy lớp CSS theo variant
 
   return (

@@ -16,7 +16,7 @@ import type { SupportRequest } from "@/@types/SupportRequest";
 export const useSocket = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const socketRef = useRef<typeof Socket | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     if (!user) return;

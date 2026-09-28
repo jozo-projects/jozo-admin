@@ -252,7 +252,7 @@ const syncMenuItemDetailCaches = (
 };
 
 // API functions using fnbMenuApis
-const fetchMenuItems = async (): Promise<FnBMenuItem[]> => {
+export const fetchMenuItems = async (): Promise<FnBMenuItem[]> => {
   const response = await fnbMenuApis.getAllMenuItems();
   return response.data.result || [];
 };

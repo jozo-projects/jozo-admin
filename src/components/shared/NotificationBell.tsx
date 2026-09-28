@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDeleteNotification } from "@/hooks/use-notifications";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 
 export const NotificationBell = () => {
@@ -95,9 +95,9 @@ export const NotificationBell = () => {
     // Navigate to my-schedule page with scheduleId if available
     if (notification.data?.scheduleId) {
       setIsOpen(false); // Close dropdown
-      navigate(
-        `${PATHS.MY_SCHEDULE}?scheduleId=${notification.data.scheduleId}`,
-      );
+      navigate({
+        to: `${PATHS.MY_SCHEDULE}?scheduleId=${notification.data.scheduleId}` as never,
+      });
     }
   };
 
@@ -246,7 +246,7 @@ export const NotificationBell = () => {
               className="justify-center cursor-pointer"
               onClick={() => {
                 setIsOpen(false);
-                navigate(PATHS.NOTIFICATIONS);
+                navigate({ to: PATHS.NOTIFICATIONS as never });
               }}
             >
               <span className="text-sm text-primary">Xem tất cả</span>
