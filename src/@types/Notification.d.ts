@@ -7,6 +7,7 @@ export enum NotificationType {
   ScheduleReminder = "schedule_reminder",
   ScheduleStatusUpdated = "schedule_status_updated",
   System = "system",
+  MessengerMessageReceived = "messenger_message_received",
 }
 
 export interface INotification {

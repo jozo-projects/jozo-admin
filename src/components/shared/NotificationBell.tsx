@@ -216,6 +216,19 @@ export const NotificationBell = () => {
                       <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
                         {notification.body}
                       </p>
+                      {notification.type === "messenger_message_received" && notification.data?.actionUrl && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 h-7 text-xs"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            window.open((notification.data || {}).actionUrl, "_blank", "noopener,noreferrer");
+                          }}
+                        >
+                          Mở Messenger Inbox
+                        </Button>
+                      )}
                       <div className="flex items-center justify-between mt-2">
                         <p className="text-xs text-muted-foreground">
                           {timeAgo(notification.createdAt)}
