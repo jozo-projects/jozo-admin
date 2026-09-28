@@ -44,7 +44,7 @@ function UpsertRoomPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const roomParams = useParams({
-    from: "/rooms/$id/edit",
+    from: "/_authenticated/rooms/$id/edit",
     shouldThrow: false,
   });
   const id = roomParams?.id ?? "";

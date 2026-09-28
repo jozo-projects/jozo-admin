@@ -95,7 +95,9 @@ type UpdateStreakFormData = z.infer<typeof updateStreakSchema>;
 
 const EditUserForm = () => {
   const router = useRouter();
-  const userParams = useParams({ from: "/users-management/$id/edit" });
+  const userParams = useParams({
+    from: "/_authenticated/users-management/$id/edit",
+  });
   const id = userParams.id;
   const [activeSection, setActiveSection] = useState("overview");
   const { updateUser, useUserById, useUserMembership, isUpdatingUser } =

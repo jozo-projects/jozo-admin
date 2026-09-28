@@ -22,7 +22,9 @@ import { canReorderFullList, reorderById } from "./utils/reorder";
 const ADMIN_SONG_LIMIT = 500;
 
 export default function MusicCategoryDetailPage() {
-  const { categoryId = "" } = useParams({ from: "/music-categories/$categoryId" });
+  const { categoryId = "" } = useParams({
+    from: "/_authenticated/music-categories/$categoryId",
+  });
   const categoryQuery = useMusicCategory(categoryId);
   const songsQuery = useAdminCategorySongs(categoryId, { page: 1, limit: ADMIN_SONG_LIMIT });
   const removeMutation = useRemoveCategorySongs();
