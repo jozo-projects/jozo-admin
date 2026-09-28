@@ -31,13 +31,9 @@ export const useSocket = () => {
 
     // Initialize socket connection với query params mới
     const queryParams: { role: string; userId?: string } = {
-      role: userRole, // 'admin' hoặc 'staff'
+      role: userRole,
+      userId,
     };
-
-    // Thêm userId cho staff để nhận notifications riêng
-    if (userRole === "staff") {
-      queryParams.userId = userId;
-    }
 
     socketRef.current = io(import.meta.env.VITE_SOCKET_URL, {
       autoConnect: true,

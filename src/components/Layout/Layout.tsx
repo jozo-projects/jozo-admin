@@ -8,6 +8,7 @@ import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { AppSidebar } from "./AppSideBar";
+import { MessengerInbox } from "../shared/MessengerInbox";
 import { NotificationBell } from "../shared/NotificationBell";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4" />
           <div className="ml-auto flex items-center gap-1">
+            <MessengerInbox />
             <NotificationBell />
             <Button
               variant="ghost"

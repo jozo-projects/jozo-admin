@@ -192,6 +192,19 @@ function NotificationsPage() {
                             </div>
                           </div>
                           <p className="mb-3 text-sm text-muted-foreground">{notification.body}</p>
+                          {notification.type === "messenger_message_received" && notification.data?.actionUrl && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="mb-3"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                window.open((notification.data || {}).actionUrl, "_blank", "noopener,noreferrer");
+                              }}
+                            >
+                              Mở Messenger Inbox
+                            </Button>
+                          )}
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <span>{formatUTCToLocal(notification.createdAt)}</span>
                             <span>{timeAgo(notification.createdAt)}</span>

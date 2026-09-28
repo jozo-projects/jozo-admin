@@ -47,6 +47,7 @@ import {
   StaffScheduleRoute,
 } from "./route-components/work";
 import {
+  MessengerMessagesRoute,
   NotificationsRoute,
   SupportHistoryRoute,
 } from "./route-components/notifications";
@@ -221,6 +222,11 @@ const notificationsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "notifications",
   component: NotificationsRoute,
+});
+const messengerMessagesRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: "messenger-messages",
+  component: MessengerMessagesRoute,
 });
 const supportHistoryRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
@@ -413,6 +419,7 @@ export const routeTree = rootRoute.addChildren([
     myEarningsRoute,
     myErrorLogsRoute,
     notificationsRoute,
+    messengerMessagesRoute,
     supportHistoryRoute,
     songsCollectionRoute,
     fnbShiftCountRoute,
