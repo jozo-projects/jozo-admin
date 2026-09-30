@@ -50,6 +50,10 @@ interface IRoomSchedule {
   bookingCode?: string;
   // Gift enabled
   giftEnabled?: boolean;
+  photoDisplayState?: "hidden" | "showing" | "deleted";
+  photos?: Array<{ id: string; url: string; publicId: string; position: number }>;
+  /** Khuyến mãi đã chọn lúc booked — dùng lại khi mở modal thanh toán */
+  promotionId?: string;
   // Free hour promotion
   applyFreeHourPromo?: boolean;
   /** Size khách đặt / đang sử dụng (snapshot, khác room.roomType vật lý) */
@@ -62,10 +66,36 @@ interface IRoomScheduleChangedSocketPayload {
   roomIndex: string;
 }
 
+type RoomDeviceClientType = "control" | "video" | "unknown";
+
+interface RoomDeviceConnection {
+  deviceId: string;
+  roomId: string;
+  clientType: RoomDeviceClientType;
+  socketId: string;
+  origin: string;
+  connectedAt: string; // ISO
+}
+
+interface RoomDeviceRoomGroup {
+  roomId: string;
+  count: number;
+  devices: RoomDeviceConnection[];
+}
+
+interface RoomDeviceConnectionsSnapshot {
+  rooms: RoomDeviceRoomGroup[];
+  totalDevices: number;
+}
+
 export type {
   IRoom,
   ITimeSlot,
   ITimeSlotPrice,
   IRoomSchedule,
   IRoomScheduleChangedSocketPayload,
+  RoomDeviceClientType,
+  RoomDeviceConnection,
+  RoomDeviceRoomGroup,
+  RoomDeviceConnectionsSnapshot,
 };

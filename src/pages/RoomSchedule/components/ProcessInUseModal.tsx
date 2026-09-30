@@ -5,11 +5,13 @@ import {
   mergeOrderDetailItems,
 } from "@/utils/mergeOrderDetailItems";
 import { BillGift } from "@/@types/Gift";
-import { IRoomSchedule } from "@/@types/Room";
+import { IRoom, IRoomSchedule } from "@/@types/Room";
 import billAPis from "@/apis/bill.apis";
 import fnbOrderApis from "@/apis/fnbOrder.apis";
 import roomsScheduleApis, { IChangeRoomRequest } from "@/apis/roomSchedule.api";
+import roomsMusicApis from "@/apis/roomMusic.apis";
 import MenuItemsModal from "@/components/modules/RoomSchedule/MenuItemsModal";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,18 +22,33 @@ import {
 } from "@/components/ui/dialog";
 import { PaymentMethod, RoomStatus } from "@/constants/enum";
 import { toast } from "@/hooks/use-toast";
-import dayjs from "@/lib/dayjs";
+import dayjs, { parseUTCToLocal } from "@/lib/dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useScheduleMemberPhone } from "../hooks/useScheduleMemberPhone";
-import { getScheduleCustomerContact } from "../utils/memberPhone";
+import {
+  getScheduleCustomerContact,
+  isValidMemberEmail,
+} from "../utils/memberPhone";
+import {
+  formatTierDiscountLabel,
+  resolveBillMembershipDiscount,
+} from "../utils/membershipDiscount";
+import { isRoomUnderMaintenance } from "../utils/roomStatus";
 import ScheduleMemberSection from "./ScheduleMemberSection";
+import ImagePicker from "@/components/ui/image-picker";
 import ScheduleRoomTypeSection from "./ScheduleRoomTypeSection";
 import { getRoomTypeLabel } from "../utils/scheduleRoomType";
+import {
+  buildInvoiceGiftLines,
+  getServedGiftRemainingQuota,
+  toPaidBillItems,
+  type InvoiceGiftLine,
+} from "../utils/billGiftItems";
 // import BillPreviewModal from "./BillPreviewModal";
 // import { ApiResponse } from "@/@types/ApiResponse";
-import { IRoom } from "@/@types/Room";
+import { IBillMembership, IBillMembershipDiscount } from "@/@types/Bill";
 import roomApis from "@/apis/room.apis";
 import {
   AlertDialog,
@@ -61,8 +78,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGetStandardPromotions } from "@/hooks/promotion";
+import {
+  getRoomSchedulesQueryKeyForSchedule,
+  patchScheduleInRoomSchedulesCache,
+  persistSchedulePromotionInCache,
+} from "@/hooks/room-schedule";
 import { useGetMenuItems } from "@/hooks/use-menu-items";
 import useAuth from "@/hooks/useAuth";
+import { showApiValidationErrorToast } from "@/utils/apiValidationError";
 import { buildBillDateTimeFromSchedule } from "@/utils/billDateTime";
 import { CalendarDays, Clock, Gift, Minus, Plus, Printer } from "lucide-react";
 
@@ -92,6 +115,9 @@ interface BillData {
   startTime?: string | Date;
   gift?: BillGift;
   giftDiscountAmount?: number;
+  membership?: IBillMembership;
+  membershipDiscountAmount?: number;
+  membershipDiscount?: IBillMembershipDiscount;
 }
 
 // Interface cho bill response từ API
@@ -107,6 +133,9 @@ interface BillResponse {
   startTime?: string | Date;
   gift?: BillGift;
   giftDiscountAmount?: number;
+  membership?: IBillMembership;
+  membershipDiscountAmount?: number;
+  membershipDiscount?: IBillMembershipDiscount;
 }
 
 interface BillResultWithNote extends BillResponse {
@@ -130,9 +159,11 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
 }) => {
   const [isMenuItemsModalOpen, setIsMenuItemsModalOpen] = useState(false);
   const [isConfirmEndOpen, setIsConfirmEndOpen] = useState(false);
+  const [isMoveQueueConfirmOpen, setIsMoveQueueConfirmOpen] = useState(false);
   const [selectedPromotion, setSelectedPromotion] = useState<string>("");
   const [customEndTime, setCustomEndTime] = useState<string>("");
   const [customStartTime, setCustomStartTime] = useState<string>("");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
   const [customEndDate, setCustomEndDate] = useState<string>("");
   const [isEndDateManuallyAdjusted, setIsEndDateManuallyAdjusted] =
     useState<boolean>(false);
@@ -141,20 +172,46 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   const [targetRoomId, setTargetRoomId] = useState<string>("");
   const [roomChangeNote, setRoomChangeNote] = useState<string>("");
   const [customerPaidInput, setCustomerPaidInput] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"bill" | "member">("bill");
+  const [expandMemberGiftPicker, setExpandMemberGiftPicker] = useState(false);
   const { data: menuItems } = useGetMenuItems();
   const { user } = useAuth();
   const { data: standardPromotions } = useGetStandardPromotions();
   const promotionList = standardPromotions?.data.result ?? [];
   const queryClient = useQueryClient();
-
-  const billQueryKey = [
-    "bill",
-    schedule._id,
-    selectedPromotion,
-    customEndTime,
-    customStartTime,
-    customEndDate,
-  ] as const;
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreview, setPhotoPreview] = useState<string>("");
+  const { data: photoDisplayData, refetch: refetchPhotoDisplay } = useQuery({
+    queryKey: ["schedulePhotoDisplay", schedule._id],
+    queryFn: () => roomsScheduleApis.getPhotoDisplay(schedule._id),
+    enabled: isOpen && !!schedule._id,
+  });
+  const photoDisplay = photoDisplayData?.data?.result;
+  const photoMutation = useMutation({
+    mutationFn: (file: File) =>
+      roomsScheduleApis.uploadPhoto(schedule._id, file),
+    onSuccess: () => {
+      setPhotoFiles([]);
+      setPhotoPreview("");
+      refetchPhotoDisplay();
+      toast({ title: "Đã tải ảnh", description: "Ảnh đang ở trạng thái ẩn." });
+    },
+  });
+  const displayMutation = useMutation({
+    mutationFn: (state: "hidden" | "showing") =>
+      roomsScheduleApis.setPhotoDisplay(schedule._id, state),
+    onSuccess: () => {
+      refetchPhotoDisplay();
+      toast({ title: "Đã cập nhật hiển thị ảnh" });
+    },
+  });
+  const deletePhotosMutation = useMutation({
+    mutationFn: () => roomsScheduleApis.deletePhotos(schedule._id),
+    onSuccess: () => {
+      refetchPhotoDisplay();
+      toast({ title: "Đã xóa ảnh" });
+    },
+  });
 
   const member = useScheduleMemberPhone({
     scheduleId: schedule._id,
@@ -163,26 +220,65 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     isOpen,
     refetchSchedules,
     onGiftServed: () => {
-      queryClient.invalidateQueries({ queryKey: billQueryKey });
+      queryClient.invalidateQueries({ queryKey: ["bill", schedule._id] });
       queryClient.invalidateQueries({
         queryKey: ["fnbOrderDetail", schedule._id],
       });
     },
   });
 
+  const billPhone =
+    member.hasSavedValidPhone && !member.isPhoneDirty
+      ? member.savedPhone.trim()
+      : "";
+
+  const billQueryKey = [
+    "bill",
+    schedule._id,
+    selectedPromotion,
+    customEndTime,
+    customStartTime,
+    customStartDate,
+    customEndDate,
+    billPhone,
+  ] as const;
+
   const openMenuItemsModal = () => setIsMenuItemsModalOpen(true);
   const closeMenuItemsModal = () => setIsMenuItemsModalOpen(false);
 
-  // Giờ kết thúc / ngày / SĐT: đồng bộ khi mở modal hoặc khi schedule đổi
+  // Giờ bắt đầu lấy từ schedule; giờ kết thúc mặc định = hiện tại (endTime trên schedule chỉ là dự kiến)
   useEffect(() => {
     if (isOpen) {
-      setCustomEndTime(dayjs().format("HH:mm"));
-      setCustomStartTime(dayjs(schedule.startTime).format("HH:mm"));
-      setCustomEndDate(dayjs(schedule.startTime).format("YYYY-MM-DD"));
+      const startLocal = parseUTCToLocal(schedule.startTime);
+      const startDate = startLocal.format("YYYY-MM-DD");
+      const startTime = startLocal.format("HH:mm");
+      const endTimeNow = dayjs().format("HH:mm");
+      const suggested = buildBillDateTimeFromSchedule({
+        scheduleStartTime: schedule.startTime,
+        selectedStartDate: startDate,
+        selectedStartTime: startTime,
+        selectedEndTime: endTimeNow,
+      });
+
+      setCustomStartDate(startDate);
+      setCustomStartTime(startTime);
+      setCustomEndTime(endTimeNow);
+      setCustomEndDate(suggested.suggestedEndDate);
       setIsEndDateManuallyAdjusted(false);
       setCustomerPaidInput("");
+      setSelectedPromotion(schedule.promotionId || "");
+      setActiveTab("bill");
+      setExpandMemberGiftPicker(false);
     }
-  }, [isOpen, schedule.startTime]);
+  }, [isOpen, schedule._id, schedule.startTime, schedule.promotionId]);
+
+  const focusMemberTabOnContactError = (
+    fieldErrors: Record<string, string>,
+  ) => {
+    if (fieldErrors.customerEmail || fieldErrors.customerPhone) {
+      setActiveTab("member");
+    }
+  };
 
   const getAppliedPromotion = () => {
     if (!selectedPromotion) return null;
@@ -206,19 +302,28 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     (room) => room._id === schedule.roomId,
   );
   const rooms = fetchedRooms?.data?.result || roomsData?.data.result || [];
-  const availableRooms = rooms.filter((room) => room._id !== schedule.roomId);
+  const availableRooms = rooms.filter(
+    (room) => room._id !== schedule.roomId && !isRoomUnderMaintenance(room),
+  );
+  const selectedTargetRoom = availableRooms.find(
+    (room) => String(room._id) === targetRoomId,
+  );
 
-  const { mutate, isPending } = useMutation({
+  const { mutateAsync: updateScheduleAsync, isPending } = useMutation({
     mutationFn: (payload: Partial<IRoomSchedule>) =>
       roomsScheduleApis.updateSchedule(schedule._id, payload),
     onSuccess: (_, variables) => {
-      refetchSchedules?.();
+      void queryClient.invalidateQueries({
+        queryKey: getRoomSchedulesQueryKeyForSchedule(schedule),
+        refetchType: "active",
+      });
       onClose();
 
       if (variables.status === RoomStatus.Finished) {
         const memberLabel =
           member.memberInfo?.full_name?.trim() ||
           member.memberInfo?.name?.trim() ||
+          variables.customerPhone?.trim() ||
           member.savedPhone.trim() ||
           schedule.customerPhone ||
           "khách";
@@ -236,15 +341,61 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         description: `Schedule updated to ${variables.status}`,
       });
     },
+    onError: (error) => {
+      showApiValidationErrorToast(
+        error,
+        {
+          title: "Error",
+          description: "Không thể cập nhật lịch phòng",
+        },
+        { onFieldErrors: focusMemberTabOnContactError },
+      );
+    },
+  });
+
+  // Mutation riêng để cập nhật promotion trên schedule
+  const { mutate: updatePromotion } = useMutation({
+    mutationFn: (promotionId: string | null) =>
+      roomsScheduleApis.updateSchedule(schedule._id, { promotionId }),
+    onMutate: async (newPromotionId) => {
+      const queryKey = getRoomSchedulesQueryKeyForSchedule(schedule);
+
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousSchedules =
+        queryClient.getQueryData<IRoomSchedule[]>(queryKey);
+
+      patchScheduleInRoomSchedulesCache(queryClient, schedule, {
+        promotionId: newPromotionId || undefined,
+      });
+
+      return { previousSchedules, queryKey, newPromotionId };
+    },
+    onSuccess: (_data, newPromotionId) => {
+      persistSchedulePromotionInCache(queryClient, schedule, newPromotionId);
+      setSelectedPromotion(newPromotionId || "");
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousSchedules && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousSchedules);
+      }
+      const rollbackPromotionId =
+        context?.previousSchedules?.find((s) => s._id === schedule._id)
+          ?.promotionId || schedule.promotionId;
+      setSelectedPromotion(rollbackPromotionId || "");
+      toast({
+        title: "Error",
+        description: "Không thể cập nhật khuyến mãi",
+        variant: "destructive",
+      });
+    },
   });
 
   // Mutation riêng để cập nhật note
   const { mutate: updateNote, isPending: isUpdatingNote } = useMutation({
     mutationFn: (note: string) =>
       roomsScheduleApis.updateSchedule(schedule._id, { note }),
-    onSuccess: () => {
-      refetchSchedules?.();
-    },
+    onSuccess: () => {},
     onError: (error) => {
       console.error("Error updating note:", error);
       toast({
@@ -255,16 +406,39 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     },
   });
 
+  const { mutate: updateScheduleTime, isPending: isUpdatingTime } = useMutation(
+    {
+      mutationFn: (payload: { startTime: string; endTime: string }) =>
+        roomsScheduleApis.updateSchedule(schedule._id, payload),
+      onSuccess: (_, variables) => {
+        patchScheduleInRoomSchedulesCache(queryClient, schedule, {
+          startTime: variables.startTime,
+          endTime: variables.endTime,
+        });
+        queryClient.invalidateQueries({ queryKey: billQueryKey });
+        toast({
+          title: "Đã cập nhật giờ",
+          description: "Thời gian bắt đầu / kết thúc đã được lưu.",
+        });
+      },
+      onError: (mutationError) => {
+        toast({
+          title: "Không thể cập nhật giờ",
+          description: mutationError.message || "Vui lòng thử lại.",
+          variant: "destructive",
+        });
+      },
+    },
+  );
+
   // Mutation đổi phòng
   const { mutate: changeRoom, isPending: isChangingRoom } = useMutation({
     mutationFn: (payload: IChangeRoomRequest) =>
       roomsScheduleApis.changeRoom(schedule._id, payload),
     onSuccess: () => {
-      refetchSchedules?.();
       toast({
-        title: "Success",
-        description:
-          "Đã đổi phòng thành công. Queue nhạc đã được chuyển sang phòng mới.",
+        title: "Đã đổi phòng",
+        description: "Phòng đã được cập nhật. Danh sách nhạc chưa được chuyển.",
       });
       onClose();
     },
@@ -277,11 +451,37 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     },
   });
 
+  const { mutate: moveQueue, isPending: isMovingQueue } = useMutation({
+    mutationFn: () => {
+      const sourceRoomIndex = room?.roomId;
+      const targetRoomIndex = selectedTargetRoom?.roomId;
+      if (sourceRoomIndex == null || targetRoomIndex == null) {
+        throw new Error("Không xác định được số phòng nguồn hoặc phòng đích");
+      }
+      return roomsMusicApis.moveQueue(String(sourceRoomIndex), {
+        targetRoomId: String(targetRoomIndex),
+      });
+    },
+    onSuccess: () => {
+      setIsMoveQueueConfirmOpen(false);
+      toast({
+        title: "Đã chuyển danh sách nhạc",
+        description: "Các bài đang chờ đã được nối vào cuối queue phòng mới.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Không thể chuyển danh sách nhạc",
+        description: "Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Sau khi lưu size, cần tính lại tiền phòng theo size mới:
   // invalidate query bill để backend trả về giá đúng với roomType mới.
   const handleRoomTypeUpdated = () => {
     queryClient.invalidateQueries({ queryKey: billQueryKey });
-    refetchSchedules?.();
   };
 
   const handleChangeRoom = () => {
@@ -316,6 +516,23 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     changeRoom(payload);
   };
 
+  const handleMoveQueue = () => {
+    if (
+      !targetRoomId ||
+      !selectedTargetRoom ||
+      targetRoomId === schedule.roomId
+    ) {
+      toast({
+        title: "Chưa chọn phòng đích",
+        description:
+          "Vui lòng chọn một phòng khác trước khi chuyển danh sách nhạc.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsMoveQueueConfirmOpen(true);
+  };
+
   // Mutation để cập nhật số lượng item (dùng add/remove)
   const { mutate: updateItemQuantity, isPending: isUpdatingQuantity } =
     useMutation({
@@ -328,7 +545,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         quantity: number;
         category: string;
       }) => {
-        if (!schedule._id || !user?._id) return;
+        if (!schedule._id || !schedule.createdBy) return;
 
         // Get current quantity
         const currentQuantity = getOrderItemQuantity(orderDetailData, itemId);
@@ -346,7 +563,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
               ? { drinks: { [itemId]: Math.abs(diff) } }
               : { snacks: { [itemId]: Math.abs(diff) } }),
           },
-          createdBy: user._id,
+          createdBy: schedule.createdBy,
         };
 
         if (diff > 0) {
@@ -554,6 +771,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   const billDateTimePayload = buildBillDateTimeFromSchedule({
     scheduleStartTime: schedule.startTime,
     selectedStartTime: customStartTime,
+    selectedStartDate: customStartDate || undefined,
     selectedEndTime: customEndTime,
     selectedEndDate: customEndDate || undefined,
   });
@@ -567,6 +785,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         selectedPromotion || undefined,
         billDateTimePayload.actualEndTime,
         billDateTimePayload.actualStartTime,
+        undefined,
+        billPhone || undefined,
       );
     },
     enabled: isOpen && !!customStartTime && !!customEndTime,
@@ -647,12 +867,53 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     roomTotal,
     createdAt,
     fnbTotal,
-    paymentMethod = PaymentMethod.Cash,
+    paymentMethod = PaymentMethod.BankTransfer,
     note,
     gift,
     giftDiscountAmount = 0,
+    membership: billMembership,
+    membershipDiscountAmount: billMembershipDiscountAmount,
+    membershipDiscount: billMembershipDiscount,
   } = billResult;
   const items = itemsWithDetails;
+  const giftLines = useMemo(
+    () => buildInvoiceGiftLines(member.servedGifts, gift),
+    [member.servedGifts, gift],
+  );
+  const paidItems = useMemo(
+    () => toPaidBillItems(items, giftLines),
+    [items, giftLines],
+  );
+  const giftRemainingQuota = useMemo(
+    () => getServedGiftRemainingQuota(member.servedGifts),
+    [member.servedGifts],
+  );
+  const hasBillRows = paidItems.length > 0 || giftLines.length > 0;
+
+  const membershipDiscountDisplay = useMemo(
+    () =>
+      resolveBillMembershipDiscount({
+        membership: billMembership,
+        membershipDiscount: billMembershipDiscount,
+        membershipDiscountAmount: billMembershipDiscountAmount,
+      }),
+    [billMembership, billMembershipDiscount, billMembershipDiscountAmount],
+  );
+  const membershipDiscountLabel = formatTierDiscountLabel(
+    membershipDiscountDisplay,
+  );
+  const membershipDiscountApplied =
+    membershipDiscountDisplay?.appliedAmount !== undefined &&
+    membershipDiscountDisplay.appliedAmount > 0
+      ? membershipDiscountDisplay.appliedAmount
+      : 0;
+  const hasMembershipDiscountUi = Boolean(
+    membershipDiscountDisplay &&
+    (membershipDiscountLabel ||
+      membershipDiscountApplied > 0 ||
+      membershipDiscountDisplay.tier ||
+      membershipDiscountDisplay.name),
+  );
 
   const amountToThousands = (amount: number) => Math.round(amount / 1000);
 
@@ -671,9 +932,32 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       ? customerPaidThousands - billTotalThousands
       : null;
 
-  const handleCompleteSession = () => {
+  const handleCompleteSession = async () => {
     const actualEndTime = billDateTimePayload.actualEndTime;
     const actualStartTime = billDateTimePayload.actualStartTime;
+
+    const { customerEmail } = getScheduleCustomerContact({
+      memberInfo: member.memberInfo,
+      scheduleCustomerName: schedule.customerName,
+      scheduleCustomerEmail: schedule.customerEmail,
+    });
+    if (!isValidMemberEmail(customerEmail)) {
+      toast({
+        title: "Email không hợp lệ",
+        description:
+          "Vui lòng cập nhật lại email thành viên trước khi kết thúc",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Auto-save SĐT nếu đang dirty (đã nhập nhưng chưa bấm Lưu)
+    const ensuredPhone = await member.ensurePhoneSavedForSubmit();
+    if (ensuredPhone === null) return;
+
+    // Dùng đúng SĐT đã ensure (kể cả "" khi đã clear) — không fallback schedule cũ
+    const customerPhone = ensuredPhone;
+    setIsConfirmEndOpen(false);
 
     // Tạo bill object để save
     const billToSave = {
@@ -681,7 +965,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       roomId: schedule.roomId,
       items: items || [],
       totalAmount: totalAmount || 0,
-      customerPhone: member.savedPhone.trim() || schedule.customerPhone,
+      customerPhone,
+      phone: customerPhone || undefined,
       paymentMethod: paymentMethod,
       startTime: actualStartTime,
       endTime: actualEndTime,
@@ -689,35 +974,39 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       promotionId: selectedPromotion || undefined,
     };
 
-    // Save bill trước khi update schedule status
-    saveBillMutation(billToSave, {
-      onSuccess: () => {
-        // Invalidate streak-gifts query để refresh member info
-        if (member.savedPhone.trim()) {
-          queryClient.invalidateQueries({
-            queryKey: ["streak-gifts", member.savedPhone.trim()],
-          });
-        }
+    try {
+      // Bước 1: lưu bill trước.
+      await saveBillAsync(billToSave);
 
-        const { customerName, customerEmail } = getScheduleCustomerContact({
-          memberInfo: member.memberInfo,
-          scheduleCustomerName: schedule.customerName,
-          scheduleCustomerEmail: schedule.customerEmail,
+      // Invalidate membership/streak queries để refresh member info
+      if (customerPhone) {
+        await queryClient.invalidateQueries({
+          queryKey: ["streak-gifts", customerPhone],
         });
+      }
 
-        // Sau khi save bill thành công, update schedule status
-        const updateData: Partial<IRoomSchedule> = {
-          ...schedule,
-          status: RoomStatus.Finished,
-          endTime: actualEndTime,
-          startTime: actualStartTime,
-          customerPhone: member.savedPhone.trim() || schedule.customerPhone || "",
-          customerName,
-          customerEmail,
-        };
-        mutate(updateData, { onSuccess: () => refetchSchedules?.() });
-      },
-    });
+      const { customerName, customerEmail } = getScheduleCustomerContact({
+        memberInfo: member.memberInfo,
+        scheduleCustomerName: schedule.customerName,
+        scheduleCustomerEmail: schedule.customerEmail,
+      });
+
+      // Bước 2: bắt buộc chuyển schedule sang finished.
+      // Dùng mutateAsync để nếu PUT lỗi thì không đóng modal và hiện lỗi rõ ràng.
+      const updateData: Partial<IRoomSchedule> = {
+        ...schedule,
+        status: RoomStatus.Finished,
+        endTime: actualEndTime,
+        startTime: actualStartTime,
+        customerPhone,
+        customerName,
+        customerEmail,
+      };
+      await updateScheduleAsync(updateData);
+    } catch (error) {
+      // onError của mutation đã hiển thị toast tương ứng.
+      console.error("Không thể hoàn tất phiên sau khi lưu bill:", error);
+    }
   };
 
   const handleExtendSession = () => {
@@ -748,15 +1037,21 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   };
 
   const handlePromotionChange = (value: string) => {
-    setSelectedPromotion(value === "none" ? "" : value);
-    // Query sẽ tự động refetch khi selectedPromotion thay đổi
+    const nextPromotionId = value === "none" ? "" : value;
+    setSelectedPromotion(nextPromotionId);
+    updatePromotion(nextPromotionId || null);
   };
 
-  const syncSuggestedEndDate = (nextStartTime: string, nextEndTime: string) => {
+  const syncSuggestedEndDate = (
+    nextStartDate: string,
+    nextStartTime: string,
+    nextEndTime: string,
+  ) => {
     if (isEndDateManuallyAdjusted) return;
 
     const suggested = buildBillDateTimeFromSchedule({
       scheduleStartTime: schedule.startTime,
+      selectedStartDate: nextStartDate || undefined,
       selectedStartTime: nextStartTime,
       selectedEndTime: nextEndTime,
     });
@@ -766,13 +1061,20 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   const handleEndTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nextEndTime = e.target.value;
     setCustomEndTime(nextEndTime);
-    syncSuggestedEndDate(customStartTime, nextEndTime);
+    syncSuggestedEndDate(customStartDate, customStartTime, nextEndTime);
   };
 
   const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nextStartTime = e.target.value;
     setCustomStartTime(nextStartTime);
-    syncSuggestedEndDate(nextStartTime, customEndTime);
+    syncSuggestedEndDate(customStartDate, nextStartTime, customEndTime);
+  };
+
+  const handleStartDateChange = (date?: Date) => {
+    if (!date) return;
+    const nextStartDate = dayjs(date).format("YYYY-MM-DD");
+    setCustomStartDate(nextStartDate);
+    syncSuggestedEndDate(nextStartDate, customStartTime, customEndTime);
   };
 
   const handleEndDateChange = (date?: Date) => {
@@ -780,6 +1082,44 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
 
     setCustomEndDate(dayjs(date).format("YYYY-MM-DD"));
     setIsEndDateManuallyAdjusted(true);
+  };
+
+  const handleUpdateScheduleTime = () => {
+    if (!customStartTime || !customEndTime || !customStartDate) {
+      toast({
+        title: "Thiếu thông tin",
+        description: "Vui lòng nhập đủ ngày/giờ bắt đầu và kết thúc.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { actualStartTime, actualEndTime, suggestedEndDate, isCrossDay } =
+      buildBillDateTimeFromSchedule({
+        scheduleStartTime: schedule.startTime,
+        selectedStartDate: customStartDate,
+        selectedStartTime: customStartTime,
+        selectedEndTime: customEndTime,
+        selectedEndDate: customEndDate || undefined,
+      });
+
+    if (!dayjs(actualEndTime).isAfter(dayjs(actualStartTime))) {
+      toast({
+        title: "Giờ không hợp lệ",
+        description: "Thời gian kết thúc phải sau thời gian bắt đầu.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isCrossDay && !customEndDate) {
+      setCustomEndDate(suggestedEndDate);
+    }
+
+    updateScheduleTime({
+      startTime: actualStartTime,
+      endTime: actualEndTime,
+    });
   };
 
   // Functions để xử lý edit note
@@ -875,7 +1215,38 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   const adjustItemQuantity = (item: BillItem, change: number) => {
     const target = resolveItemTarget(item);
     if (!target) return;
-    handleQuantityChange(target.itemId, item.quantity, change, target.category);
+    const currentOrderQty = getOrderItemQuantity(
+      orderDetailData,
+      target.itemId,
+    );
+    handleQuantityChange(
+      target.itemId,
+      currentOrderQty,
+      change,
+      target.category,
+    );
+  };
+
+  const goToMemberTabForGift = () => {
+    setActiveTab("member");
+    toast({
+      title: "Sửa món tặng ở tab Member",
+      description: "Nhập SĐT thành viên rồi cộng/trừ suất quà tại đó",
+    });
+  };
+
+  const adjustGiftLineQuantity = (line: InvoiceGiftLine, change: number) => {
+    if (!line.canEdit || !line.itemId) {
+      goToMemberTabForGift();
+      return;
+    }
+    const nextQty = line.quantity + change;
+    if (change > 0 && line.remainingQuota <= 0) return;
+    if (nextQty <= 0) {
+      member.removeStreakGiftItem(line.streakCount, line.itemId);
+      return;
+    }
+    member.updateStreakGiftItemQty(line.streakCount, line.itemId, nextQty);
   };
 
   // Sử dụng useMutation để gọi API in hóa đơn
@@ -886,6 +1257,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         actualEndTime: billDateTimePayload.actualEndTime,
         actualStartTime: billDateTimePayload.actualStartTime,
         promotionId: selectedPromotion || undefined,
+        phone: billPhone || undefined,
+        customerPhone: billPhone || undefined,
       }),
     onSuccess: () => {
       toast({
@@ -904,15 +1277,14 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   });
 
   // Mutation để save bill vào collection bills
-  const { mutate: saveBillMutation, isPending: isSavingBill } = useMutation({
+  const { mutateAsync: saveBillAsync, isPending: isSavingBill } = useMutation({
     mutationFn: billAPis.saveBill,
     onSuccess: () => {},
     onError: (error) => {
       console.error("Lỗi khi lưu hóa đơn:", error);
-      toast({
+      showApiValidationErrorToast(error, {
         title: "Error",
         description: "Có lỗi xảy ra khi lưu hóa đơn",
-        variant: "destructive",
       });
     },
   });
@@ -932,7 +1304,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
           <div className="px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-2 sm:pt-6 sm:pb-6">
             <DialogHeader className="pb-3 pr-10 space-y-1">
               <DialogTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
-                <span>Phiên đang sử dụng</span>
+                <span>Thông tin phòng đang sử dụng</span>
                 {room?.roomName && (
                   <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
                     {room.roomName}
@@ -940,12 +1312,25 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                 )}
               </DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
-                Bắt đầu {dayjs(schedule.startTime).format("HH:mm")} · Kết thúc dự
-                kiến {dayjs(schedule.endTime).format("HH:mm")}
+                Bắt đầu {parseUTCToLocal(schedule.startTime).format("HH:mm")} ·
+                Kết thúc dự kiến{" "}
+                {schedule.endTime
+                  ? parseUTCToLocal(schedule.endTime).format("HH:mm")
+                  : "—"}
               </DialogDescription>
             </DialogHeader>
 
-            <Tabs defaultValue="bill" className="w-full">
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => {
+                const nextTab = value as "bill" | "member";
+                setActiveTab(nextTab);
+                if (nextTab !== "member") {
+                  setExpandMemberGiftPicker(false);
+                }
+              }}
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-2 mb-4 h-11">
                 <TabsTrigger value="bill" className="text-sm sm:text-base">
                   Hóa đơn
@@ -956,543 +1341,813 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
               </TabsList>
 
               <TabsContent value="bill" className="space-y-4 mt-0">
-            {/* Bill Section */}
-            <div className="rounded-md border bg-card text-sm">
-              <div className="flex items-center justify-between border-b px-3 py-2">
-                <h4 className="text-sm font-semibold">Hóa đơn</h4>
-                <span className="text-[11px] text-muted-foreground">
-                  Mã {room?._id.slice(0, 2)}
-                  {dayjs(createdAt || new Date()).format("HHmmDDMMYYYY")}
-                </span>
-              </div>
-
-              <div className="text-foreground">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 p-3 sm:grid-cols-4">
-                  <div className="flex flex-col">
+                {/* Bill Section */}
+                <div className="rounded-md border bg-card text-sm">
+                  <div className="flex items-center justify-between border-b px-3 py-2">
+                    <h4 className="text-sm font-semibold">Hóa đơn</h4>
                     <span className="text-[11px] text-muted-foreground">
-                      Phòng
+                      Mã {room?._id.slice(0, 2)}
+                      {dayjs(createdAt || new Date()).format("HHmmDDMMYYYY")}
                     </span>
-                    <span className="font-medium">{room?.roomName || "—"}</span>
-                  </div>
-                  <div className="col-span-2 flex flex-col sm:col-span-1">
-                    <span className="text-[11px] text-muted-foreground">
-                      Size
-                    </span>
-                    <ScheduleRoomTypeSection
-                      variant="inline"
-                      schedule={schedule}
-                      physicalRoomType={room?.roomType}
-                      onUpdated={handleRoomTypeUpdated}
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[11px] text-muted-foreground">
-                      Ngày tạo
-                    </span>
-                    <span className="font-medium">
-                      {dayjs(createdAt || new Date()).format("DD/MM/YYYY HH:mm")}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[11px] text-muted-foreground">
-                      Người tạo
-                    </span>
-                    <span className="font-medium">{user?.name || "—"}</span>
-                  </div>
-                </div>
-                <div className="border-t" />
-                <div className="grid gap-3 p-3 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="start-time"
-                      className="flex items-center gap-1 text-[11px] text-muted-foreground"
-                    >
-                      <Clock className="h-3 w-3" />
-                      Bắt đầu
-                    </Label>
-                    <Input
-                      id="start-time"
-                      type="time"
-                      value={customStartTime}
-                      onChange={handleStartTimeChange}
-                      className="h-9"
-                    />
                   </div>
 
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="end-time"
-                      className="flex items-center gap-1 text-[11px] text-muted-foreground"
-                    >
-                      <Clock className="h-3 w-3" />
-                      Kết thúc
-                    </Label>
-                    <Input
-                      id="end-time"
-                      type="time"
-                      value={customEndTime}
-                      onChange={handleEndTimeChange}
-                      className="h-9"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label
-                      htmlFor="end-date"
-                      className="text-[11px] text-muted-foreground"
-                    >
-                      Ngày kết thúc
-                    </Label>
-                    <Popover modal={true}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="end-date"
-                          type="button"
-                          variant="outline"
-                          className="h-9 w-full justify-between font-normal"
-                        >
-                          {customEndDate
-                            ? dayjs(customEndDate).format("DD/MM/YYYY")
-                            : "Chọn ngày"}
-                          <CalendarDays className="h-4 w-4 opacity-60" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={
-                            customEndDate
-                              ? dayjs(customEndDate).toDate()
-                              : undefined
-                          }
-                          onSelect={handleEndDateChange}
-                          initialFocus
+                  <div className="text-foreground">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 p-3 sm:grid-cols-4">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] text-muted-foreground">
+                          Phòng
+                        </span>
+                        <span className="font-medium">
+                          {room?.roomName || "—"}
+                        </span>
+                      </div>
+                      <div className="col-span-2 flex flex-col sm:col-span-1">
+                        <span className="text-[11px] text-muted-foreground">
+                          Size
+                        </span>
+                        <ScheduleRoomTypeSection
+                          variant="inline"
+                          schedule={schedule}
+                          physicalRoomType={room?.roomType}
+                          onUpdated={handleRoomTypeUpdated}
                         />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-                <div className="border-t" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] text-muted-foreground">
+                          Ngày tạo
+                        </span>
+                        <span className="font-medium">
+                          {dayjs(createdAt || new Date()).format(
+                            "DD/MM/YYYY HH:mm",
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[11px] text-muted-foreground">
+                          Người tạo
+                        </span>
+                        <span className="font-medium">
+                          {user?._id === schedule.createdBy
+                            ? user?.name || "—"
+                            : "—"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mx-3 mb-3 rounded-md border bg-card text-sm">
+                      <div className="flex items-center justify-between border-b px-3 py-2">
+                        <div>
+                          <h4 className="font-semibold">Hình ảnh khách hàng</h4>
+                          <p className="text-[11px] text-muted-foreground">
+                            Tối đa 1 ảnh · Staff có thể hiện hoặc ẩn
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground">
+                          {photoDisplay?.state === "showing"
+                            ? "Đang hiển thị"
+                            : "Đang ẩn"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                        <ImagePicker
+                          currentImage={
+                            photoPreview || photoDisplay?.photos?.[0]?.url
+                          }
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            setPhotoFiles([file]);
+                            setPhotoPreview(URL.createObjectURL(file));
+                          }}
+                          onRemove={() => {
+                            setPhotoFiles([]);
+                            setPhotoPreview("");
+                          }}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {photoFiles.length > 0 && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                photoFiles.forEach((file) =>
+                                  photoMutation.mutate(file),
+                                )
+                              }
+                              loading={photoMutation.isPending}
+                            >
+                              Tải ảnh lên
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            onClick={() => displayMutation.mutate("showing")}
+                            disabled={
+                              !photoDisplay?.photos?.length ||
+                              displayMutation.isPending
+                            }
+                          >
+                            Hiện ảnh
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => displayMutation.mutate("hidden")}
+                            disabled={displayMutation.isPending}
+                          >
+                            Ẩn ảnh
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => deletePhotosMutation.mutate()}
+                            disabled={
+                              !photoDisplay?.photos?.length ||
+                              deletePhotosMutation.isPending
+                            }
+                          >
+                            Xóa ảnh
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="p-3">
-                  <div className="flex items-center gap-2 border-b pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    <span className="min-w-0 flex-1">Tên</span>
-                    <span className="w-[104px] shrink-0 text-center">SL</span>
-                    <span className="hidden w-20 shrink-0 text-right sm:block">
-                      Đơn giá
-                    </span>
-                    <span className="shrink-0 whitespace-nowrap text-right">
-                      Thành tiền
-                    </span>
-                  </div>
+                    <div className="border-t" />
+                    <div className="grid gap-3 p-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="start-date"
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground"
+                        >
+                          <CalendarDays className="h-3 w-3" />
+                          Ngày bắt đầu
+                        </Label>
+                        <Popover modal={true}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              id="start-date"
+                              type="button"
+                              variant="outline"
+                              className="h-9 w-full justify-between font-normal"
+                            >
+                              {customStartDate
+                                ? dayjs(customStartDate).format("DD/MM/YYYY")
+                                : "Chọn ngày"}
+                              <CalendarDays className="h-4 w-4 opacity-60" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={
+                                customStartDate
+                                  ? dayjs(customStartDate).toDate()
+                                  : undefined
+                              }
+                              onSelect={handleStartDateChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
 
-                  {items.length === 0 ? (
-                    <p className="py-3 text-center text-xs text-muted-foreground">
-                      Chưa có món nào
-                    </p>
-                  ) : (
-                    <div className="divide-y">
-                      {items.map((item: BillItem, index: number) => (
-                        <div key={index} className="py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate">{item.description}</p>
-                              <p className="text-[11px] text-muted-foreground sm:hidden">
-                                {formatVnd(item.price)}/đv
-                              </p>
-                            </div>
-                            <div className="flex w-[104px] shrink-0 items-center justify-center gap-1">
-                              {isRecordingFee(item) ? (
-                                <span className="w-8 text-center font-medium">
-                                  {item.quantity}
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="start-time"
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground"
+                        >
+                          <Clock className="h-3 w-3" />
+                          Giờ bắt đầu
+                        </Label>
+                        <Input
+                          id="start-time"
+                          type="time"
+                          value={customStartTime}
+                          onChange={handleStartTimeChange}
+                          className="h-9"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="end-date"
+                          className="text-[11px] text-muted-foreground"
+                        >
+                          Ngày kết thúc
+                        </Label>
+                        <Popover modal={true}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              id="end-date"
+                              type="button"
+                              variant="outline"
+                              className="h-9 w-full justify-between font-normal"
+                            >
+                              {customEndDate
+                                ? dayjs(customEndDate).format("DD/MM/YYYY")
+                                : "Chọn ngày"}
+                              <CalendarDays className="h-4 w-4 opacity-60" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={
+                                customEndDate
+                                  ? dayjs(customEndDate).toDate()
+                                  : undefined
+                              }
+                              onSelect={handleEndDateChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label
+                          htmlFor="end-time"
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground"
+                        >
+                          <Clock className="h-3 w-3" />
+                          Giờ kết thúc
+                        </Label>
+                        <Input
+                          id="end-time"
+                          type="time"
+                          value={customEndTime}
+                          onChange={handleEndTimeChange}
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end px-3 pb-3">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleUpdateScheduleTime}
+                        loading={isUpdatingTime}
+                        disabled={
+                          !customStartDate ||
+                          !customStartTime ||
+                          !customEndTime ||
+                          isUpdatingTime
+                        }
+                      >
+                        Cập nhật giờ
+                      </Button>
+                    </div>
+                    <div className="border-t" />
+
+                    <div className="p-3">
+                      <div className="flex items-center gap-2 border-b pb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        <span className="min-w-0 flex-1">Tên</span>
+                        <span className="w-[104px] shrink-0 text-center">
+                          SL
+                        </span>
+                        <span className="hidden w-20 shrink-0 text-right sm:block">
+                          Đơn giá
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap text-right">
+                          Thành tiền
+                        </span>
+                      </div>
+
+                      {!hasBillRows ? (
+                        <p className="py-3 text-center text-xs text-muted-foreground">
+                          {giftRemainingQuota > 0
+                            ? "Chưa có món — bấm Thêm món tặng để chọn suất quà"
+                            : "Chưa có món nào"}
+                        </p>
+                      ) : (
+                        <div className="divide-y">
+                          {paidItems.map((item: BillItem, index: number) => (
+                            <div
+                              key={`paid-${item.itemId || item.description}-${index}`}
+                              className="py-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate">{item.description}</p>
+                                  <p className="text-[11px] text-muted-foreground sm:hidden">
+                                    {formatVnd(item.price)}/đv
+                                  </p>
+                                </div>
+                                <div className="flex w-[104px] shrink-0 items-center justify-center gap-1">
+                                  {isRecordingFee(item) ? (
+                                    <span className="w-8 text-center font-medium">
+                                      {item.quantity}
+                                    </span>
+                                  ) : (
+                                    <>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          adjustItemQuantity(item, -1)
+                                        }
+                                        disabled={
+                                          item.quantity <= 0 ||
+                                          isUpdatingQuantity
+                                        }
+                                        className="h-7 w-7 shrink-0 p-0"
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </Button>
+                                      <span className="w-8 text-center font-medium">
+                                        {item.quantity}
+                                      </span>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          adjustItemQuantity(item, 1)
+                                        }
+                                        disabled={isUpdatingQuantity}
+                                        className="h-7 w-7 shrink-0 p-0"
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                                <span className="hidden w-20 shrink-0 text-right text-muted-foreground sm:block">
+                                  {formatVnd(item.price)}
                                 </span>
-                              ) : (
-                                <>
+                                <span className="shrink-0 whitespace-nowrap pl-1 text-right font-medium">
+                                  {formatVnd(item.price * item.quantity)}
+                                </span>
+                              </div>
+                              {item.discountName && item.discountPercentage ? (
+                                <div className="mt-0.5 flex items-center justify-between text-[11px] text-emerald-600">
+                                  <span className="truncate">
+                                    - {item.discountName} (
+                                    {item.discountPercentage}
+                                    %)
+                                  </span>
+                                  <span className="shrink-0">
+                                    -
+                                    {formatVnd(
+                                      (item.price *
+                                        item.quantity *
+                                        (item.discountPercentage || 0)) /
+                                        100,
+                                    )}
+                                  </span>
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
+                          {giftLines.map((line) => (
+                            <div
+                              key={line.key}
+                              className="rounded-md bg-emerald-50/70 py-2"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex min-w-0 items-center gap-1.5">
+                                    <p className="truncate">{line.name}</p>
+                                    <Badge
+                                      variant="secondary"
+                                      className="shrink-0 border-emerald-200 bg-emerald-100 px-1.5 py-0 text-[10px] font-medium text-emerald-800"
+                                    >
+                                      Tặng
+                                    </Badge>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {line.canEdit
+                                      ? `Streak ${line.streakCount}`
+                                      : "Cần SĐT để sửa"}
+                                    {line.canEdit && line.remainingQuota > 0
+                                      ? ` · còn ${line.remainingQuota} suất`
+                                      : ""}
+                                    <span className="sm:hidden"> · Tặng</span>
+                                  </p>
+                                </div>
+                                <div className="flex w-[104px] shrink-0 items-center justify-center gap-1">
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => adjustItemQuantity(item, -1)}
+                                    onClick={() =>
+                                      adjustGiftLineQuantity(line, -1)
+                                    }
                                     disabled={
-                                      item.quantity <= 0 || isUpdatingQuantity
+                                      member.isMutatingGift ||
+                                      line.quantity <= 0
                                     }
                                     className="h-7 w-7 shrink-0 p-0"
                                   >
                                     <Minus className="h-3 w-3" />
                                   </Button>
                                   <span className="w-8 text-center font-medium">
-                                    {item.quantity}
+                                    {line.quantity}
                                   </span>
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => adjustItemQuantity(item, 1)}
-                                    disabled={isUpdatingQuantity}
+                                    onClick={() =>
+                                      adjustGiftLineQuantity(line, 1)
+                                    }
+                                    disabled={
+                                      member.isMutatingGift ||
+                                      (line.canEdit && line.remainingQuota <= 0)
+                                    }
                                     className="h-7 w-7 shrink-0 p-0"
                                   >
                                     <Plus className="h-3 w-3" />
                                   </Button>
-                                </>
-                              )}
+                                </div>
+                                <span className="hidden w-20 shrink-0 text-right text-muted-foreground sm:block">
+                                  {formatVnd(0)}
+                                </span>
+                                <span className="shrink-0 whitespace-nowrap pl-1 text-right font-medium text-emerald-700">
+                                  Tặng
+                                </span>
+                              </div>
                             </div>
-                            <span className="hidden w-20 shrink-0 text-right text-muted-foreground sm:block">
-                              {formatVnd(item.price)}
-                            </span>
-                            <span className="shrink-0 whitespace-nowrap pl-1 text-right font-medium">
-                              {formatVnd(item.price * item.quantity)}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="border-t" />
+
+                    <div className="space-y-3 p-3">
+                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                        <Label
+                          htmlFor="bill-promotion"
+                          className="flex items-center gap-1 text-[11px] text-muted-foreground sm:w-28 sm:shrink-0"
+                        >
+                          <Gift className="h-3 w-3" />
+                          Khuyến mãi
+                        </Label>
+                        <Select
+                          value={selectedPromotion || "none"}
+                          onValueChange={handlePromotionChange}
+                        >
+                          <SelectTrigger
+                            id="bill-promotion"
+                            className="h-9 w-full sm:max-w-xs"
+                          >
+                            <SelectValue placeholder="Chọn khuyến mãi" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Không áp dụng</SelectItem>
+                            {promotionList.map((promotion) => (
+                              <SelectItem
+                                key={promotion._id}
+                                value={promotion._id}
+                              >
+                                {promotion.name} ({promotion.discountPercentage}
+                                %)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {((gift?.type === "discount" &&
+                        gift.discountPercentage) ||
+                        giftDiscountAmount > 0) && (
+                        <div className="space-y-1 rounded-md border bg-muted/40 p-2 text-xs">
+                          <div className="flex items-center gap-2 font-medium">
+                            <Gift className="h-3.5 w-3.5" />
+                            <span>
+                              Quà tặng
+                              {gift?.name ? `: ${gift.name}` : ""}
                             </span>
                           </div>
-                          {item.discountName && item.discountPercentage ? (
-                            <div className="mt-0.5 flex items-center justify-between text-[11px] text-emerald-600">
-                              <span className="truncate">
-                                - {item.discountName} ({item.discountPercentage}
-                                %)
-                              </span>
-                              <span className="shrink-0">
-                                -
-                                {formatVnd(
-                                  (item.price *
-                                    item.quantity *
-                                    (item.discountPercentage || 0)) /
-                                    100,
-                                )}
+                          {gift?.type === "discount" &&
+                          gift.discountPercentage ? (
+                            <p className="text-muted-foreground">
+                              Giảm {gift.discountPercentage}%
+                            </p>
+                          ) : null}
+                          {giftDiscountAmount > 0 && (
+                            <p className="text-muted-foreground">
+                              Trị giá giảm: {formatVnd(giftDiscountAmount)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {appliedPromotion && (
+                        <div className="space-y-0.5 rounded-md border bg-muted/40 p-2 text-xs">
+                          <p className="font-medium">{appliedPromotion.name}</p>
+                          {appliedPromotion.description && (
+                            <p className="text-muted-foreground">
+                              {appliedPromotion.description}
+                            </p>
+                          )}
+                          <p className="font-medium text-emerald-600">
+                            Giảm {appliedPromotion.discountPercentage}%
+                          </p>
+                        </div>
+                      )}
+
+                      {hasMembershipDiscountUi && (
+                        <div className="space-y-0.5 rounded-md border border-emerald-200 bg-emerald-50/70 p-2 text-xs">
+                          <p className="font-medium text-emerald-900">
+                            Ưu đãi hạng thành viên
+                            {membershipDiscountDisplay?.tier
+                              ? ` (${membershipDiscountDisplay.tier})`
+                              : ""}
+                          </p>
+                          {membershipDiscountDisplay?.name && (
+                            <p className="text-muted-foreground">
+                              {membershipDiscountDisplay.name}
+                            </p>
+                          )}
+                          {membershipDiscountLabel && (
+                            <p className="font-medium text-emerald-700">
+                              {membershipDiscountLabel}
+                            </p>
+                          )}
+                          {membershipDiscountDisplay?.note && (
+                            <p className="text-muted-foreground">
+                              {membershipDiscountDisplay.note}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="border-t" />
+
+                    {/* Hiển thị chi tiết tính toán giá */}
+                    <div className="space-y-1.5 p-3">
+                      {/* Chi tiết từng khoản */}
+                      {roomTotal && roomTotal > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            Tiền phòng
+                          </span>
+                          <span className="ml-2 text-right font-medium">
+                            {formatVnd(roomTotal)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Tính toán giá gốc */}
+                      {(() => {
+                        let originalTotal = (roomTotal || 0) + (fnbTotal || 0);
+
+                        if (originalTotal === 0 && items && items.length > 0) {
+                          originalTotal = items.reduce(
+                            (sum, item) => sum + item.price * item.quantity,
+                            0,
+                          );
+                        }
+
+                        if (originalTotal === 0 && totalAmount) {
+                          originalTotal = totalAmount;
+                        }
+
+                        const promotionDiscountAmount = appliedPromotion
+                          ? (originalTotal *
+                              (appliedPromotion.discountPercentage || 0)) /
+                            100
+                          : 0;
+
+                        // Tổng cuối cùng: sử dụng totalAmount từ API (đã được tính sẵn)
+                        const finalTotal = totalAmount || 0;
+
+                        return (
+                          <>
+                            {/* Giảm giá từ quà tặng */}
+                            {giftDiscountAmount > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                  Giảm quà tặng
+                                  {gift?.name ? ` (${gift.name})` : ""}
+                                </span>
+                                <span className="ml-2 text-right font-medium text-emerald-600">
+                                  -{formatVnd(giftDiscountAmount)}
+                                </span>
+                              </div>
+                            )}
+                            {/* Giảm giá promotion (nếu có) */}
+                            {appliedPromotion &&
+                              promotionDiscountAmount > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">
+                                    Giảm {appliedPromotion.name} (
+                                    {appliedPromotion.discountPercentage}%)
+                                  </span>
+                                  <span className="ml-2 text-right font-medium text-emerald-600">
+                                    -{formatVnd(promotionDiscountAmount)}
+                                  </span>
+                                </div>
+                              )}
+
+                            {hasMembershipDiscountUi && (
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                  Giảm hạng
+                                  {membershipDiscountDisplay?.tier
+                                    ? ` ${membershipDiscountDisplay.tier}`
+                                    : ""}
+                                  {membershipDiscountLabel
+                                    ? ` (${membershipDiscountLabel.replace(/^Giảm\s+/i, "")})`
+                                    : ""}
+                                </span>
+                                <span className="ml-2 text-right font-medium text-emerald-600">
+                                  {membershipDiscountApplied > 0
+                                    ? `-${formatVnd(membershipDiscountApplied)}`
+                                    : membershipDiscountLabel || "—"}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Giá cuối cùng */}
+                            <div className="mt-1.5 flex items-center justify-between border-t pt-2 text-base font-semibold">
+                              <span>Tổng cộng</span>
+                              <span className="ml-2 text-right">
+                                {formatVnd(finalTotal)}
                               </span>
                             </div>
-                          ) : null}
-                        </div>
-                      ))}
+                          </>
+                        );
+                      })()}
                     </div>
-                  )}
-                </div>
-                <div className="border-t" />
 
-                <div className="space-y-3 p-3">
-                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
-                    <Label
-                      htmlFor="bill-promotion"
-                      className="flex items-center gap-1 text-[11px] text-muted-foreground sm:w-28 sm:shrink-0"
-                    >
-                      <Gift className="h-3 w-3" />
-                      Khuyến mãi
-                    </Label>
+                    <div className="border-t" />
+                    <div className="space-y-3 p-3">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">
+                            Phương thức thanh toán
+                          </Label>
+                          <Select
+                            defaultValue={PaymentMethod.BankTransfer}
+                            value={paymentMethod}
+                            onValueChange={handlePaymentMethodChange}
+                          >
+                            <SelectTrigger className="h-9 w-full">
+                              <SelectValue placeholder="Chọn phương thức" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={PaymentMethod.BankTransfer}>
+                                Chuyển khoản
+                              </SelectItem>
+                              <SelectItem value={PaymentMethod.Cash}>
+                                Tiền mặt
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="customer-paid"
+                            className="text-[11px] text-muted-foreground"
+                          >
+                            Khách đưa (nghìn)
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              id="customer-paid"
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="500"
+                              value={customerPaidInput}
+                              onChange={(e) =>
+                                setCustomerPaidInput(e.target.value)
+                              }
+                              className="h-9 w-28 font-mono"
+                            />
+                            {changeThousands !== null && (
+                              <span
+                                className={`text-sm font-semibold ${
+                                  changeThousands < 0
+                                    ? "text-red-600"
+                                    : "text-emerald-600"
+                                }`}
+                              >
+                                {changeThousands < 0 ? "Thiếu" : "Thừa"}{" "}
+                                {Math.abs(changeThousands)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Note Section */}
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">
+                          Ghi chú
+                        </Label>
+                        {isEditingNote ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={noteValue}
+                              onChange={(e) => setNoteValue(e.target.value)}
+                              placeholder="Nhập ghi chú..."
+                              className="min-h-[72px] resize-y"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={handleSaveNote}
+                                disabled={isUpdatingNote}
+                                className="h-9"
+                              >
+                                {isUpdatingNote ? "Đang lưu..." : "Lưu"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleCancelEditNote}
+                                className="h-9"
+                              >
+                                Hủy
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="flex-1 break-words text-sm">
+                              {note || (
+                                <span className="text-muted-foreground">
+                                  Chưa có ghi chú
+                                </span>
+                              )}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleEditNote}
+                              disabled={isUpdatingNote}
+                              className="h-9"
+                            >
+                              Chỉnh sửa
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Đổi phòng */}
+                <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Đổi phòng</h3>
+                    <span className="text-[11px] text-muted-foreground">
+                      Đổi phòng không tự động chuyển danh sách nhạc
+                    </span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] sm:items-end">
                     <Select
-                      value={selectedPromotion || "none"}
-                      onValueChange={handlePromotionChange}
+                      value={targetRoomId}
+                      onValueChange={setTargetRoomId}
+                      disabled={isLoadingRooms || availableRooms.length === 0}
                     >
-                      <SelectTrigger
-                        id="bill-promotion"
-                        className="h-9 w-full sm:max-w-xs"
-                      >
-                        <SelectValue placeholder="Chọn khuyến mãi" />
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue
+                          placeholder={
+                            availableRooms.length === 0
+                              ? "Không còn phòng khác"
+                              : "Chọn phòng mới"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Không áp dụng</SelectItem>
-                        {promotionList.map((promotion) => (
-                          <SelectItem key={promotion._id} value={promotion._id}>
-                            {promotion.name} ({promotion.discountPercentage}%)
+                        {availableRooms.map((room) => (
+                          <SelectItem
+                            key={String(room._id)}
+                            value={String(room._id)}
+                          >
+                            {room.roomName} - {getRoomTypeLabel(room.roomType)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+
+                    <Input
+                      value={roomChangeNote}
+                      onChange={(e) => setRoomChangeNote(e.target.value)}
+                      placeholder="Lý do đổi (nếu có)"
+                      className="h-9"
+                    />
+
+                    <Button
+                      variant="secondary"
+                      onClick={handleChangeRoom}
+                      loading={isChangingRoom}
+                      disabled={availableRooms.length === 0}
+                      className="h-9 w-full sm:w-auto"
+                    >
+                      Chuyển phòng
+                    </Button>
                   </div>
-
-                  {gift && (
-                    <div className="space-y-1 rounded-md border bg-muted/40 p-2 text-xs">
-                      <div className="flex items-center gap-2 font-medium">
-                        <Gift className="h-3.5 w-3.5" />
-                        <span>Quà tặng: {gift.name}</span>
-                      </div>
-                      {gift.type === "discount" && gift.discountPercentage ? (
-                        <p className="text-muted-foreground">
-                          Giảm {gift.discountPercentage}%
-                        </p>
-                      ) : null}
-                      {giftDiscountAmount > 0 && (
-                        <p className="text-muted-foreground">
-                          Trị giá giảm: {formatVnd(giftDiscountAmount)}
-                        </p>
-                      )}
-                      {gift.type === "snacks_drinks" &&
-                      gift.items &&
-                      gift.items.length > 0 ? (
-                        <div className="space-y-0.5">
-                          <p className="font-medium">Items tặng:</p>
-                          <ul className="list-inside list-disc pl-3 text-muted-foreground">
-                            {gift.items.map((item, idx) => (
-                              <li key={idx}>
-                                {item.name} x{item.quantity}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-
-                  {appliedPromotion && (
-                    <div className="space-y-0.5 rounded-md border bg-muted/40 p-2 text-xs">
-                      <p className="font-medium">{appliedPromotion.name}</p>
-                      {appliedPromotion.description && (
-                        <p className="text-muted-foreground">
-                          {appliedPromotion.description}
-                        </p>
-                      )}
-                      <p className="font-medium text-emerald-600">
-                        Giảm {appliedPromotion.discountPercentage}%
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className="border-t" />
-
-                {/* Hiển thị chi tiết tính toán giá */}
-                <div className="space-y-1.5 p-3">
-                  {/* Chi tiết từng khoản */}
-                  {roomTotal && roomTotal > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tiền phòng</span>
-                      <span className="ml-2 text-right font-medium">
-                        {formatVnd(roomTotal)}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Tính toán giá gốc */}
-                  {(() => {
-                    let originalTotal = (roomTotal || 0) + (fnbTotal || 0);
-
-                    if (originalTotal === 0 && items && items.length > 0) {
-                      originalTotal = items.reduce(
-                        (sum, item) => sum + item.price * item.quantity,
-                        0,
-                      );
-                    }
-
-                    if (originalTotal === 0 && totalAmount) {
-                      originalTotal = totalAmount;
-                    }
-
-                    const promotionDiscountAmount = appliedPromotion
-                      ? (originalTotal *
-                          (appliedPromotion.discountPercentage || 0)) /
-                        100
-                      : 0;
-
-                    // Tổng cuối cùng: sử dụng totalAmount từ API (đã được tính sẵn)
-                    const finalTotal = totalAmount || 0;
-
-                    return (
-                      <>
-                        {/* Giảm giá từ quà tặng */}
-                        {giftDiscountAmount > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">
-                              Giảm quà tặng{gift?.name ? ` (${gift.name})` : ""}
-                            </span>
-                            <span className="ml-2 text-right font-medium text-emerald-600">
-                              -{formatVnd(giftDiscountAmount)}
-                            </span>
-                          </div>
-                        )}
-                        {/* Giảm giá promotion (nếu có) */}
-                        {appliedPromotion && promotionDiscountAmount > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">
-                              Giảm {appliedPromotion.name} (
-                              {appliedPromotion.discountPercentage}%)
-                            </span>
-                            <span className="ml-2 text-right font-medium text-emerald-600">
-                              -{formatVnd(promotionDiscountAmount)}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Giá cuối cùng */}
-                        <div className="mt-1.5 flex items-center justify-between border-t pt-2 text-base font-semibold">
-                          <span>Tổng cộng</span>
-                          <span className="ml-2 text-right">
-                            {formatVnd(finalTotal)}
-                          </span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-
-                <div className="border-t" />
-                <div className="space-y-3 p-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">
-                        Phương thức thanh toán
-                      </Label>
-                      <Select
-                        defaultValue={PaymentMethod.Cash}
-                        value={paymentMethod}
-                        onValueChange={handlePaymentMethodChange}
-                      >
-                        <SelectTrigger className="h-9 w-full">
-                          <SelectValue placeholder="Chọn phương thức" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={PaymentMethod.Cash}>
-                            Cash
-                          </SelectItem>
-                          <SelectItem value={PaymentMethod.BankTransfer}>
-                            Bank Transfer
-                          </SelectItem>
-                          <SelectItem value={PaymentMethod.Momo}>
-                            Momo
-                          </SelectItem>
-                          <SelectItem value={PaymentMethod.ZaloPay}>
-                            ZaloPay
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label
-                        htmlFor="customer-paid"
-                        className="text-[11px] text-muted-foreground"
-                      >
-                        Khách đưa (nghìn)
-                      </Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          id="customer-paid"
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="500"
-                          value={customerPaidInput}
-                          onChange={(e) => setCustomerPaidInput(e.target.value)}
-                          className="h-9 w-28 font-mono"
-                        />
-                        {changeThousands !== null && (
-                          <span
-                            className={`text-sm font-semibold ${
-                              changeThousands < 0
-                                ? "text-red-600"
-                                : "text-emerald-600"
-                            }`}
-                          >
-                            {changeThousands < 0 ? "Thiếu" : "Thừa"}{" "}
-                            {Math.abs(changeThousands)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Note Section */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">
-                      Ghi chú
-                    </Label>
-                    {isEditingNote ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          value={noteValue}
-                          onChange={(e) => setNoteValue(e.target.value)}
-                          placeholder="Nhập ghi chú..."
-                          className="min-h-[72px] resize-y"
-                        />
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={handleSaveNote}
-                            disabled={isUpdatingNote}
-                            className="h-9"
-                          >
-                            {isUpdatingNote ? "Đang lưu..." : "Lưu"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelEditNote}
-                            className="h-9"
-                          >
-                            Hủy
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="flex-1 break-words text-sm">
-                          {note || (
-                            <span className="text-muted-foreground">
-                              Chưa có ghi chú
-                            </span>
-                          )}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleEditNote}
-                          disabled={isUpdatingNote}
-                          className="h-9"
-                        >
-                          Chỉnh sửa
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Đổi phòng */}
-            <div className="space-y-2 rounded-md border bg-muted/30 p-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Đổi phòng</h3>
-                <span className="text-[11px] text-muted-foreground">
-                  Queue nhạc tự chuyển theo
-                </span>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] sm:items-end">
-                  <Select
-                    value={targetRoomId}
-                    onValueChange={setTargetRoomId}
-                    disabled={isLoadingRooms || availableRooms.length === 0}
-                  >
-                    <SelectTrigger className="h-9 w-full">
-                      <SelectValue
-                        placeholder={
-                          availableRooms.length === 0
-                            ? "Không còn phòng khác"
-                            : "Chọn phòng mới"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableRooms.map((room) => (
-                        <SelectItem
-                          key={String(room._id)}
-                          value={String(room._id)}
-                        >
-                          {room.roomName} - {getRoomTypeLabel(room.roomType)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Input
-                    value={roomChangeNote}
-                    onChange={(e) => setRoomChangeNote(e.target.value)}
-                    placeholder="Lý do đổi (nếu có)"
-                    className="h-9"
-                  />
-
                   <Button
-                    variant="secondary"
-                    onClick={handleChangeRoom}
-                    loading={isChangingRoom}
-                    disabled={availableRooms.length === 0}
+                    variant="outline"
+                    onClick={handleMoveQueue}
+                    loading={isMovingQueue}
+                    disabled={availableRooms.length === 0 || !targetRoomId}
                     className="h-9 w-full sm:w-auto"
                   >
-                    Chuyển phòng
-                </Button>
-              </div>
-            </div>
+                    Chuyển danh sách nhạc
+                  </Button>
+                </div>
               </TabsContent>
 
               <TabsContent value="member" className="mt-0">
@@ -1505,6 +2160,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                   hasSavedValidPhone={member.hasSavedValidPhone}
                   isSavingPhone={member.isSavingPhone}
                   onSavePhone={member.savePhone}
+                  onClearPhone={member.clearPhone}
                   isGiftEnabled={member.isGiftEnabled}
                   onGiftEnabledChange={member.updateGiftEnabled}
                   isUpdatingGiftEnabled={member.isUpdatingGiftEnabled}
@@ -1518,9 +2174,14 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                   isMemberNotFound={member.isMemberNotFound}
                   availableGifts={member.availableGifts}
                   streakRewards={member.streakRewards}
-                  giftItemsById={member.giftItemsById}
-                  onServeGift={member.serveStreakGift}
-                  isServingGift={member.isServingGift}
+                  selectableItems={member.selectableItems}
+                  servedGifts={member.servedGifts}
+                  onClaimGift={member.claimStreakGift}
+                  onAddGiftItems={member.addStreakGiftItems}
+                  onUpdateGiftItemQty={member.updateStreakGiftItemQty}
+                  onRemoveGiftItem={member.removeStreakGiftItem}
+                  isServingGift={member.isMutatingGift}
+                  expandGiftPicker={expandMemberGiftPicker}
                 />
               </TabsContent>
             </Tabs>
@@ -1534,6 +2195,20 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
               >
                 Thêm món
               </Button>
+              {giftRemainingQuota > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setExpandMemberGiftPicker(true);
+                    setActiveTab("member");
+                  }}
+                  className="h-9 w-full sm:w-auto"
+                >
+                  <Gift className="mr-2 h-4 w-4" />
+                  Thêm món tặng
+                </Button>
+              )}
               <Button
                 size="sm"
                 onClick={handleExtendSession}
@@ -1567,7 +2242,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                 variant="destructive"
                 size="sm"
                 onClick={() => setIsConfirmEndOpen(true)}
-                disabled={isPending || isSavingBill}
+                disabled={isPending || isSavingBill || member.isSavingPhone}
                 className="h-9 w-full sm:w-auto"
               >
                 Kết thúc
@@ -1590,10 +2265,46 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleCompleteSession}
-              disabled={isSavingBill || isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleCompleteSession();
+              }}
+              disabled={isSavingBill || isPending || member.isSavingPhone}
             >
-              {isSavingBill ? "Đang lưu hóa đơn..." : "Tiếp tục kết thúc"}
+              {member.isSavingPhone
+                ? "Đang lưu SĐT..."
+                : isSavingBill
+                  ? "Đang lưu hóa đơn..."
+                  : isPending
+                    ? "Đang kết thúc phiên..."
+                    : "Tiếp tục kết thúc"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={isMoveQueueConfirmOpen}
+        onOpenChange={setIsMoveQueueConfirmOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Chuyển danh sách nhạc?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Chỉ các bài đang chờ sẽ được nối vào cuối danh sách nhạc của phòng
+              đích. Bài đang phát ở phòng hiện tại không bị ảnh hưởng.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMovingQueue}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                moveQueue();
+              }}
+              disabled={isMovingQueue}
+            >
+              {isMovingQueue ? "Đang chuyển..." : "Xác nhận chuyển"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1605,7 +2316,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         menuItems={menuItems || []}
         roomId={schedule.roomId}
         scheduleId={schedule._id}
-        createdBy={user?._id || ""}
+        createdBy={schedule.createdBy}
       />
     </>
   );

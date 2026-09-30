@@ -218,7 +218,7 @@ function CustomizationGroupTemplatesPage() {
   const templates = data?.data?.result || [];
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Customization Group Templates"
         description="Quản lý nhóm tuỳ chọn dùng chung cho menu item"

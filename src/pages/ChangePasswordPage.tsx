@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import {
   Card,
   CardContent,
@@ -31,7 +31,7 @@ type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
 function ChangePasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const form = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
@@ -57,7 +57,7 @@ function ChangePasswordPage() {
 
       // Redirect sau 1.5 giây
       setTimeout(() => {
-        navigate("/");
+        router.navigate({ to: "/" });
       }, 1500);
     } catch (error: any) {
       // Error sẽ được handle bởi interceptor trong http.ts
@@ -68,7 +68,7 @@ function ChangePasswordPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Đổi mật khẩu"
         description="Cập nhật mật khẩu của bạn để bảo mật tài khoản"
@@ -152,7 +152,7 @@ function ChangePasswordPage() {
                     type="button"
                     variant="outline"
                     className="flex-1"
-                    onClick={() => navigate(-1)}
+                    onClick={() => router.history.back()}
                     disabled={isLoading}
                   >
                     Hủy

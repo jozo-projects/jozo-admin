@@ -35,9 +35,67 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { enUS } from "date-fns/locale";
+import dayjs from "@/lib/dayjs";
+import type { Dayjs } from "dayjs";
 import { cn } from "@/lib/utils";
 
 const DEBOUNCE_MS = 400;
+const MONTH_OPTIONS_COUNT = 12;
+
+type WeekInMonth = {
+  index: number;
+  start: Dayjs;
+  end: Dayjs;
+  label: string;
+};
+
+const startOfWeekMonday = (d: Dayjs): Dayjs => {
+  const day = d.startOf("day");
+  const dow = day.day();
+  if (dow === 0) return day.subtract(6, "day");
+  return day.subtract(dow - 1, "day");
+};
+
+const getWeeksInMonth = (month: Dayjs): WeekInMonth[] => {
+  const monthStart = month.startOf("month");
+  const monthEnd = month.endOf("month");
+  const weeks: WeekInMonth[] = [];
+  let weekStart = startOfWeekMonday(monthStart);
+
+  while (weeks.length < 6) {
+    const weekEnd = weekStart.add(6, "day");
+    if (weekStart.isAfter(monthEnd, "day")) break;
+
+    if (!weekEnd.isBefore(monthStart, "day")) {
+      const displayStart = weekStart.isBefore(monthStart) ? monthStart : weekStart;
+      const displayEnd = weekEnd.isAfter(monthEnd) ? monthEnd : weekEnd;
+      const index = weeks.length + 1;
+      weeks.push({
+        index,
+        start: weekStart,
+        end: weekEnd,
+        label: `Week ${index} (${displayStart.format("DD/MM")} - ${displayEnd.format("DD/MM")})`,
+      });
+    }
+
+    weekStart = weekStart.add(7, "day");
+  }
+
+  return weeks;
+};
+
+const getCurrentWeekIndex = (weeks: WeekInMonth[], date: Dayjs): number => {
+  const match = weeks.find(
+    (week) =>
+      !date.isBefore(week.start, "day") && !date.isAfter(week.end, "day"),
+  );
+  return match?.index ?? weeks[0]?.index ?? 1;
+};
+
+const buildMonthOptions = (): Dayjs[] =>
+  Array.from({ length: MONTH_OPTIONS_COUNT }, (_, i) =>
+    dayjs().subtract(i, "month").startOf("month"),
+  );
 
 const PERIOD_OPTIONS: { value: FnbStatsPeriod; label: string }[] = [
   { value: "day", label: "By day" },
@@ -60,25 +118,91 @@ const CATEGORY_LABELS: Record<string, string> = {
   snacks: "Snacks",
 };
 
+const FNB_DAY_CUTOFF_HOUR = 3;
+
+const getCurrentBusinessDate = (value: Dayjs): Dayjs =>
+  value.hour() < FNB_DAY_CUTOFF_HOUR ? value.subtract(1, "day") : value;
+
 function getCategoryLabel(category: string): string {
   return CATEGORY_LABELS[category?.toLowerCase()] ?? category;
 }
 
 const FnbStatsPage = () => {
+  const today = useMemo(() => dayjs(), []);
+  const currentBusinessDate = useMemo(() => getCurrentBusinessDate(today), [today]);
+  const monthOptions = useMemo(() => buildMonthOptions(), []);
+
   const [period, setPeriod] = useState<FnbStatsPeriod>("day");
-  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [date, setDate] = useState<Date | undefined>(currentBusinessDate.toDate());
+  const [selectedMonth, setSelectedMonth] = useState<Dayjs>(today.startOf("month"));
+  const [selectedWeekIndex, setSelectedWeekIndex] = useState<number>(() =>
+    getCurrentWeekIndex(getWeeksInMonth(today.startOf("month")), today),
+  );
   const [category, setCategory] = useState<"" | FnbStatsCategory>("");
   const [search, setSearch] = useState("");
   const searchDebounced = useDebounce(search, DEBOUNCE_MS);
 
+  const weeksInSelectedMonth = useMemo(
+    () => getWeeksInMonth(selectedMonth),
+    [selectedMonth],
+  );
+
+  const selectedWeek = useMemo(
+    () =>
+      weeksInSelectedMonth.find((week) => week.index === selectedWeekIndex) ??
+      weeksInSelectedMonth[0],
+    [weeksInSelectedMonth, selectedWeekIndex],
+  );
+
+  const apiDate = useMemo(() => {
+    if (period === "day") {
+      // Không truyền date vẫn phải giữ cùng ngày kinh doanh hiện tại.
+      return date
+        ? format(date, "yyyy-MM-dd")
+        : currentBusinessDate.format("YYYY-MM-DD");
+    }
+    if (period === "week") {
+      return selectedWeek?.start.format("YYYY-MM-DD");
+    }
+    return selectedMonth.startOf("month").format("YYYY-MM-DD");
+  }, [period, date, selectedWeek, selectedMonth, currentBusinessDate]);
+
+  const handlePeriodChange = (nextPeriod: FnbStatsPeriod) => {
+    setPeriod(nextPeriod);
+    if (nextPeriod === "day") {
+      setDate(currentBusinessDate.toDate());
+      return;
+    }
+    const currentMonth = today.startOf("month");
+    setSelectedMonth(currentMonth);
+    if (nextPeriod === "week") {
+      setSelectedWeekIndex(
+        getCurrentWeekIndex(getWeeksInMonth(currentMonth), today),
+      );
+    }
+  };
+
+  const handleMonthChange = (monthKey: string) => {
+    const month = dayjs(monthKey).startOf("month");
+    setSelectedMonth(month);
+    if (period === "week") {
+      const weeks = getWeeksInMonth(month);
+      const defaultWeekIndex =
+        month.isSame(today, "month")
+          ? getCurrentWeekIndex(weeks, today)
+          : (weeks[0]?.index ?? 1);
+      setSelectedWeekIndex(defaultWeekIndex);
+    }
+  };
+
   const params: IFnbOrderStatsParams = useMemo(
     () => ({
       period,
-      date: date ? format(date, "yyyy-MM-dd") : undefined,
+      date: apiDate,
       ...(category ? { category } : {}),
       ...(searchDebounced.trim() ? { search: searchDebounced.trim() } : {}),
     }),
-    [period, date, category, searchDebounced]
+    [period, apiDate, category, searchDebounced]
   );
 
   const { data, isLoading, isError, error } = useQuery({
@@ -96,7 +220,7 @@ const FnbStatsPage = () => {
         : "Month";
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="FNB Statistics"
         description="Food & beverage order stats by day, week, or month"
@@ -112,7 +236,7 @@ const FnbStatsPage = () => {
             <label className="text-sm font-medium">Period</label>
             <Select
               value={period}
-              onValueChange={(v) => setPeriod(v as FnbStatsPeriod)}
+              onValueChange={(v) => handlePeriodChange(v as FnbStatsPeriod)}
             >
               <SelectTrigger className="w-[180px]">
                 <SelectValue />
@@ -126,36 +250,104 @@ const FnbStatsPage = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex w-[180px] flex-col gap-2">
-            <label className="text-sm font-medium">Date</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "h-9 w-full justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                  )}
+          {period === "day" && (
+            <div className="flex w-[180px] flex-col gap-2">
+              <label className="text-sm font-medium">Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-9 w-full justify-start text-left font-normal",
+                      !date && "text-muted-foreground"
+                    )}
+                  >
+                    <Calendar className="mr-2 h-4 w-4 shrink-0" />
+                    {date ? (
+                      format(date, "MMM d, yyyy", { locale: enUS })
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={date}
+                    onSelect={setDate}
+                    locale={enUS}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+          {period === "week" && (
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Month</label>
+                <Select
+                  value={selectedMonth.format("YYYY-MM")}
+                  onValueChange={handleMonthChange}
                 >
-                  <Calendar className="mr-2 h-4 w-4 shrink-0" />
-                  {date ? (
-                    format(date, "MMM d, yyyy", { locale: enUS })
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  locale={enUS}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthOptions.map((month) => (
+                      <SelectItem
+                        key={month.format("YYYY-MM")}
+                        value={month.format("YYYY-MM")}
+                      >
+                        {month.format("MM/YYYY")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Week</label>
+                <Select
+                  value={String(selectedWeekIndex)}
+                  onValueChange={(v) => setSelectedWeekIndex(Number(v))}
+                >
+                  <SelectTrigger className="w-[240px]">
+                    <SelectValue placeholder="Select week" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weeksInSelectedMonth.map((week) => (
+                      <SelectItem key={week.index} value={String(week.index)}>
+                        {week.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+          {period === "month" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Month</label>
+              <Select
+                value={selectedMonth.format("YYYY-MM")}
+                onValueChange={handleMonthChange}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((month) => (
+                    <SelectItem
+                      key={month.format("YYYY-MM")}
+                      value={month.format("YYYY-MM")}
+                    >
+                      {month.format("MM/YYYY")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium">Category</label>
             <Select

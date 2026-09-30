@@ -4,6 +4,13 @@ import { Cross2Icon } from "@radix-ui/react-icons"
 
 import { cn } from "@/lib/utils"
 
+/** Gỡ lock tương tác Radix còn sót khi Dialog/Select unmount đột ngột */
+function clearDialogInteractionLock() {
+  document.body.style.removeProperty("pointer-events")
+  document.body.style.removeProperty("overflow")
+  document.documentElement.style.removeProperty("overflow")
+}
+
 const Dialog = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
@@ -45,6 +52,11 @@ const DialogContent = React.forwardRef<
         className
       )}
       {...props}
+      onCloseAutoFocus={(event) => {
+        clearDialogInteractionLock()
+        props.onCloseAutoFocus?.(event)
+        event.preventDefault()
+      }}
     >
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-10">

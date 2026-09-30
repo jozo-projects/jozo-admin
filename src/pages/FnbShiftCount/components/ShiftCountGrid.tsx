@@ -38,6 +38,7 @@ interface ShiftCountGridProps {
   items: FnbShiftCountFormItem[];
   shifts?: Record<ShiftNo, IShiftMeta>;
   dayItemsEditable: boolean;
+  isAdmin: boolean;
   search: string;
   isLoading?: boolean;
   lockingShiftNo?: ShiftNo | null;
@@ -100,6 +101,7 @@ const ShiftCountGrid = ({
   items,
   shifts,
   dayItemsEditable,
+  isAdmin,
   search,
   isLoading,
   lockingShiftNo,
@@ -729,18 +731,22 @@ const ShiftCountGrid = ({
               >
                 Nhập thêm
               </th>
-              <th
-                rowSpan={2}
-                className="sticky top-0 z-20 min-w-[80px] border-b border-r bg-muted px-2 py-2 text-center font-semibold shadow-[0_1px_0_0_hsl(var(--border))]"
-              >
-                Hệ thống
-              </th>
-              <th
-                rowSpan={2}
-                className="sticky top-0 z-20 min-w-[90px] border-b border-r bg-muted px-2 py-2 text-center font-semibold shadow-[0_1px_0_0_hsl(var(--border))]"
-              >
-                Chênh lệch
-              </th>
+              {isAdmin && (
+                <>
+                  <th
+                    rowSpan={2}
+                    className="sticky top-0 z-20 min-w-[80px] border-b border-r bg-muted px-2 py-2 text-center font-semibold shadow-[0_1px_0_0_hsl(var(--border))]"
+                  >
+                    Hệ thống bán
+                  </th>
+                  <th
+                    rowSpan={2}
+                    className="sticky top-0 z-20 min-w-[90px] border-b border-r bg-muted px-2 py-2 text-center font-semibold shadow-[0_1px_0_0_hsl(var(--border))]"
+                  >
+                    Chênh lệch
+                  </th>
+                </>
+              )}
               <th
                 rowSpan={2}
                 className="sticky top-0 z-20 min-w-[140px] border-b bg-muted px-2 py-2 text-left font-semibold shadow-[0_1px_0_0_hsl(var(--border))]"
@@ -765,9 +771,9 @@ const ShiftCountGrid = ({
             {groupedItems.map((group) => (
               <Fragment key={group.category}>
                 <tr className="bg-accent/40">
-                  <td
-                    colSpan={12}
-                    className="sticky left-0 z-10 border-b px-3 py-2 text-left text-xs font-bold uppercase tracking-wide"
+                    <td
+                      colSpan={isAdmin ? 12 : 10}
+                      className="sticky left-0 z-10 border-b px-3 py-2 text-left text-xs font-bold uppercase tracking-wide"
                   >
                     {group.label}
                   </td>
@@ -791,19 +797,23 @@ const ShiftCountGrid = ({
                         </Fragment>
                       ))}
                       {renderDayCell(item, "totalStockIn")}
-                      <td className="border-b border-r px-2 py-2 text-center text-muted-foreground">
-                        {item.systemSold}
-                      </td>
-                      <td
-                        className={cn(
-                          "border-b border-r px-2 py-2 text-center font-semibold",
-                          isShortage && "bg-destructive/15 text-destructive",
-                        )}
-                      >
-                        {item.variance === undefined
-                          ? "—"
-                          : formatVariance(item.variance)}
-                      </td>
+                      {isAdmin && (
+                        <>
+                          <td className="border-b border-r px-2 py-2 text-center text-muted-foreground">
+                            {item.systemSold ?? "—"}
+                          </td>
+                          <td
+                            className={cn(
+                              "border-b border-r px-2 py-2 text-center font-semibold",
+                              isShortage && "bg-destructive/15 text-destructive",
+                            )}
+                          >
+                            {item.variance === undefined
+                              ? "—"
+                              : formatVariance(item.variance)}
+                          </td>
+                        </>
+                      )}
                       {renderDayCell(item, "note")}
                     </tr>
                   );

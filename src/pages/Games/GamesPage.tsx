@@ -116,7 +116,7 @@ const GamesPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Games Management"
         description="Quản lý loại game và danh sách game."

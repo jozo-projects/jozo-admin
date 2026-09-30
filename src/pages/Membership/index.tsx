@@ -30,7 +30,6 @@ import {
   useMembershipConfig,
   useUpdateMembershipConfig,
 } from "@/hooks/use-membership";
-import { useGetAllGifts } from "@/hooks/use-gifts";
 import {
   Select,
   SelectContent,
@@ -64,13 +63,76 @@ const tierSchema = z.object({
 const streakRewardSchema = z.object({
   count: z.coerce.number().int().min(1, "Số lần liên tiếp phải từ 1"),
   bonusPoints: z.coerce.number().min(0, "Điểm thưởng phải lớn hơn hoặc bằng 0"),
-  giftId: z.string().optional(),
+  itemCount: z.coerce
+    .number()
+    .int()
+    .min(0, "Số món quà phải lớn hơn hoặc bằng 0"),
 });
 
-const tierBenefitItemSchema = z.object({
-  giftId: z.string().min(1, "Gift là bắt buộc"),
-  note: z.string().optional(),
-});
+const tierBenefitItemSchema = z
+  .object({
+    discountPercentage: z.coerce.number().min(0).max(100).optional(),
+    discountAmount: z.coerce.number().min(0).optional(),
+    note: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    const hasPercentage =
+      data.discountPercentage !== undefined &&
+      !Number.isNaN(data.discountPercentage);
+    const hasAmount =
+      data.discountAmount !== undefined && !Number.isNaN(data.discountAmount);
+
+    if (hasPercentage && hasAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Chỉ được chọn giảm theo % hoặc số tiền",
+        path: ["discountPercentage"],
+      });
+    }
+
+    if (!hasPercentage && !hasAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Cần nhập giá trị giảm giá",
+        path: ["discountPercentage"],
+      });
+    }
+  });
+
+const tierBenefitGroupSchema = z
+  .object({
+    tier: z.string().min(1, "Tên hạng là bắt buộc"),
+    discountType: z.enum(["percentage", "amount"]).optional(),
+    benefits: z.array(tierBenefitItemSchema).default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.benefits.length) return;
+
+    const types = data.benefits.map((benefit) => {
+      if (
+        benefit.discountPercentage !== undefined &&
+        !Number.isNaN(benefit.discountPercentage)
+      ) {
+        return "percentage";
+      }
+      if (
+        benefit.discountAmount !== undefined &&
+        !Number.isNaN(benefit.discountAmount)
+      ) {
+        return "amount";
+      }
+      return null;
+    });
+
+    const uniqueTypes = new Set(types.filter(Boolean));
+    if (uniqueTypes.size > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Trong cùng hạng không được mix giảm theo % và số tiền",
+        path: ["benefits"],
+      });
+    }
+  });
 
 const formSchema = z.object({
   currencyUnit: z.coerce.number().positive("Đơn vị tiền phải lớn hơn 0"),
@@ -98,14 +160,7 @@ const formSchema = z.object({
     windowDays: z.coerce.number().int().min(1, "Số ngày cửa sổ phải từ 1"),
     rewards: z.array(streakRewardSchema),
   }),
-  tierBenefits: z
-    .array(
-      z.object({
-        tier: z.string().min(1, "Tên hạng là bắt buộc"),
-        gifts: z.array(tierBenefitItemSchema).default([]),
-      })
-    )
-    .default([]),
+  tierBenefits: z.array(tierBenefitGroupSchema).default([]),
   dailySelfClaimLimitPerPhone: z.coerce.number().int().min(0).default(0),
 });
 
@@ -166,15 +221,30 @@ const mapConfigToFormValues = (config?: IMembershipConfig): FormValues => {
           ? config.streak.rewards.map((reward) => ({
               count: reward.count,
               bonusPoints: reward.bonusPoints,
-              giftId: reward.giftId,
+              itemCount: reward.itemCount ?? 0,
             }))
           : defaultValues.streak.rewards,
     },
     tierBenefits: config?.tierBenefits
-      ? Object.entries(config.tierBenefits).map(([tier, gifts]) => ({
-          tier,
-          gifts: gifts || [],
-        }))
+      ? Object.entries(config.tierBenefits).map(([tier, benefits]) => {
+          const firstBenefit = benefits?.[0];
+          const discountType =
+            firstBenefit?.discountPercentage !== undefined
+              ? ("percentage" as const)
+              : firstBenefit?.discountAmount !== undefined
+                ? ("amount" as const)
+                : ("percentage" as const);
+
+          return {
+            tier,
+            discountType,
+            benefits: (benefits || []).map((benefit) => ({
+              discountPercentage: benefit.discountPercentage,
+              discountAmount: benefit.discountAmount,
+              note: benefit.note ?? "",
+            })),
+          };
+        })
       : defaultValues.tierBenefits,
     dailySelfClaimLimitPerPhone:
       config?.dailySelfClaimLimitPerPhone ??
@@ -213,18 +283,48 @@ const buildPayload = (
       rewards: values.streak.rewards.map((reward) => ({
         count: reward.count,
         bonusPoints: reward.bonusPoints,
-        giftId: reward.giftId || undefined,
+        itemCount: reward.itemCount,
       })),
     },
     tierBenefits: (values.tierBenefits || []).reduce<
-      Record<string, { giftId: string; note?: string }[]>
+      Record<
+        string,
+        {
+          discountPercentage?: number;
+          discountAmount?: number;
+          note?: string;
+        }[]
+      >
     >((acc, entry) => {
       const tier = entry.tier?.trim();
-      if (tier && entry.gifts?.length) {
-        acc[tier] = entry.gifts.map((item) => ({
-          giftId: item.giftId,
-          note: item.note || undefined,
-        }));
+      if (tier && entry.benefits?.length) {
+        acc[tier] = entry.benefits.map((item) => {
+          const benefit: {
+            discountPercentage?: number;
+            discountAmount?: number;
+            note?: string;
+          } = {};
+
+          if (
+            item.discountPercentage !== undefined &&
+            !Number.isNaN(item.discountPercentage)
+          ) {
+            benefit.discountPercentage = item.discountPercentage;
+          }
+
+          if (
+            item.discountAmount !== undefined &&
+            !Number.isNaN(item.discountAmount)
+          ) {
+            benefit.discountAmount = item.discountAmount;
+          }
+
+          if (item.note?.trim()) {
+            benefit.note = item.note.trim();
+          }
+
+          return benefit;
+        });
       }
       return acc;
     }, {}),
@@ -239,7 +339,6 @@ const MembershipConfigPage = () => {
     isFetching,
   } = useMembershipConfig();
   const { mutate: updateConfig, isPending } = useUpdateMembershipConfig();
-  const { data: gifts = [], isLoading: isLoadingGifts } = useGetAllGifts();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -279,7 +378,11 @@ const MembershipConfigPage = () => {
 
     const next = [
       ...filtered,
-      ...missing.map((tier) => ({ tier, gifts: [] as { giftId: string; note?: string }[] })),
+      ...missing.map((tier) => ({
+        tier,
+        discountType: "percentage" as const,
+        benefits: [] as FormValues["tierBenefits"][number]["benefits"],
+      })),
     ];
 
     const changed =
@@ -287,7 +390,7 @@ const MembershipConfigPage = () => {
       next.some(
         (entry, idx) =>
           entry.tier !== current[idx]?.tier ||
-          entry.gifts?.length !== current[idx]?.gifts?.length
+          entry.benefits?.length !== current[idx]?.benefits?.length
       );
 
     if (changed) {
@@ -297,25 +400,48 @@ const MembershipConfigPage = () => {
 
   const tierBenefits = form.watch("tierBenefits") || [];
 
-  const addTierGift = (tier: string) => {
+  const addTierBenefit = (tier: string) => {
     const current = form.getValues("tierBenefits") || [];
     const idx = current.findIndex((entry) => entry.tier === tier);
     if (idx === -1) return;
     const updated = [...current];
-    const gifts = updated[idx].gifts ? [...updated[idx].gifts] : [];
-    gifts.push({ giftId: "", note: "" });
-    updated[idx] = { ...updated[idx], gifts };
+    const tierEntry = updated[idx];
+    const discountType = tierEntry.discountType ?? "percentage";
+    const benefits = tierEntry.benefits ? [...tierEntry.benefits] : [];
+    benefits.push(
+      discountType === "percentage"
+        ? { discountPercentage: undefined, note: "" }
+        : { discountAmount: undefined, note: "" }
+    );
+    updated[idx] = { ...tierEntry, discountType, benefits };
     form.setValue("tierBenefits", updated, { shouldDirty: true });
   };
 
-  const removeTierGift = (tier: string, giftIndex: number) => {
+  const removeTierBenefit = (tier: string, benefitIndex: number) => {
     const current = form.getValues("tierBenefits") || [];
     const idx = current.findIndex((entry) => entry.tier === tier);
     if (idx === -1) return;
-    const gifts = current[idx].gifts ? [...current[idx].gifts] : [];
-    gifts.splice(giftIndex, 1);
+    const benefits = current[idx].benefits ? [...current[idx].benefits] : [];
+    benefits.splice(benefitIndex, 1);
     const updated = [...current];
-    updated[idx] = { ...updated[idx], gifts };
+    updated[idx] = { ...updated[idx], benefits };
+    form.setValue("tierBenefits", updated, { shouldDirty: true });
+  };
+
+  const handleTierDiscountTypeChange = (
+    tierIndex: number,
+    discountType: "percentage" | "amount"
+  ) => {
+    const current = form.getValues("tierBenefits") || [];
+    const tierEntry = current[tierIndex];
+    if (!tierEntry) return;
+
+    const updated = [...current];
+    updated[tierIndex] = {
+      ...tierEntry,
+      discountType,
+      benefits: [],
+    };
     form.setValue("tierBenefits", updated, { shouldDirty: true });
   };
 
@@ -337,7 +463,7 @@ const MembershipConfigPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Membership"
         description="Quản lý cấu hình tích điểm, hạng thành viên và thưởng duy trì."
@@ -518,15 +644,16 @@ const MembershipConfigPage = () => {
             </CardContent>
             <CardContent className="space-y-4 pt-0">
               <div className="border-t pt-4 space-y-3">
-                <CardTitle className="text-base">Quà theo hạng</CardTitle>
+                <CardTitle className="text-base">Giảm giá theo hạng</CardTitle>
                 <CardDescription>
-                  Gán nhiều quà cho từng hạng dựa trên danh sách hạng hiện tại.
+                  Cấu hình ưu đãi giảm giá cho từng hạng. Mỗi hạng chỉ dùng một
+                  loại: giảm theo % hoặc giảm theo số tiền.
                 </CardDescription>
               </div>
 
               {tierThresholdNames.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Chưa có hạng. Hãy thêm hạng ở phần trên để cấu hình quà.
+                  Chưa có hạng. Hãy thêm hạng ở phần trên để cấu hình giảm giá.
                 </p>
               ) : (
                 tierThresholdNames.map((tierName) => {
@@ -534,109 +661,176 @@ const MembershipConfigPage = () => {
                     (entry) => entry.tier === tierName
                   );
                   if (tierIndex === -1) return null;
-                  const tierGifts =
-                    tierIndex >= 0 ? tierBenefits[tierIndex].gifts || [] : [];
+                  const tierEntry = tierBenefits[tierIndex];
+                  const tierBenefitItems = tierEntry?.benefits || [];
+                  const discountType = tierEntry?.discountType ?? "percentage";
+                  const hasBenefits = tierBenefitItems.length > 0;
 
                   return (
                     <div
                       key={tierName}
                       className="rounded-lg border p-4 space-y-3 bg-muted/30"
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="font-semibold">Hạng {tierName}</div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addTierGift(tierName)}
-                        >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Thêm quà
-                        </Button>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Select
+                            value={discountType}
+                            onValueChange={(value) =>
+                              handleTierDiscountTypeChange(
+                                tierIndex,
+                                value as "percentage" | "amount"
+                              )
+                            }
+                            disabled={hasBenefits}
+                          >
+                            <SelectTrigger className="w-[220px]">
+                              <SelectValue placeholder="Loại giảm giá" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="percentage">
+                                Giảm theo %
+                              </SelectItem>
+                              <SelectItem value="amount">
+                                Giảm theo số tiền
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addTierBenefit(tierName)}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Thêm ưu đãi
+                          </Button>
+                        </div>
                       </div>
 
-                      {tierGifts.length === 0 ? (
+                      {hasBenefits ? null : (
                         <p className="text-sm text-muted-foreground">
-                          Chưa có quà cho hạng này.
+                          Chọn loại giảm giá rồi thêm ưu đãi cho hạng này.
                         </p>
-                      ) : (
-                        tierGifts.map((_, giftIndex) => (
-                          <div
-                            key={`${tierName}-${giftIndex}`}
-                            className="grid items-start gap-3 md:grid-cols-[1.4fr_1fr_40px]"
-                          >
-                            <FormField
-                              control={form.control}
-                              name={`tierBenefits.${tierIndex}.gifts.${giftIndex}.giftId`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>
-                                    {giftIndex === 0 ? "Gift" : ""}
-                                  </FormLabel>
-                                  <FormControl>
-                                    <Select
-                                      value={field.value ?? ""}
-                                      onValueChange={field.onChange}
-                                      disabled={isLoadingGifts}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue
-                                          placeholder={
-                                            isLoadingGifts
-                                              ? "Đang tải quà..."
-                                              : "Chọn quà"
-                                          }
-                                        />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {gifts.map((gift) => (
-                                          <SelectItem
-                                            key={gift._id ?? gift.name}
-                                            value={gift._id ?? ""}
-                                          >
-                                            {gift.name}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                      )}
 
+                      {tierBenefitItems.map((_, benefitIndex) => (
+                        <div
+                          key={`${tierName}-${benefitIndex}`}
+                          className="grid items-start gap-3 md:grid-cols-[1fr_1fr_40px]"
+                        >
+                          {discountType === "percentage" ? (
                             <FormField
                               control={form.control}
-                              name={`tierBenefits.${tierIndex}.gifts.${giftIndex}.note`}
+                              name={`tierBenefits.${tierIndex}.benefits.${benefitIndex}.discountPercentage`}
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>
-                                    {giftIndex === 0 ? "Ghi chú (tùy chọn)" : ""}
+                                    {benefitIndex === 0 ? "Giảm (%)" : ""}
                                   </FormLabel>
                                   <FormControl>
                                     <Input
-                                      placeholder="Ví dụ: Gift A cho hạng này"
-                                      {...field}
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      step="0.1"
+                                      placeholder="Ví dụ: 10"
+                                      value={field.value ?? ""}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        field.onChange(
+                                          value === ""
+                                            ? undefined
+                                            : Number(value)
+                                        );
+                                      }}
+                                      onBlur={field.onBlur}
                                     />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
                               )}
                             />
+                          ) : (
+                            <FormField
+                              control={form.control}
+                              name={`tierBenefits.${tierIndex}.benefits.${benefitIndex}.discountAmount`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>
+                                    {benefitIndex === 0
+                                      ? "Giảm (VNĐ)"
+                                      : ""}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      type="text"
+                                      inputMode="decimal"
+                                      pattern="[0-9.,]*"
+                                      placeholder="Ví dụ: 50.000"
+                                      value={formatCurrencyDisplay(field.value)}
+                                      onChange={(e) => {
+                                        const parsed = parseCurrencyInput(
+                                          e.target.value
+                                        );
+                                        field.onChange(parsed);
+                                      }}
+                                      onBlur={field.onBlur}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
 
-                            <div className="flex h-full items-end">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeTierGift(tierName, giftIndex)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                          <FormField
+                            control={form.control}
+                            name={`tierBenefits.${tierIndex}.benefits.${benefitIndex}.note`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>
+                                  {benefitIndex === 0
+                                    ? "Ghi chú (tùy chọn)"
+                                    : ""}
+                                </FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Ví dụ: Áp dụng cho bill phòng"
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <div className="flex h-full items-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() =>
+                                removeTierBenefit(tierName, benefitIndex)
+                              }
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                        ))
-                      )}
+                        </div>
+                      ))}
+
+                      {hasBenefits ? (
+                        <FormField
+                          control={form.control}
+                          name={`tierBenefits.${tierIndex}.benefits`}
+                          render={() => (
+                            <FormItem>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ) : null}
                     </div>
                   );
                 })
@@ -787,7 +981,7 @@ const MembershipConfigPage = () => {
                 {streakRewardsFieldArray.fields.map((field, index) => (
                   <div
                     key={field.id}
-                    className="grid items-start gap-3 md:grid-cols-[1fr_1fr_1.4fr_40px]"
+                    className="grid items-start gap-3 md:grid-cols-[1fr_1fr_1fr_40px]"
                   >
                     <FormField
                       control={form.control}
@@ -833,41 +1027,20 @@ const MembershipConfigPage = () => {
                     />
                     <FormField
                       control={form.control}
-                      name={`streak.rewards.${index}.giftId`}
+                      name={`streak.rewards.${index}.itemCount`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{index === 0 ? "Quà tặng" : ""}</FormLabel>
+                          <FormLabel>
+                            {index === 0 ? "Số món staff chọn" : ""}
+                          </FormLabel>
                           <FormControl>
-                            <Select
-                              value={field.value ?? "none"}
-                              onValueChange={(value) =>
-                                field.onChange(
-                                  value === "none" ? undefined : value
-                                )
-                              }
-                              disabled={isLoadingGifts}
-                            >
-                              <SelectTrigger>
-                                <SelectValue
-                                  placeholder={
-                                    isLoadingGifts
-                                      ? "Đang tải quà..."
-                                      : "Không chọn"
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Không chọn</SelectItem>
-                                {gifts.map((gift) => (
-                                  <SelectItem
-                                    key={gift._id ?? gift.name}
-                                    value={gift._id ?? ""}
-                                  >
-                                    {gift.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="1"
+                              placeholder="Ví dụ: 1"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -894,7 +1067,7 @@ const MembershipConfigPage = () => {
                     streakRewardsFieldArray.append({
                       count: 1,
                       bonusPoints: 0,
-                      giftId: undefined,
+                      itemCount: 1,
                     })
                   }
                 >

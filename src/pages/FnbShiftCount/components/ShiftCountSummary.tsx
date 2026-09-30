@@ -12,12 +12,13 @@ import { formatVariance } from "../utils";
 
 interface ShiftCountSummaryProps {
   summary?: IFnbShiftCountSummary;
+  isAdmin: boolean;
 }
 
-const ShiftCountSummary = ({ summary }: ShiftCountSummaryProps) => {
+const ShiftCountSummary = ({ summary, isAdmin }: ShiftCountSummaryProps) => {
   const [open, setOpen] = useState(false);
 
-  if (!summary) return null;
+  if (!isAdmin || !summary) return null;
 
   const hasShortage = summary.shortageCount > 0;
 

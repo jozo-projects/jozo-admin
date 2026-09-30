@@ -51,6 +51,7 @@ export type UsersResponse = {
   message: string;
   result: {
     items: User[];
+    users?: User[];
     pagination: {
       page: number;
       limit: number;

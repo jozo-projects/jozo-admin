@@ -4,6 +4,7 @@ const PATHS = {
   ROOMS: "/rooms",
   NEW_ROOM: "/rooms/new",
   EDIT_ROOM: "/rooms/:id/edit",
+  ROOM_DEVICE_CONNECTIONS: "/room-device-connections",
 
   // user managemen
   SETTINGS: "/settings",
@@ -48,7 +49,9 @@ const PATHS = {
   MENU_ITEMS_EDIT: "/menu-items/:id/edit",
   CUSTOMIZATION_GROUP_TEMPLATES: "/customization-group-templates",
   FNB_STATS: "/fnb-stats",
+  GIFT_APPLIED_BILLS: "/gift-applied-bills",
   FNB_SHIFT_COUNT: "/fnb-shift-count",
+  RETAIL_SALES: "/retail-sales",
 
   // promotion management
   PROMOTION: "/promotion",
@@ -71,19 +74,24 @@ const PATHS = {
   STAFF_SCHEDULE: "/staff-schedule",
   STAFF_EARNINGS_DETAIL: "/staff-schedule/:userId/earnings",
   STAFF_SALARY_CONFIG: "/staff-salary-config",
+  STAFF_ERROR_LOGS: "/staff-error-logs",
 
   // my schedule - employee view their own schedules
   MY_SCHEDULE: "/my-schedule",
   MY_EARNINGS_DETAIL: "/my-schedule/earnings",
+  MY_ERROR_LOGS: "/my-error-logs",
 
   // notifications
   NOTIFICATIONS: "/notifications",
+  SUPPORT_HISTORY: "/support-history",
 
   // total revenue
   TOTAL_REVENUE: "/total-revenue",
 
   // room music
   SONGS_COLLECTION: "/songs-collection",
+  MUSIC_CATEGORIES: "/music-categories",
+  MUSIC_CATEGORY_DETAIL: "/music-categories/:categoryId",
 } as const;
 
 export default PATHS;

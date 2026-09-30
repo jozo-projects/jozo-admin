@@ -21,7 +21,7 @@ export interface FnbShiftCountFormItem {
   currentInventory?: number;
   shifts: Record<ShiftNo, ShiftCountCellValue>;
   totalStockIn: number | "";
-  systemSold: number;
+  systemSold?: number;
   expectedClosing?: number;
   latestClosing?: number;
   latestClosingShiftNo?: 0 | ShiftNo;

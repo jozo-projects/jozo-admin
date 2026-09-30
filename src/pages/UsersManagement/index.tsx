@@ -11,11 +11,12 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useUsers } from "@/hooks/use-users";
+import { useDebounce } from "@/hooks/use-debounce";
 import { User } from "@/@types/user";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 import { DeleteModal } from "@/components/shared/DeleteModal";
 import { toast } from "@/hooks/use-toast";
@@ -27,8 +28,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Role } from "@/constants/enum";
+import { useUsersManagementQueryConfig } from "./hooks/useUsersManagementQueryConfig";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const SEARCH_DEBOUNCE_MS = 400;
 
 type PaginationControlsProps = {
   currentPage: number;
@@ -137,10 +140,14 @@ const PaginationControls = ({
 };
 
 const UsersManagementPage = () => {
-  const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const router = useRouter();
+  const { queryConfig, setQueryConfig } = useUsersManagementQueryConfig();
+  const pageSize = PAGE_SIZE_OPTIONS.includes(queryConfig.limit)
+    ? queryConfig.limit
+    : 10;
+  const currentPage = queryConfig.page > 0 ? queryConfig.page : 1;
+  const [searchTerm, setSearchTerm] = useState(queryConfig.search);
+  const debouncedSearchTerm = useDebounce(searchTerm, SEARCH_DEBOUNCE_MS);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const {
     users,
@@ -152,28 +159,26 @@ const UsersManagementPage = () => {
   } = useUsers({
     page: currentPage,
     limit: pageSize,
-    search: searchTerm || undefined,
-    role: Role.User,
+    search: queryConfig.search.trim() || undefined,
+    role: `${Role.Member},${Role.User}`,
   });
 
-  // Lọc chỉ users có role "user" (được map từ Role.Staff ở backend)
-  const regularUsers = users.filter(
-    (user: User) => user.role === Role.User || user.role === Role.Member
-  );
+  // Backend đã scope endpoint này chỉ về member/user accounts.
+  const filteredUsers = users;
 
-  // Lọc users theo search term
-  const filteredUsers = regularUsers.filter(
-    (user: User) =>
-      (user.name || user.full_name || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone_number.includes(searchTerm)
-  );
-
+  // Đồng bộ input khi URL thay đổi (back/forward)
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
+    setSearchTerm(queryConfig.search);
+  }, [queryConfig.search]);
+
+  // Ghi search đã debounce vào URL và reset về trang 1
+  useEffect(() => {
+    if (debouncedSearchTerm === queryConfig.search) return;
+    void setQueryConfig(
+      { search: debouncedSearchTerm, page: 1 },
+      { history: "replace" }
+    );
+  }, [debouncedSearchTerm, queryConfig.search, setQueryConfig]);
 
   const totalRecords = pagination?.total ?? filteredUsers.length ?? 0;
   const effectivePage = pagination?.page ?? currentPage;
@@ -181,6 +186,7 @@ const UsersManagementPage = () => {
   const totalPages =
     pagination?.total_pages ??
     Math.max(1, Math.ceil(totalRecords / (effectivePageSize || 1)));
+  const isInitialLoading = isLoadingUsers && filteredUsers.length === 0;
 
   const handleDeleteUser = (userId: string) => {
     deleteUser(userId, {
@@ -200,134 +206,134 @@ const UsersManagementPage = () => {
 
   const handlePageChange = (page: number) => {
     if (page < 1 || page > totalPages) return;
-    setCurrentPage(page);
+    void setQueryConfig({ page });
   };
 
   const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-    setCurrentPage(1);
+    void setQueryConfig({ limit: size, page: 1 });
   };
 
-  if (isLoadingUsers) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Đang tải...</div>
-      </div>
-    );
-  }
-
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Quản lý Thành viên"
         description="Quản lý danh sách người dùng"
         icon={UserCircle}
         actions={
-          <Button onClick={() => navigate(PATHS.USERS_MANAGEMENT_NEW)}>
+          <Button onClick={() => router.navigate({ to: PATHS.USERS_MANAGEMENT_NEW })}>
             <Plus className="mr-2 h-4 w-4" />
             Thêm Thành viên
           </Button>
         }
-        className="mb-6"
       />
 
-      {/* Search Bar */}
-      <Card className="mb-6">
+      {/* Search Bar — luôn mount để không mất focus khi refetch */}
+      <Card>
         <CardContent className="pt-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Tìm kiếm theo tên, email hoặc số điện thoại..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
-              disabled={isFetchingUsers}
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Users List */}
-      <div className="grid gap-4">
-        {filteredUsers.map((user: User) => (
-          <Card key={user._id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold">
-                      {getUserName(user)}
-                    </h3>
-                    <Badge variant="secondary">User</Badge>
+      {isInitialLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-lg">Đang tải...</div>
+        </div>
+      ) : (
+        <>
+          {/* Users List */}
+          <div className={`grid gap-4 ${isFetchingUsers ? "opacity-60" : ""}`}>
+            {filteredUsers.map((user: User) => (
+              <Card
+                key={user._id}
+                className="hover:shadow-md transition-shadow"
+              >
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold">
+                          {getUserName(user)}
+                        </h3>
+                        <Badge variant="secondary">User</Badge>
+                      </div>
+
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        {user.username && <p>Username: {user.username}</p>}
+                        {user.email && <p>Email: {user.email}</p>}
+                        <p>Số điện thoại: {user.phone_number}</p>
+                        <p>
+                          Ngày sinh:{" "}
+                          {format(new Date(user.date_of_birth), "dd/MM/yyyy", {
+                            locale: vi,
+                          })}
+                        </p>
+                        <p>
+                          Ngày tạo:{" "}
+                          {format(
+                            new Date(user.created_at),
+                            "dd/MM/yyyy HH:mm",
+                            {
+                              locale: vi,
+                            }
+                          )}
+                        </p>
+                        {user.status && <p>Trạng thái: {user.status}</p>}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.navigate({ to: "/users-management/$id/edit", params: { id: user._id } })}
+                      >
+                        Chỉnh sửa
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setDeleteUserId(user._id)}
+                      >
+                        Xóa
+                      </Button>
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-                  <div className="space-y-1 text-sm text-gray-600">
-                    {user.username && <p>Username: {user.username}</p>}
-                    {user.email && <p>Email: {user.email}</p>}
-                    <p>Số điện thoại: {user.phone_number}</p>
-                    <p>
-                      Ngày sinh:{" "}
-                      {format(new Date(user.date_of_birth), "dd/MM/yyyy", {
-                        locale: vi,
-                      })}
-                    </p>
-                    <p>
-                      Ngày tạo:{" "}
-                      {format(new Date(user.created_at), "dd/MM/yyyy HH:mm", {
-                        locale: vi,
-                      })}
-                    </p>
-                    {user.status && <p>Trạng thái: {user.status}</p>}
-                  </div>
-                </div>
+          {filteredUsers.length === 0 && (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-gray-500">
+                  {queryConfig.search.trim()
+                    ? "Không tìm thấy user nào phù hợp"
+                    : "Chưa có user nào"}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      navigate(
-                        PATHS.USERS_MANAGEMENT_EDIT.replace(":id", user._id)
-                      )
-                    }
-                  >
-                    Chỉnh sửa
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setDeleteUserId(user._id)}
-                  >
-                    Xóa
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredUsers.length === 0 && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <p className="text-gray-500">
-              {searchTerm
-                ? "Không tìm thấy user nào phù hợp"
-                : "Chưa có user nào"}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {totalRecords > 0 && (
-        <PaginationControls
-          currentPage={effectivePage}
-          totalPages={totalPages}
-          pageSize={effectivePageSize}
-          total={totalRecords}
-          onPageChange={handlePageChange}
-          onPageSizeChange={handlePageSizeChange}
-        />
+          {totalRecords > 0 && (
+            <PaginationControls
+              currentPage={effectivePage}
+              totalPages={totalPages}
+              pageSize={effectivePageSize}
+              total={totalRecords}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          )}
+        </>
       )}
 
       {/* Delete Confirmation Modal */}

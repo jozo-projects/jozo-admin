@@ -11,6 +11,8 @@ interface ICreateRoomScheduleRequest {
   note?: string;
   customerPhone?: string;
   giftEnabled?: boolean;
+  /** Gửi `null` hoặc `""` để xóa promotion đã chọn */
+  promotionId?: string | null;
   applyFreeHourPromo?: boolean;
   roomType?: RoomType;
 }
@@ -48,6 +50,17 @@ const roomsScheduleApis = {
     http.post<HTTPResponse<string>>(SCHEDULE_CONTROLLER, schedule),
   getScheduleById: (id: string) =>
     http.get<HTTPResponse<IRoomSchedule>>(`${SCHEDULE_CONTROLLER}/${id}`),
+  getPhotoDisplay: (id: string) =>
+    http.get(`${SCHEDULE_CONTROLLER}/${id}/photo-display`),
+  setPhotoDisplay: (id: string, state: "hidden" | "showing") =>
+    http.put(`${SCHEDULE_CONTROLLER}/${id}/photo-display`, { state }),
+  uploadPhoto: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return http.post(`${SCHEDULE_CONTROLLER}/${id}/photos`, formData);
+  },
+  deletePhotos: (id: string) =>
+    http.delete(`${SCHEDULE_CONTROLLER}/${id}/photos`),
 };
 export default roomsScheduleApis;
 export type { ICreateRoomScheduleRequest, IChangeRoomRequest };

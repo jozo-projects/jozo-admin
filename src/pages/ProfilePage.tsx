@@ -149,7 +149,7 @@ function ProfilePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Thông tin cá nhân"
         description="Xem và cập nhật thông tin profile của bạn"

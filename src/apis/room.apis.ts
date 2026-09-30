@@ -1,4 +1,4 @@
-import { IRoom } from "@/@types/Room";
+import { IRoom, RoomDeviceConnectionsSnapshot } from "@/@types/Room";
 import { RoomType } from "@/constants/enum";
 import http from "@/utils/http";
 
@@ -12,6 +12,20 @@ export interface IAddRoomRequestBody {
   description?: string;
 }
 
+export interface IPendingOrderNotification {
+  type: "new_order";
+  roomId: string;
+  message: string;
+  timestamp: number;
+  orderData: {
+    orderId: string;
+    items: Array<{ itemId: string; name: string; quantity: number; price: number }>;
+    totalAmount: number;
+    customerInfo: { roomName: string; roomScheduleId: string };
+    createdAt: string;
+  };
+}
+
 const roomApis = {
   createRoom: (payload: IRoom) => {
     return http.post<HTTPResponse<IRoom>>(
@@ -21,6 +35,11 @@ const roomApis = {
   },
   getRooms: () => {
     return http.get<HTTPResponse<IRoom[]>>(`${ROOM_CONTROLLER}`);
+  },
+  getPendingOrderNotifications: () => {
+    return http.get<HTTPResponse<IPendingOrderNotification[]>>(
+      `${ROOM_CONTROLLER}/order-notifications/pending`
+    );
   },
   updateRoom: (payload: IRoom) => {
     return http.put<HTTPResponse<IRoom>>(
@@ -49,6 +68,11 @@ const roomApis = {
   },
   turnOffAllRooms: () => {
     return http.post<HTTPResponse>(`${ROOM_CONTROLLER}/turn-off-videos`);
+  },
+  getDeviceConnections: () => {
+    return http.get<HTTPResponse<RoomDeviceConnectionsSnapshot>>(
+      `${ROOM_CONTROLLER}/device-connections`
+    );
   },
 };
 

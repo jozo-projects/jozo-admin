@@ -3,10 +3,13 @@ import type { User } from "./user";
 
 type ObjectId = string;
 
-export interface ITierBenefit {
-  giftId: ObjectId;
+export interface ITierDiscount {
+  discountPercentage?: number;
+  discountAmount?: number;
   note?: string;
 }
+
+export type ITierBenefit = ITierDiscount;
 
 export interface IMembershipConfig {
   _id?: ObjectId;
@@ -39,7 +42,8 @@ export interface IStreakConfig {
 export interface IStreakReward {
   count: number;
   bonusPoints: number;
-  giftId?: ObjectId;
+  /** Số món staff phải chọn khi phát quà */
+  itemCount: number;
 }
 
 export type MembershipConfigResponse = HTTPResponse<IMembershipConfig>;
@@ -51,6 +55,9 @@ export type MembershipConfigPayload = Omit<
 
 export interface IUserMembershipUser extends User {
   points?: number;
+  availablePoint?: number;
+  totalPoint?: number;
+  lifetimePoint?: number;
   loyalty_points?: number;
   loyalty?: number;
   streak?: number;
@@ -87,28 +94,6 @@ export type UpdateStreakPayload = {
   reset?: boolean;
 };
 
-// Pending gift từ reward history
-export interface IPendingGift {
-  rewardHistoryId: string;
-  giftId: string;
-  giftName: string;
-  giftType: string;
-  giftImage?: string;
-  streakCount: number;
-  assignedAt: string;
-}
-
-// Eligible gift chưa được assign
-export interface IEligibleGift {
-  streakCount: number;
-  giftId: string;
-  giftName: string;
-  giftType: string;
-  giftImage?: string;
-  bonusPoints?: number;
-}
-
-// User info trong response
 export interface IPendingGiftsUserProgress {
   currentTier: string;
   nextTier?: {
@@ -132,56 +117,138 @@ export interface IPendingGiftsUser {
   totalPoint?: number;
   streakCount: number;
   progress?: IPendingGiftsUserProgress;
+  /** Ưu đãi hạng — BE có thể trả kèm khi lookup theo phone */
+  tierDiscount?: ITierDiscount[];
 }
 
-// Response từ GET /pending-gifts
-export interface IPendingGiftsResponse {
-  user: IPendingGiftsUser;
-  pending: IPendingGift[];
-  eligible: IEligibleGift[];
+/** Món FNB staff có thể chọn khi phát quà streak */
+export interface ISelectableStreakGiftItem {
+  itemId: string;
+  name: string;
+  category: string;
+  quantity: number;
+  price: number;
+  image?: string;
+  parentId?: string | null;
 }
 
-// Payload cho POST /claim-gift
-export interface IClaimGiftPayload {
-  phone: string;
-  streakCount: number;
-  scheduleId: string;
-}
-
-// Quà streak sẵn sàng phục vụ — GET /streak-gifts
+/** Quà streak sẵn sàng phát — GET /pending-gifts */
 export interface IAvailableStreakGift {
   streakCount: number;
-  giftId: string;
-  giftName: string;
-  giftType: string;
-  giftImage?: string;
+  itemCount: number;
   bonusPoints?: number;
+  usedQuantity?: number;
+  remainingQuantity?: number;
 }
 
-// Tiến độ mốc streak — GET /streak-gifts
+/** Tiến độ mốc streak — GET /pending-gifts */
 export interface IStreakRewardProgress {
   streakCount: number;
-  giftId?: string;
-  giftName?: string;
-  giftType?: string;
-  giftImage?: string;
   bonusPoints?: number;
+  itemCount?: number;
+  usedQuantity?: number;
+  remainingQuantity?: number;
+  isReached?: boolean;
+  isClaimed?: boolean;
+  /** Normalized từ isClaimed */
   claimed: boolean;
   isNext?: boolean;
 }
 
-// Response từ GET /streak-gifts
-export interface IStreakGiftsResponse {
-  user: IPendingGiftsUser;
-  availableGifts: IAvailableStreakGift[];
-  streakRewards: IStreakRewardProgress[];
+export interface IServedStreakGiftItem {
+  itemId: string;
+  name?: string;
+  category?: string;
+  quantity: number;
+  image?: string;
+  price?: number;
 }
 
-// Payload cho POST /membership/serve-streak-gift
-export interface IServeStreakGiftPayload {
-  phone: string;
+/** Quà đã phát trên schedule — GET /pending-gifts?scheduleId= */
+export interface IServedStreakGift {
+  streakCount: number;
+  itemCount: number;
+  usedQuantity: number;
+  remainingQuantity: number;
+  bonusPoints?: number;
+  items: IServedStreakGiftItem[];
+}
+
+/** Response từ GET /membership/pending-gifts (và alias streak-gifts nếu còn) */
+export interface IPendingGiftsResponse {
+  user: IPendingGiftsUser;
+  streakRewards: IStreakRewardProgress[];
+  availableGifts: IAvailableStreakGift[];
+  selectableItems: ISelectableStreakGiftItem[];
+  servedGifts?: IServedStreakGift[];
+  /** Fallback nếu BE trả discount ở root thay vì trong user */
+  tierDiscount?: ITierDiscount[];
+}
+
+export type IStreakGiftsResponse = IPendingGiftsResponse;
+
+export interface IClaimGiftItem {
+  itemId: string;
+  quantity?: number;
+}
+
+/** Payload cho POST /membership/claim-gift (alias serve-streak-gift) */
+export interface IClaimGiftPayload {
+  phone?: string;
+  userId?: string;
+  userIdOrPhone?: string;
   streakCount: number;
   scheduleId: string;
+  /** Optional / [] — claim soft, có thể bổ sung món sau */
+  items?: IClaimGiftItem[];
+}
+
+export type IServeStreakGiftPayload = IClaimGiftPayload;
+
+export interface IStreakGiftQuotaResult {
+  items: IServedStreakGiftItem[];
+  itemCount: number;
+  usedQuantity: number;
+  remainingQuantity: number;
+  bonusPointsAwarded?: number;
+  user?: {
+    userId: string;
+    totalPoint?: number;
+    availablePoint?: number;
+    lifetimePoint?: number;
+    tier?: string;
+  };
+  reward?: unknown;
+}
+
+export type IClaimGiftResult = IStreakGiftQuotaResult;
+
+export interface IAddStreakGiftItemsPayload {
+  scheduleId: string;
+  streakCount: number;
+  phone?: string;
+  userId?: string;
+  items: IClaimGiftItem[];
+}
+
+export interface IUpdateStreakGiftItemPayload {
+  scheduleId: string;
+  streakCount: number;
+  itemId: string;
+  /** 0 = xoá */
+  quantity: number;
+  phone?: string;
+}
+
+export interface IRemoveStreakGiftItemPayload {
+  scheduleId: string;
+  streakCount: number;
+  itemId: string;
+  phone?: string;
+}
+
+export interface IStreakGiftItemsResult {
+  selectableItems: ISelectableStreakGiftItem[];
 }
 
 // Streak Info Response - GET /membership/members/:userId/streak
@@ -199,15 +266,19 @@ export interface IUserStreak {
 }
 
 export interface IClaimedRewardGift {
-  giftId: string;
-  giftName: string;
-  giftType: string;
+  giftId?: string;
+  giftName?: string;
+  giftType?: string;
+  items?: IServedStreakGiftItem[];
 }
 
 export interface IClaimedReward {
   streakCount: number;
   points?: number;
+  bonusPoints?: number;
+  itemCount?: number;
   gift?: IClaimedRewardGift;
+  items?: IServedStreakGiftItem[];
   claimedAt: string;
 }
 
@@ -217,3 +288,33 @@ export interface IUserStreakInfo {
 }
 
 export type UserStreakInfoResponse = HTTPResponse<IUserStreakInfo>;
+
+/** Response từ GET /membership/lookup?phone=... */
+export interface IMembershipLookup {
+  userId?: string;
+  full_name?: string | null;
+  name?: string | null;
+  username?: string | null;
+  email?: string | null;
+  phone_number: string;
+  date_of_birth?: string | null;
+  avatar?: string | null;
+  tier?: string;
+  availablePoint?: number;
+  lifetimePoint?: number;
+  totalPoint?: number;
+  streakCount?: number;
+  tierDiscount?: ITierDiscount[];
+  progress?: IPendingGiftsUserProgress;
+}
+
+export type MembershipLookupResponse = HTTPResponse<IMembershipLookup>;
+
+/** Response từ GET /membership/me — dùng cho checkout/bill ở phase sau */
+export interface IMembershipMe {
+  tier?: string;
+  points?: number;
+  tierDiscount?: ITierDiscount[];
+}
+
+export type MembershipMeResponse = HTTPResponse<IMembershipMe>;

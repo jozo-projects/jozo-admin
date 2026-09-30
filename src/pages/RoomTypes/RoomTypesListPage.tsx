@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { PencilIcon, TrashIcon } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { formatCurrency } from "@/utils";
 
@@ -141,7 +141,10 @@ function RoomTypesListPage() {
       header: "",
       cell: ({ row }) => (
         <div className="flex items-center justify-center gap-2">
-          <Link to={`${PATHS.ROOM_TYPES_LISTS}/${row.original._id}/edit`}>
+          <Link
+            to="/room-types/$id/edit"
+            params={{ id: row.original._id as string }}
+          >
             <Button variant="ghost" size="icon">
               <PencilIcon size={16} />
             </Button>
@@ -160,17 +163,16 @@ function RoomTypesListPage() {
   ];
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Room Types"
         description="Danh sách các loại phòng"
         icon={Building2}
         actions={
-      <Link to={PATHS.ROOM_TYPES_NEW}>
+<Link to={PATHS.ROOM_TYPES_NEW}>
             <Button>New room type</Button>
       </Link>
         }
-        className="mb-4"
       />
 
       <DataTable

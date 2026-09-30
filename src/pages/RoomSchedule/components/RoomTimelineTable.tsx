@@ -12,19 +12,23 @@ import coffeeTableApis from "@/apis/coffeeTable.apis";
 import roomApis from "@/apis/room.apis";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 // import roomsScheduleApis from "@/apis/roomSchedule.api";
 import GiftDetailsModal from "@/components/modules/RoomSchedule/GiftDetailsModal";
 import OrderDetailsModal from "@/components/modules/RoomSchedule/OrderDetailsModal";
 import ScheduleModal from "@/components/modules/RoomSchedule/ScheduleModal";
 import { PageHeader } from "@/components/shared";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -35,13 +39,14 @@ import {
 import { RoomType } from "@/constants/enum";
 import { useRoomEvents } from "@/context/RoomEventsContext";
 import {
-  useResolveRequest,
+
   useRoomSchedules,
   useTurnOffAllRooms,
 } from "@/hooks/room-schedule";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsStaff } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
+import SupportRequestModal from "./SupportRequestModal";
 import {
   getCoffeeSessionDisplayEnd,
   getCoffeeSessionDisplayStart,
@@ -52,13 +57,13 @@ import {
 import {
   BellIcon,
   CalendarIcon,
-  CircleXIcon,
   CupSoda,
   DoorOpen,
   Gamepad2,
   Gift,
   ShoppingCart,
   UtensilsCrossed,
+  XCircle,
 } from "lucide-react";
 import CoffeeBookedModal from "./CoffeeBookedModal";
 import CoffeeCreateSessionModal from "./CoffeeCreateSessionModal";
@@ -68,19 +73,41 @@ import ExtendSessionModal from "./ExtendSessionModal";
 import MobileTimelineView from "./MobileTimelineView";
 import ProcessBookedModal from "./ProcessBookedModal";
 import ProcessInUseModal from "./ProcessInUseModal";
+import ProcessMaintenanceModal from "./ProcessMaintenanceModal";
+import TimelineControls from "./TimelineControls";
 import {
   getEffectiveScheduleRoomType,
   getRoomTypeLabel as getScheduleRoomTypeLabel,
   getScheduleTimelineLabel,
+  normalizeRoomType,
 } from "../utils/scheduleRoomType";
+import { isRoomUnderMaintenance } from "../utils/roomStatus";
+import {
+  DAY_END_HOUR,
+  DAY_START_HOUR,
+  DEFAULT_TIMELINE_ZOOM,
+  ROOM_LANE_GAP,
+  ROOM_LANE_HEIGHT,
+  ROOM_ROW_PADDING_Y,
+  TIMELINE_LEFT_OFFSET,
+  TIMELINE_MINUTE_SPAN,
+  TimelineZoom,
+  formatTimelineHourLabel,
+  getDefaultBusinessDate,
+  getRoomRowHeight,
+  getScheduleTimelineEnd,
+  getTimelineContentWidth,
+  getTimelineDayEnd,
+  getTimelineDayStart,
+  getTimelineGridBackground,
+  getTimelineNowMarker,
+  getTimelineScale,
+  getTimelineTotalWidth,
+  intersectsTimelineWindow,
+  packTimelineLanes,
+} from "../utils/timelineHours";
 import ProcessLockedModal from "./ProcessLockedModal";
 
-const DAY_START_HOUR = 0;
-const DAY_END_HOUR = 24;
-const HOUR_MARKER_SPACING = 120;
-const SCALE = HOUR_MARKER_SPACING / 60;
-const TIMELINE_WIDTH =
-  HOUR_MARKER_SPACING * (DAY_END_HOUR - DAY_START_HOUR) + 300;
 const AUTO_SCROLL_MARKER_VIEWPORT_RATIO = 0.65;
 
 interface GroupedSchedules {
@@ -99,6 +126,15 @@ const groupSchedulesByRoom = (schedules: IRoomSchedule[]): GroupedSchedules =>
     acc[schedule.roomId].push(schedule);
     return acc;
   }, {});
+
+const resolveScheduleFromCache = (
+  schedule: IRoomSchedule | null,
+  schedules: IRoomSchedule[] | undefined,
+): IRoomSchedule | null => {
+  if (!schedule) return null;
+  if (!schedules) return schedule;
+  return schedules.find((item) => item._id === schedule._id) ?? schedule;
+};
 
 const groupCoffeeSessionsByTable = (
   sessions: ICoffeeSession[],
@@ -129,6 +165,7 @@ type Modal =
   | "process"
   | "booked"
   | "inUse"
+  | "maintenance"
   | "extend"
   | "foodDrink"
   | "bill"
@@ -167,8 +204,8 @@ interface OrderData {
 
 export type { OrderData };
 
-const getRoomTypeLabel = (type: RoomType) => {
-  switch (type) {
+const getRoomTypeLabel = (type: RoomType | string) => {
+  switch (normalizeRoomType(type)) {
     case RoomType.Medium:
       return "Vừa";
     case RoomType.Large:
@@ -180,30 +217,12 @@ const getRoomTypeLabel = (type: RoomType) => {
   }
 };
 
-const getRoomTypeLeadIcon = (type: RoomType) => {
+const getRoomTypeLeadIcon = (type: RoomType | string) => {
   const className = "h-4 w-4 shrink-0 text-slate-500";
-  if (type === RoomType.Dorm) {
+  if (normalizeRoomType(type) === RoomType.Dorm) {
     return <Gamepad2 className={className} aria-hidden />;
   }
   return <DoorOpen className={className} aria-hidden />;
-};
-
-const getTimelineNowMarker = (viewDate: Dayjs, now: Dayjs) => {
-  const isToday = viewDate.isSame(now, "day");
-  let markerLeft = 0;
-  const leftOffset = 240;
-
-  if (isToday) {
-    const totalMinutes =
-      (now.hour() - DAY_START_HOUR) * 60 + now.minute();
-    const clampedMinutes = Math.min(
-      Math.max(totalMinutes, 0),
-      (DAY_END_HOUR - DAY_START_HOUR) * 60,
-    );
-    markerLeft = leftOffset + clampedMinutes * SCALE;
-  }
-
-  return { isToday, markerLeft };
 };
 
 const RoomTimelineTable: React.FC = () => {
@@ -212,6 +231,7 @@ const RoomTimelineTable: React.FC = () => {
   const isStaff = useIsStaff();
   const {
     supportNotifications,
+    supportRequests,
     orderNotifications,
     giftNotifications,
     blinkingSupportRooms,
@@ -227,10 +247,36 @@ const RoomTimelineTable: React.FC = () => {
     clearCoffeeSupportNotification,
     clearCoffeeNewOrderNotification,
   } = useRoomEvents();
-  const [roomsDate, setRoomsDate] = useState<Dayjs>(dayjs());
-  const [coffeeDate, setCoffeeDate] = useState<Dayjs>(dayjs());
-  const { data: schedules, isLoading, error, refetch } =
-    useRoomSchedules(roomsDate);
+  const [roomsDate, setRoomsDate] = useState<Dayjs>(() =>
+    getDefaultBusinessDate(),
+  );
+  const [coffeeDate, setCoffeeDate] = useState<Dayjs>(() =>
+    getDefaultBusinessDate(),
+  );
+  const [timelineZoom, setTimelineZoom] = useState<TimelineZoom>(
+    DEFAULT_TIMELINE_ZOOM,
+  );
+  const timelineScale = getTimelineScale(timelineZoom);
+  const timelineContentWidth = getTimelineContentWidth(timelineZoom);
+  const timelineTotalWidth = getTimelineTotalWidth(timelineZoom);
+  const timelineGridStyle = getTimelineGridBackground(timelineZoom);
+  const hourMarkerSpacing = getTimelineScale(timelineZoom) * 60;
+
+  const nextRoomsDate = useMemo(() => roomsDate.add(1, "day"), [roomsDate]);
+  const {
+    data: schedules,
+    isLoading,
+    error,
+    refetch: refetchRoomsDateSchedules,
+  } = useRoomSchedules(roomsDate);
+  const { data: nextDaySchedules, refetch: refetchNextDaySchedules } =
+    useRoomSchedules(nextRoomsDate);
+
+  const refetch = () => {
+    void refetchRoomsDateSchedules();
+    void refetchNextDaySchedules();
+  };
+
   const {
     data: roomsData,
     isLoading: loadingRooms,
@@ -242,6 +288,11 @@ const RoomTimelineTable: React.FC = () => {
   });
 
   const [modal, setModal] = useState<Modal>(null);
+  const [supportRequestModalId, setSupportRequestModalId] = useState<
+    string | null
+  >(null);
+  const [turnOffAllRoomsConfirmOpen, setTurnOffAllRoomsConfirmOpen] =
+    useState(false);
   const [selectedRoom, setSelectedRoom] = useState<IRoom | null>(null);
   const [lockedSchedule, setLockedSchedule] = useState<IRoomSchedule | null>(
     null,
@@ -252,6 +303,19 @@ const RoomTimelineTable: React.FC = () => {
   const [inUseSchedule, setInUseSchedule] = useState<IRoomSchedule | null>(
     null,
   );
+  const [maintenanceSchedule, setMaintenanceSchedule] =
+    useState<IRoomSchedule | null>(null);
+
+  const activeBookedSchedule = useMemo(
+    () => resolveScheduleFromCache(bookedSchedule, schedules),
+    [bookedSchedule, schedules],
+  );
+
+  const activeInUseSchedule = useMemo(
+    () => resolveScheduleFromCache(inUseSchedule, schedules),
+    [inUseSchedule, schedules],
+  );
+
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [orderRoomId, setOrderRoomId] = useState<string>("");
   const [giftData, setGiftData] = useState<{
@@ -335,7 +399,8 @@ const RoomTimelineTable: React.FC = () => {
   });
   */
 
-  const { mutate: turnOffAllRooms } = useTurnOffAllRooms();
+  const { mutate: turnOffAllRooms, isPending: isTurningOffAllRooms } =
+    useTurnOffAllRooms();
 
   // Mutation cho việc cập nhật schedule - TẠM THỜI DISABLED
   /*
@@ -360,17 +425,18 @@ const RoomTimelineTable: React.FC = () => {
   });
   */
 
-  // Cập nhật currentTime mỗi giây
+  // Cập nhật currentTime mỗi 15s — đủ mượt cho now-marker, tránh re-render mỗi giây
   const [currentTime, setCurrentTime] = useState(dayjs());
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(dayjs());
-    }, 1000);
+    }, 15_000);
     return () => clearInterval(interval);
   }, []);
 
   // Ref cho timeline container
   const timelineContainerRef = useRef<HTMLDivElement>(null);
+  const preserveScrollRatioRef = useRef<number | null>(null);
 
   // State điều khiển auto-scroll
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
@@ -378,7 +444,35 @@ const RoomTimelineTable: React.FC = () => {
   const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isAutoScrollingRef = useRef(false);
 
-  const { mutate: resolveRequest } = useResolveRequest();
+
+
+  const scrollTimelineToMarker = (
+    markerLeft: number,
+    behavior: ScrollBehavior = "smooth",
+  ) => {
+    const container = timelineContainerRef.current;
+    if (!container) return;
+    const containerWidth = container.clientWidth;
+    const maxScrollLeft = Math.max(container.scrollWidth - containerWidth, 0);
+    const targetScrollLeft = Math.min(
+      Math.max(
+        markerLeft - containerWidth * AUTO_SCROLL_MARKER_VIEWPORT_RATIO,
+        0,
+      ),
+      maxScrollLeft,
+    );
+    isAutoScrollingRef.current = true;
+    container.scrollTo({ left: targetScrollLeft, behavior });
+    if (autoScrollTimerRef.current) {
+      clearTimeout(autoScrollTimerRef.current);
+    }
+    autoScrollTimerRef.current = setTimeout(
+      () => {
+        isAutoScrollingRef.current = false;
+      },
+      behavior === "smooth" ? 450 : 100,
+    );
+  };
 
   // Handler để tạm dừng auto-scroll khi người dùng scroll
   const handleScroll = () => {
@@ -392,7 +486,23 @@ const RoomTimelineTable: React.FC = () => {
     }
     inactivityTimerRef.current = setTimeout(() => {
       setAutoScrollEnabled(true);
-    }, 5000); // 5 giây không có thao tác thì bật lại auto-scroll
+    }, 5000);
+  };
+
+  const handleZoomChange = (nextZoom: TimelineZoom) => {
+    const container = timelineContainerRef.current;
+    if (container) {
+      const centerPx =
+        container.scrollLeft +
+        container.clientWidth * AUTO_SCROLL_MARKER_VIEWPORT_RATIO -
+        TIMELINE_LEFT_OFFSET;
+      preserveScrollRatioRef.current = Math.max(
+        0,
+        centerPx / Math.max(timelineContentWidth, 1),
+      );
+    }
+    setTimelineZoom(nextZoom);
+    setAutoScrollEnabled(false);
   };
 
   // Cleanup timer khi unmount
@@ -407,45 +517,43 @@ const RoomTimelineTable: React.FC = () => {
     };
   }, []);
 
-  const roomsTimeline = getTimelineNowMarker(roomsDate, currentTime);
-  const coffeeTimeline = getTimelineNowMarker(coffeeDate, currentTime);
+  const roomsTimeline = getTimelineNowMarker(roomsDate, currentTime, {
+    scale: timelineScale,
+  });
+  const coffeeTimeline = getTimelineNowMarker(coffeeDate, currentTime, {
+    scale: timelineScale,
+  });
   const { isToday: roomsIsToday, markerLeft: roomsMarkerLeft } = roomsTimeline;
   const { isToday: coffeeIsToday, markerLeft: coffeeMarkerLeft } =
     coffeeTimeline;
   const activeTimeline =
     scheduleViewTab === "coffee" ? coffeeTimeline : roomsTimeline;
 
-  // Auto-scroll effect: canh now marker lệch về bên phải viewport để dễ nhìn phần sắp tới
+  // Giữ vị trí thời gian khi đổi zoom
+  useEffect(() => {
+    const ratio = preserveScrollRatioRef.current;
+    const container = timelineContainerRef.current;
+    if (ratio == null || !container) return;
+    preserveScrollRatioRef.current = null;
+    const target =
+      TIMELINE_LEFT_OFFSET +
+      ratio * timelineContentWidth -
+      container.clientWidth * AUTO_SCROLL_MARKER_VIEWPORT_RATIO;
+    isAutoScrollingRef.current = true;
+    container.scrollLeft = Math.max(0, target);
+    autoScrollTimerRef.current = setTimeout(() => {
+      isAutoScrollingRef.current = false;
+    }, 100);
+  }, [timelineZoom, timelineContentWidth]);
+
+  // Auto-scroll effect: canh now marker lệch về bên phải viewport
   useEffect(() => {
     if (
       timelineContainerRef.current &&
       activeTimeline.isToday &&
       autoScrollEnabled
     ) {
-      const container = timelineContainerRef.current;
-      const currentScrollLeft = container.scrollLeft;
-      const containerWidth = container.clientWidth;
-      const maxScrollLeft = Math.max(container.scrollWidth - containerWidth, 0);
-      const targetScrollLeft = Math.min(
-        Math.max(
-          activeTimeline.markerLeft -
-            containerWidth * AUTO_SCROLL_MARKER_VIEWPORT_RATIO,
-          0,
-        ),
-        maxScrollLeft,
-      );
-
-      if (Math.abs(currentScrollLeft - targetScrollLeft) > 1) {
-        isAutoScrollingRef.current = true;
-        container.scrollLeft = targetScrollLeft;
-
-        if (autoScrollTimerRef.current) {
-          clearTimeout(autoScrollTimerRef.current);
-        }
-        autoScrollTimerRef.current = setTimeout(() => {
-          isAutoScrollingRef.current = false;
-        }, 100);
-      }
+      scrollTimelineToMarker(activeTimeline.markerLeft, "auto");
     }
   }, [
     currentTime,
@@ -453,7 +561,45 @@ const RoomTimelineTable: React.FC = () => {
     activeTimeline.isToday,
     autoScrollEnabled,
     scheduleViewTab,
+    timelineZoom,
   ]);
+
+  const visibleSchedules = useMemo(() => {
+    const byId = new Map<string, IRoomSchedule>();
+    for (const schedule of [
+      ...(schedules || []),
+      ...(nextDaySchedules || []),
+    ]) {
+      byId.set(schedule._id, schedule);
+    }
+
+    const dayStart = getTimelineDayStart(roomsDate);
+    const dayEnd = getTimelineDayEnd(roomsDate);
+
+    return [...byId.values()].filter((schedule) => {
+      const start = dayjs(schedule.startTime);
+      let end = schedule.endTime ? dayjs(schedule.endTime) : null;
+      if (
+        (schedule.status.toLowerCase() === "finished" ||
+          schedule.status.toLowerCase() === "completed") &&
+        schedule.actualEndTime
+      ) {
+        end = dayjs(schedule.actualEndTime);
+      }
+      if (!end) {
+        const status = schedule.status.toLowerCase();
+        if (status === "booked") end = start.add(120, "minute");
+        else if (status === "locked") end = start.add(5, "minute");
+        else if (status === "maintenance") end = start.add(240, "minute");
+        else end = currentTime.isBefore(dayEnd) ? currentTime : dayEnd;
+      }
+      return (
+        intersectsTimelineWindow(start, end, roomsDate) ||
+        start.isSame(dayStart) ||
+        (!start.isBefore(dayStart) && start.isBefore(dayEnd))
+      );
+    });
+  }, [schedules, nextDaySchedules, roomsDate, currentTime]);
 
   // Helper: map room._id -> socketRoomId (index+1 as string)
   const getSocketRoomId = (roomId: string): string | null => {
@@ -462,28 +608,29 @@ const RoomTimelineTable: React.FC = () => {
     return (idx + 1).toString();
   };
 
-  if (isLoading || loadingRooms) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
-  if (roomError) return <div>Error: {roomError.message}</div>;
+  const grouped = useMemo(
+    () => groupSchedulesByRoom(visibleSchedules),
+    [visibleSchedules],
+  );
 
-  const grouped = groupSchedulesByRoom(schedules || []);
-  const activeCoffeeSessions = (coffeeSessions || []).filter((session) => {
-    const normalizedStatus = normalizeCoffeeSessionStatus(session.status);
+  const activeCoffeeSessions = useMemo(() => {
+    return (coffeeSessions || []).filter((session) => {
+      const normalizedStatus = normalizeCoffeeSessionStatus(session.status);
 
-    if (!normalizedStatus || normalizedStatus === "completed") {
-      return false;
-    }
+      if (!normalizedStatus || normalizedStatus === "completed") {
+        return false;
+      }
 
-    const start = getCoffeeSessionDisplayStart(session);
-    const end = getCoffeeSessionDisplayEnd(session, currentTime);
+      const start = getCoffeeSessionDisplayStart(session);
+      const end = getCoffeeSessionDisplayEnd(session, currentTime);
+      return intersectsTimelineWindow(start, end, coffeeDate);
+    });
+  }, [coffeeSessions, coffeeDate, currentTime]);
 
-    return (
-      start.isBefore(coffeeDate.endOf("day")) &&
-      end.isAfter(coffeeDate.startOf("day"))
-    );
-  });
-  const groupedCoffeeSessions =
-    groupCoffeeSessionsByTable(activeCoffeeSessions);
+  const groupedCoffeeSessions = useMemo(
+    () => groupCoffeeSessionsByTable(activeCoffeeSessions),
+    [activeCoffeeSessions],
+  );
 
   // Build view-level maps keyed by room._id for mobile/desktop UI
   const viewNotifications: {
@@ -491,11 +638,11 @@ const RoomTimelineTable: React.FC = () => {
   } = {};
   const viewBlinkingRooms: { [roomId: string]: boolean } = {};
   const viewOrderNotifications: {
-    [roomId: string]: {
+    [roomId: string]: Array<{
       message: string;
       timestamp: number;
       orderData: OrderData;
-    };
+    }>;
   } = {};
   const viewOrderBlinkingRooms: { [roomId: string]: boolean } = {};
   const viewGiftNotifications: {
@@ -515,13 +662,13 @@ const RoomTimelineTable: React.FC = () => {
       viewBlinkingRooms[room._id] = !!blinkingSupportRooms[socketRoomId];
     }
 
-    const order = orderNotifications[socketRoomId];
-    if (order) {
-      viewOrderNotifications[room._id] = {
+    const orders = orderNotifications[socketRoomId];
+    if (orders?.length) {
+      viewOrderNotifications[room._id] = orders.map((order) => ({
         message: order.message,
         timestamp: order.timestamp,
         orderData: order.orderData,
-      };
+      }));
       viewOrderBlinkingRooms[room._id] = !!blinkingOrderRooms[socketRoomId];
     }
 
@@ -538,15 +685,25 @@ const RoomTimelineTable: React.FC = () => {
 
   const handleRoomClick = (roomId: string) => {
     const foundRoom = roomsData?.find((room) => room._id === roomId);
-    if (foundRoom) {
-      setSelectedRoom(foundRoom);
-      setModal("create");
-      // Stop blinking when clicked
-      const socketRoomId = getSocketRoomId(roomId);
-      if (socketRoomId) {
-        clearSupportNotification(socketRoomId);
-      }
+    if (!foundRoom) return;
+
+    // Stop blinking when clicked
+    const socketRoomId = getSocketRoomId(roomId);
+    if (socketRoomId) {
+      clearSupportNotification(socketRoomId);
     }
+
+    if (isRoomUnderMaintenance(foundRoom)) {
+      toast({
+        title: "Phòng đang bảo trì",
+        description: "Không thể đặt phòng khi đang ở trạng thái bảo trì.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedRoom(foundRoom);
+    setModal("create");
   };
 
   const closeModal = () => {
@@ -555,6 +712,7 @@ const RoomTimelineTable: React.FC = () => {
     setLockedSchedule(null);
     setBookedSchedule(null);
     setInUseSchedule(null);
+    setMaintenanceSchedule(null);
     setOrderData(null);
     setOrderRoomId("");
     setGiftData(null);
@@ -565,25 +723,21 @@ const RoomTimelineTable: React.FC = () => {
     setCoffeeNewOrderLineItemsCtx(null);
   };
 
-  const handleOrderClick = (roomId: string) => {
+  const handleOrderClick = (roomId: string, orderId: string) => {
     const socketRoomId = getSocketRoomId(roomId);
     if (!socketRoomId) return;
-    const orderNotification = orderNotifications[socketRoomId];
+    const orderNotification = orderNotifications[socketRoomId]?.find(
+      (notification) => notification.orderData.orderId === orderId,
+    );
     if (orderNotification) {
       setOrderData(orderNotification.orderData);
-      setOrderRoomId(roomId);
+      setOrderRoomId(socketRoomId);
       setModal("orderDetails");
-      // Stop blinking when clicked
-      clearOrderNotification(socketRoomId);
     }
   };
 
-  const handleOrderServed = (roomId: string) => {
-    // Remove order notification after served
-    const socketRoomId = getSocketRoomId(roomId);
-    if (socketRoomId) {
-      clearOrderNotification(socketRoomId);
-    }
+  const handleOrderServed = (socketRoomId: string, orderId: string) => {
+    clearOrderNotification(socketRoomId, orderId);
   };
 
   const handleGiftClick = (roomId: string) => {
@@ -613,6 +767,9 @@ const RoomTimelineTable: React.FC = () => {
     } else if (lowerStatus === "in use") {
       setInUseSchedule(schedule);
       setModal("inUse");
+    } else if (lowerStatus === "maintenance") {
+      setMaintenanceSchedule(schedule);
+      setModal("maintenance");
     }
   };
 
@@ -711,7 +868,8 @@ const RoomTimelineTable: React.FC = () => {
   // Hàm tính toán vị trí và chiều rộng của một event block
   const getMarkerStyle = (schedule: IRoomSchedule) => {
     const eventStart = dayjs(schedule.startTime);
-    const dayStart = eventStart.startOf("day").hour(DAY_START_HOUR).minute(0);
+    const dayStart = getTimelineDayStart(roomsDate);
+    const dayEnd = getTimelineDayEnd(roomsDate);
     let offsetMinutes = eventStart.diff(dayStart, "minute");
     if (offsetMinutes < 0) offsetMinutes = 0;
 
@@ -734,20 +892,34 @@ const RoomTimelineTable: React.FC = () => {
         const eventEnd = dayjs(schedule.endTime);
         durationMinutes = eventEnd.diff(eventStart, "minute");
       } else {
-        // Nếu chưa có endTime, kéo dài đến currentTime hoặc đến hết ngày (24h)
-        const endOfDay = eventStart.startOf("day").hour(DAY_END_HOUR).minute(0);
+        // Chưa có endTime: kéo đến now hoặc hết khung 03:00(+1)
         const now = dayjs();
-        // Nếu currentTime <= endOfDay thì lấy currentTime, còn nếu đã qua 24h thì lấy endOfDay
-        const actualEnd = now.isBefore(endOfDay) ? now : endOfDay;
+        const actualEnd = now.isBefore(dayEnd) ? now : dayEnd;
         durationMinutes = actualEnd.diff(eventStart, "minute");
         if (durationMinutes <= 0) durationMinutes = 1;
       }
+    } else if (status === "finished" || status === "completed") {
+      const eventEnd = getScheduleTimelineEnd(
+        schedule,
+        eventStart.add(120, "minute"),
+      );
+      durationMinutes = eventEnd.diff(eventStart, "minute");
     }
 
-    const left = offsetMinutes * SCALE;
-    let width = durationMinutes * SCALE;
-    if (left + width > TIMELINE_WIDTH) {
-      width = TIMELINE_WIDTH - left;
+    if (offsetMinutes > TIMELINE_MINUTE_SPAN) {
+      offsetMinutes = TIMELINE_MINUTE_SPAN;
+      durationMinutes = 1;
+    }
+
+    durationMinutes = Math.min(
+      Math.max(durationMinutes, 1),
+      TIMELINE_MINUTE_SPAN - offsetMinutes,
+    );
+
+    const left = offsetMinutes * timelineScale;
+    let width = durationMinutes * timelineScale;
+    if (left + width > timelineContentWidth) {
+      width = timelineContentWidth - left;
     }
 
     let bgColor = "";
@@ -773,7 +945,11 @@ const RoomTimelineTable: React.FC = () => {
     }
 
     // Nếu sự kiện đã hoàn toàn nằm bên trái now marker (đã qua) thì thay đổi màu thành sắc đậm hơn
-    if (roomsIsToday && roomsMarkerLeft >= left + width) {
+    const markerContentLeft = Math.max(
+      0,
+      roomsMarkerLeft - TIMELINE_LEFT_OFFSET,
+    );
+    if (roomsIsToday && markerContentLeft >= left + width) {
       if (status === "booked") {
         // Nếu source là customer thì màu cam đậm, còn lại màu xanh dương đậm
         if (schedule.source === "customer") {
@@ -798,8 +974,7 @@ const RoomTimelineTable: React.FC = () => {
   const getCoffeeMarkerStyle = (session: ICoffeeSession) => {
     const eventStart = getCoffeeSessionDisplayStart(session);
     const eventEnd = getCoffeeSessionDisplayEnd(session, currentTime);
-    const dayStart = coffeeDate.startOf("day").hour(DAY_START_HOUR).minute(0);
-    const totalTimelineMinutes = (DAY_END_HOUR - DAY_START_HOUR) * 60;
+    const dayStart = getTimelineDayStart(coffeeDate);
 
     let offsetMinutes = eventStart.diff(dayStart, "minute");
     let durationMinutes = Math.max(15, eventEnd.diff(eventStart, "minute"));
@@ -809,18 +984,18 @@ const RoomTimelineTable: React.FC = () => {
       offsetMinutes = 0;
     }
 
-    if (offsetMinutes > totalTimelineMinutes) {
-      offsetMinutes = totalTimelineMinutes;
+    if (offsetMinutes > TIMELINE_MINUTE_SPAN) {
+      offsetMinutes = TIMELINE_MINUTE_SPAN;
       durationMinutes = 15;
     }
 
     durationMinutes = Math.min(
       Math.max(durationMinutes, 15),
-      totalTimelineMinutes - offsetMinutes,
+      TIMELINE_MINUTE_SPAN - offsetMinutes,
     );
 
-    const left = offsetMinutes * SCALE;
-    const width = Math.max(durationMinutes * SCALE, 30);
+    const left = offsetMinutes * timelineScale;
+    const width = Math.max(durationMinutes * timelineScale, 30);
     const status = normalizeCoffeeSessionStatus(session.status);
     let bgColor = "bg-slate-400";
 
@@ -830,7 +1005,10 @@ const RoomTimelineTable: React.FC = () => {
       bgColor = "bg-emerald-500";
     }
 
-    if (coffeeIsToday && coffeeMarkerLeft >= left + width) {
+    if (
+      coffeeIsToday &&
+      coffeeMarkerLeft - TIMELINE_LEFT_OFFSET >= left + width
+    ) {
       if (status === "booked") {
         bgColor = "bg-amber-700";
       } else if (status === "in-use") {
@@ -841,36 +1019,20 @@ const RoomTimelineTable: React.FC = () => {
     return { left, width, bgColor, eventStart, eventEnd };
   };
 
-  const handleResolveRequest = (roomId: string) => {
-    const roomIndex =
-      roomsData?.findIndex((room) => room._id === roomId) || 0 + 1 + "";
+  const handleSupportRequestBell = (requestId: string) => {
+    if (!supportRequests[requestId]) return;
+    setSupportRequestModalId(requestId);
+  };
 
-    resolveRequest(roomIndex.toString(), {
-      onSuccess: () => {
-        // Remove notification for this room
-        const socketRoomId = getSocketRoomId(roomId);
-        if (socketRoomId) {
-          clearSupportNotification(socketRoomId);
-        }
-
-        toast({
-          title: "Success",
-          description: "Request resolved successfully",
-        });
-      },
-      onError: () => {
-        toast({
-          title: "Error",
-          description: "Failed to resolve request",
-          variant: "destructive",
-        });
-      },
-    });
+  const handleLegacySupportNotificationClick = (roomId: string) => {
+    const socketRoomId = getSocketRoomId(roomId);
+    if (socketRoomId) clearSupportNotification(socketRoomId);
   };
 
   const handleTurnOffAllRooms = () => {
     turnOffAllRooms(undefined, {
       onSuccess: () => {
+        setTurnOffAllRoomsConfirmOpen(false);
         toast({
           title: "Success",
           description: "All rooms turned off",
@@ -879,8 +1041,16 @@ const RoomTimelineTable: React.FC = () => {
     });
   };
 
+  const selectedSupportRequest = supportRequestModalId
+    ? (supportRequests[supportRequestModalId] ?? null)
+    : null;
+  const selectedSupportRoomName =
+    roomsData?.find(
+      (room) => String(room._id) === String(selectedSupportRequest?.roomId),
+    )?.roomName ?? `Phòng ${selectedSupportRequest?.roomId ?? ""}`;
+
   return (
-    <div className="!p-4 w-full space-y-6">
+    <div className="flex w-full min-w-0 flex-col gap-6">
       <PageHeader
         title="Room Schedules Timeline"
         description="Track room schedules and manage bookings"
@@ -890,59 +1060,53 @@ const RoomTimelineTable: React.FC = () => {
       <Tabs
         value={scheduleViewTab}
         onValueChange={(v) => setScheduleViewTab(v as "rooms" | "coffee")}
-        className="w-full"
+        className="w-full min-w-0"
       >
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="rooms">Box + Dorm</TabsTrigger>
           <TabsTrigger value="coffee">Coffee table</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="rooms" className="mt-4 space-y-6">
-          {/* Header: Chọn ngày */}
-          <div className="flex justify-end items-start">
-            <Popover modal={true}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-[240px] pl-3 text-left font-normal"
-                >
-                  {roomsDate
-                    ? roomsDate.format("DD/MM/YYYY")
-                    : "Pick a date"}
-                  {roomsDate ? (
-                    <CircleXIcon
-                      className="ml-auto h-4 w-4 opacity-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRoomsDate(dayjs());
-                      }}
-                    />
-                  ) : (
-                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={roomsDate?.toDate()}
-                  onSelect={(newDate) =>
-                    newDate && setRoomsDate(dayjs(newDate))
-                  }
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          {/* Thêm button để tắt video hết các trong các phòng */}
-          <div className="flex justify-end mb-4">
-            <Button variant="destructive" onClick={handleTurnOffAllRooms}>
-              Tắt video tất cả phòng
-            </Button>
-          </div>
+        <TabsContent value="rooms" className="mt-4 min-w-0 space-y-6">
+          <TimelineControls
+            date={roomsDate}
+            onDateChange={setRoomsDate}
+            zoom={timelineZoom}
+            onZoomChange={handleZoomChange}
+            autoScrollEnabled={autoScrollEnabled}
+            onAutoScrollChange={setAutoScrollEnabled}
+            onGoToNow={() => {
+              setAutoScrollEnabled(true);
+              scrollTimelineToMarker(roomsMarkerLeft, "smooth");
+            }}
+            isBusinessToday={roomsIsToday}
+            dateLabel="Phòng / Dorm"
+            extraActions={
+              <Button
+                variant="destructive"
+                onClick={() => setTurnOffAllRoomsConfirmOpen(true)}
+              >
+                Tắt video tất cả phòng
+              </Button>
+            }
+          />
 
-          {/* Mobile View */}
-          {isMobile ? (
+          {isLoading || loadingRooms ? (
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground animate-pulse">
+              Đang tải lịch phòng…
+            </div>
+          ) : error || roomError ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive space-y-3">
+              <p>{error?.message || roomError?.message}</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>
+                Thử lại
+              </Button>
+            </div>
+          ) : !roomsData?.length ? (
+            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Chưa có phòng nào.
+            </div>
+          ) : isMobile ? (
             <MobileTimelineView
               roomsData={roomsData || []}
               grouped={grouped}
@@ -957,101 +1121,81 @@ const RoomTimelineTable: React.FC = () => {
               giftBlinkingRooms={viewGiftBlinkingRooms}
               onRoomClick={handleRoomClick}
               onScheduleClick={handleScheduleClick}
-              onResolveRequest={handleResolveRequest}
+              onResolveRequest={handleLegacySupportNotificationClick}
               onOrderClick={handleOrderClick}
               onGiftClick={handleGiftClick}
             />
           ) : (
             /* Desktop View - Container cho phép scroll ngang, thêm onScroll để bắt sự kiện scroll */
             <div
-              className="overflow-x-auto"
+              className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white"
               ref={timelineContainerRef}
               onScroll={handleScroll}
             >
-              {/* Timeline container */}
               <div
-                className="relative"
-                style={{ width: `${TIMELINE_WIDTH}px` }}
+                className="relative will-change-transform"
+                style={{ width: `${timelineTotalWidth}px` }}
               >
                 {/* Timeline Header */}
                 <div
                   className="flex border-b bg-gray-200 w-full"
                   style={{ position: "sticky", top: 0, zIndex: 20 }}
                 >
-                  <div className="w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200">
+                  <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200">
                     Phòng
                   </div>
-                  <div className="flex-1 relative h-10">
-                    {Array.from({
-                      length: (DAY_END_HOUR - DAY_START_HOUR) * 4 + 1,
-                    }).map((_, index) => {
-                      const left = index * (HOUR_MARKER_SPACING / 4);
-                      return (
-                        <div
-                          key={`grid-${index}`}
-                          className={`absolute h-full w-px ${
-                            index % 4 === 0 ? "bg-gray-300" : "bg-gray-200"
-                          }`}
-                          style={{ left }}
-                        />
-                      );
-                    })}
+                  <div
+                    className="relative h-10"
+                    style={{
+                      width: timelineContentWidth,
+                      ...timelineGridStyle,
+                    }}
+                  >
                     {Array.from({
                       length: DAY_END_HOUR - DAY_START_HOUR + 1,
                     }).map((_, index) => {
                       const hour = DAY_START_HOUR + index;
-                      const left = index * HOUR_MARKER_SPACING;
+                      const left = index * hourMarkerSpacing;
                       return (
                         <div
                           key={`header-marker-${hour}`}
-                          className="absolute top-1/2 -translate-y-1/2 text-xs text-gray-600 text-center font-medium"
-                          style={{ left, width: 20 }}
+                          className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
+                            hour >= 24 ? "text-amber-700" : "text-gray-600"
+                          }`}
+                          style={{ left, width: hour >= 24 ? 40 : 28 }}
                         >
-                          {hour}:00
+                          {formatTimelineHourLabel(hour)}
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Now Marker (line đỏ) */}
-                {roomsIsToday &&
-                  roomsMarkerLeft >= 0 &&
-                  roomsMarkerLeft <= TIMELINE_WIDTH && (
-                  <>
-                    <div
-                      className="absolute z-20"
-                      style={{
-                        left: roomsMarkerLeft - 18,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                      }}
-                    >
-                      <div className="text-xs text-red-500 bg-white px-1 rounded">
-                        {currentTime.format("HH:mm")}
-                      </div>
-                    </div>
-                    <div
-                      className="absolute bg-red-500 w-px"
-                      style={{
-                        left: roomsMarkerLeft,
-                        top: 0,
-                        bottom: 0,
-                        zIndex: 10,
-                      }}
-                    />
-                  </>
-                )}
-
                 {/* Danh sách phòng */}
                 {roomsData?.map((room, index) => {
                   const roomSchedules = grouped[room._id] || [];
                   const socketRoomId = (index + 1).toString();
                   const hasNotification = supportNotifications[socketRoomId];
-                  const isBlinking = !!blinkingSupportRooms[socketRoomId];
-                  const hasOrderNotification = orderNotifications[socketRoomId];
+                  const activeSupportRequest = Object.values(
+                    supportRequests,
+                  ).find(
+                    (request) =>
+                      (String(request.roomId) === socketRoomId ||
+                        String(request.roomId) === String(room._id)) &&
+                      (request.status === "pending" ||
+                        request.status === "not_supported" ||
+                        request.status === "acknowledged"),
+                  );
+                  const hasSupportRequest = Boolean(activeSupportRequest);
+                  const isBlinking =
+                    !!blinkingSupportRooms[socketRoomId] || hasSupportRequest;
+                  const orderNotificationsForRoom =
+                    orderNotifications[socketRoomId] || [];
+                  const hasOrderNotification =
+                    orderNotificationsForRoom.length > 0;
                   const isOrderBlinking = !!blinkingOrderRooms[socketRoomId];
                   const giftNotification = giftNotifications[socketRoomId];
+                  const isMaintenance = isRoomUnderMaintenance(room);
                   const giftSchedule = giftNotification
                     ? roomSchedules.find(
                         (s) => s._id === giftNotification.scheduleId,
@@ -1087,16 +1231,24 @@ const RoomTimelineTable: React.FC = () => {
                   return (
                     <div
                       key={room._id}
-                      className="flex border-b hover:bg-gray-50 w-full transition-colors duration-200"
+                      className={`flex border-b hover:bg-gray-50 w-full transition-colors duration-200 ${
+                        isMaintenance ? "bg-red-50/60 hover:bg-red-50" : ""
+                      }`}
                       // onDragOver={handleDragOver}
                       // onDragLeave={handleDragLeave}
                       // onDrop={(e) => handleDrop(e, room._id)}
                     >
-                      <div className="w-[240px] p-2 border-r flex items-center justify-between sticky left-0 z-10 bg-white">
-                        <div className="flex items-center gap-2">
+                      <div
+                        className={`w-[240px] p-2 border-r flex items-center justify-between sticky left-0 z-10 ${
+                          isMaintenance ? "bg-red-50/60" : "bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
                           <button
                             onClick={() => handleRoomClick(room._id)}
-                            className={`inline-flex items-center gap-1.5 text-blue-600 hover:underline ${
+                            className={`inline-flex items-center gap-1.5 hover:underline truncate ${
+                              isMaintenance ? "text-red-600" : "text-blue-600"
+                            } ${
                               isBlinking
                                 ? "animate-[blink_1s_ease-in-out_infinite]"
                                 : ""
@@ -1105,47 +1257,94 @@ const RoomTimelineTable: React.FC = () => {
                             {getRoomTypeLeadIcon(room.roomType)}
                             {room.roomName}
                           </button>
-                          <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded">
+                          <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded shrink-0">
                             {getRoomTypeLabel(room.roomType)}
                           </span>
+                          {isMaintenance && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span
+                                  className="inline-flex items-center shrink-0"
+                                  aria-label="Đang bảo trì"
+                                >
+                                  <XCircle className="h-4 w-4 text-red-500" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Đang bảo trì — không thể đặt phòng</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {hasNotification && (
+                          {(hasNotification || hasSupportRequest) && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <button
-                                  onClick={() => handleResolveRequest(room._id)}
+                                  aria-label={`Yêu cầu hỗ trợ ${room.roomName}`}
+                                  onClick={() =>
+                                    activeSupportRequest
+                                      ? handleSupportRequestBell(
+                                          activeSupportRequest.requestId,
+                                        )
+                                      : handleLegacySupportNotificationClick(
+                                          room._id,
+                                        )
+                                  }
                                 >
                                   <BellIcon className="h-5 w-5 text-red-500 animate-bounce" />
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>{hasNotification.message}</p>
+                                <p>
+                                  {activeSupportRequest
+                                    ? activeSupportRequest.status === "pending"
+                                      ? "Khách đang chờ xác nhận hỗ trợ"
+                                      : "Đã nhận hỗ trợ — bấm để ghi nhận kết quả"
+                                    : hasNotification?.message}
+                                </p>
                                 <p className="text-xs text-gray-500 mt-1">
-                                  {dayjs(hasNotification.timestamp).format(
-                                    "HH:mm",
-                                  )}
+                                  {activeSupportRequest
+                                    ? dayjs(
+                                        activeSupportRequest.createdAt,
+                                      ).format("HH:mm")
+                                    : dayjs(hasNotification?.timestamp).format(
+                                        "HH:mm",
+                                      )}
                                 </p>
                               </TooltipContent>
                             </Tooltip>
                           )}
-                          {hasOrderNotification && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => handleOrderClick(room._id)}
-                                  className={`${
-                                    isOrderBlinking ? "animate-pulse" : ""
-                                  }`}
-                                >
-                                  <UtensilsCrossed className="h-5 w-5 text-orange-500" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{hasOrderNotification.message}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
+                          {hasOrderNotification &&
+                            orderNotificationsForRoom.map(
+                              (notification, orderIndex) => (
+                                <Tooltip key={notification.orderData.orderId}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={() =>
+                                        handleOrderClick(
+                                          room._id,
+                                          notification.orderData.orderId,
+                                        )
+                                      }
+                                      className={`${
+                                        isOrderBlinking ? "animate-pulse" : ""
+                                      }`}
+                                      aria-label={`Đơn FNB ${orderIndex + 1} của ${room.roomName}`}
+                                    >
+                                      <UtensilsCrossed className="h-5 w-5 text-orange-500" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>{notification.message}</p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      Đơn {orderIndex + 1}/
+                                      {orderNotificationsForRoom.length}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ),
+                            )}
                           {scheduleGiftInfo && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -1175,352 +1374,389 @@ const RoomTimelineTable: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex-1 h-12 relative">
-                        {roomsIsToday && (
-                          <>
-                            {/* Overlay cho vùng đã qua (màu đậm hơn) */}
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: 0,
-                                left: 0,
-                                width: roomsMarkerLeft,
-                                height: "100%",
-                                pointerEvents: "none",
-                                zIndex: 0,
-                              }}
-                            ></div>
-                          </>
-                        )}
-                        {Array.from({
-                          length: (DAY_END_HOUR - DAY_START_HOUR) * 4 + 1,
-                        }).map((_, index) => {
-                          const left = index * (HOUR_MARKER_SPACING / 4);
+                      {(() => {
+                        const visibleRoomSchedules = (
+                          roomSchedules || []
+                        ).filter((schedule) => {
+                          if (!isStaff) return true;
+                          const status = schedule.status.toLowerCase();
                           return (
-                            <div
-                              key={`room-grid-${index}`}
-                              className={`absolute h-full w-px ${
-                                index % 4 === 0 ? "bg-gray-200" : "bg-gray-100"
-                              }`}
-                              style={{ left }}
-                            />
+                            status !== "finished" && status !== "completed"
                           );
-                        })}
-                        {roomSchedules
-                          ?.filter((schedule) => {
-                            if (!isStaff) return true;
-                            const status = schedule.status.toLowerCase();
-                            return (
-                              status !== "finished" && status !== "completed"
-                            );
-                          })
-                          .map((schedule) => {
-                          const { left, width, bgColor } =
-                            getMarkerStyle(schedule);
-                          const scheduleLabel = getScheduleTimelineLabel(
-                            room.roomName,
-                            schedule,
-                            room,
-                          );
-                          const scheduleSizeLabel = getScheduleRoomTypeLabel(
-                            getEffectiveScheduleRoomType(schedule, room),
-                          );
-                          // const isDragging =
-                          //   dragState.isDragging &&
-                          //   dragState.scheduleId === schedule._id;
-                          const eventElement = (
-                            <button
-                              key={schedule._id}
-                              type="button"
-                              className={`absolute top-0 bottom-0 my-1.5 ${bgColor} opacity-80 rounded-md shadow-sm hover:opacity-100 transition-all duration-200 hover:shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500`}
-                              style={{ left, width: Math.max(width, 44) }}
-                              title={`${scheduleLabel} - ${dayjs(
-                                schedule.startTime,
-                              ).format("HH:mm")}`}
-                              aria-label={`${scheduleLabel} ${schedule.status} từ ${dayjs(
-                                schedule.startTime,
-                              ).format("HH:mm")}`}
-                              // draggable
-                              // onDragStart={(e) => handleDragStart(e, schedule)}
-                              // onDragEnd={handleDragEnd}
-                              onClick={() => {
-                                const lowerStatus =
-                                  schedule.status.toLowerCase();
-                                if (lowerStatus === "locked") {
-                                  setLockedSchedule(schedule);
-                                  setModal("process");
-                                } else if (lowerStatus === "booked") {
-                                  setBookedSchedule(schedule);
-                                  setModal("booked");
-                                } else if (lowerStatus === "in use") {
-                                  setInUseSchedule(schedule);
-                                  setModal("inUse");
-                                }
-                              }}
-                            >
-                              {/* Hiển thị thời gian trong schedule block */}
-                              <div className="relative flex h-full min-h-9 items-center justify-center px-1.5">
-                                <span className="absolute left-1 top-0.5 text-[11px] text-white font-medium leading-none">
-                                  {dayjs(schedule.startTime).format("HH:mm")}
-                                </span>
-                                <span className="max-w-full truncate text-xs sm:text-sm font-semibold text-white">
-                                  {scheduleLabel}
-                                </span>
-                              </div>
-                            </button>
-                          );
-                          if (schedule.status.toLowerCase() === "booked") {
-                            const eventStart = dayjs(schedule.startTime);
-                            const eventEnd = schedule.endTime
-                              ? dayjs(schedule.endTime)
-                              : eventStart.add(120, "minute");
-                            return (
-                              <Tooltip key={schedule._id}>
-                                <TooltipTrigger asChild>
-                                  {eventElement}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Size: {scheduleSizeLabel}</p>
-                                  <p>Bắt đầu: {eventStart.format("HH:mm")}</p>
-                                  <p>Kết thúc: {eventEnd.format("HH:mm")}</p>
-                                  {schedule.note && (
-                                    <p>Ghi chú: {schedule.note}</p>
-                                  )}
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          } else if (
-                            schedule.status.toLowerCase() === "locked"
-                          ) {
-                            const lockedDuration = dayjs().diff(
-                              dayjs(schedule.startTime),
-                              "minute",
-                            );
-                            return (
-                              <Tooltip key={schedule._id}>
-                                <TooltipTrigger asChild>
-                                  {eventElement}
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Đã khóa {lockedDuration} phút</p>
-                                  {/* <p className="text-xs text-gray-500">
+                        });
+                        const packed = packTimelineLanes(
+                          visibleRoomSchedules.map((schedule) => {
+                            const { left, width } = getMarkerStyle(schedule);
+                            const startMin = left / timelineScale;
+                            const endMin = startMin + width / timelineScale;
+                            return { item: schedule, startMin, endMin };
+                          }),
+                        );
+                        const laneCount = packed[0]?.laneCount ?? 1;
+                        const rowHeight = getRoomRowHeight(laneCount);
+                        const markerContentLeft = Math.max(
+                          0,
+                          roomsMarkerLeft - TIMELINE_LEFT_OFFSET,
+                        );
+                        const laneTop = (lane: number) =>
+                          ROOM_ROW_PADDING_Y +
+                          lane * (ROOM_LANE_HEIGHT + ROOM_LANE_GAP);
+
+                        return (
+                          <div
+                            className="relative"
+                            style={{
+                              width: timelineContentWidth,
+                              height: rowHeight,
+                              ...timelineGridStyle,
+                            }}
+                          >
+                            {roomsIsToday && (
+                              <div
+                                className="absolute inset-y-0 left-0 bg-slate-900/[0.03] pointer-events-none z-0"
+                                style={{ width: markerContentLeft }}
+                              />
+                            )}
+                            {packed.map(({ item: schedule, lane }) => {
+                              const { left, width, bgColor } =
+                                getMarkerStyle(schedule);
+                              const scheduleLabel = getScheduleTimelineLabel(
+                                room.roomName,
+                                schedule,
+                                room,
+                              );
+                              const scheduleSizeLabel =
+                                getScheduleRoomTypeLabel(
+                                  getEffectiveScheduleRoomType(schedule, room),
+                                );
+                              // const isDragging =
+                              //   dragState.isDragging &&
+                              //   dragState.scheduleId === schedule._id;
+                              const eventElement = (
+                                <button
+                                  key={schedule._id}
+                                  type="button"
+                                  className={`absolute ${bgColor} opacity-90 rounded-md shadow-sm hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500`}
+                                  style={{
+                                    left,
+                                    width: Math.max(width, 44),
+                                    top: laneTop(lane),
+                                    height: ROOM_LANE_HEIGHT,
+                                  }}
+                                  title={`${scheduleLabel} - ${dayjs(
+                                    schedule.startTime,
+                                  ).format("HH:mm")}`}
+                                  aria-label={`${scheduleLabel} ${schedule.status} từ ${dayjs(
+                                    schedule.startTime,
+                                  ).format("HH:mm")}`}
+                                  // draggable
+                                  // onDragStart={(e) => handleDragStart(e, schedule)}
+                                  // onDragEnd={handleDragEnd}
+                                  onClick={() => handleScheduleClick(schedule)}
+                                >
+                                  {/* Hiển thị thời gian trong schedule block */}
+                                  <div className="relative flex h-full min-h-9 items-center justify-center px-1.5">
+                                    <span className="absolute left-1 top-0.5 text-[11px] text-white font-medium leading-none">
+                                      {dayjs(schedule.startTime).format(
+                                        "HH:mm",
+                                      )}
+                                    </span>
+                                    <span className="max-w-full truncate text-xs sm:text-sm font-semibold text-white">
+                                      {scheduleLabel}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                              if (schedule.status.toLowerCase() === "booked") {
+                                const eventStart = dayjs(schedule.startTime);
+                                const eventEnd = schedule.endTime
+                                  ? dayjs(schedule.endTime)
+                                  : eventStart.add(120, "minute");
+                                return (
+                                  <Tooltip key={schedule._id}>
+                                    <TooltipTrigger asChild>
+                                      {eventElement}
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Size: {scheduleSizeLabel}</p>
+                                      <p>
+                                        Bắt đầu: {eventStart.format("HH:mm")}
+                                      </p>
+                                      <p>
+                                        Kết thúc: {eventEnd.format("HH:mm")}
+                                      </p>
+                                      {schedule.note && (
+                                        <p>Ghi chú: {schedule.note}</p>
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              } else if (
+                                schedule.status.toLowerCase() === "locked"
+                              ) {
+                                const lockedDuration = dayjs().diff(
+                                  dayjs(schedule.startTime),
+                                  "minute",
+                                );
+                                return (
+                                  <Tooltip key={schedule._id}>
+                                    <TooltipTrigger asChild>
+                                      {eventElement}
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Đã khóa {lockedDuration} phút</p>
+                                      {/* <p className="text-xs text-gray-500">
                               Kéo để di chuyển
                             </p> */}
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          } else if (
-                            schedule.status.toLowerCase() === "in use"
-                          ) {
-                            const eventStart = dayjs(schedule.startTime);
-                            const inUseDuration = dayjs().diff(
-                              eventStart,
-                              "minute",
-                            );
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              } else if (
+                                schedule.status.toLowerCase() === "in use"
+                              ) {
+                                const eventStart = dayjs(schedule.startTime);
+                                const inUseDuration = dayjs().diff(
+                                  eventStart,
+                                  "minute",
+                                );
 
-                            // Tính thời gian đã sử dụng
-                            let durationLabel = "";
-                            if (inUseDuration < 60) {
-                              durationLabel = `${inUseDuration} phút`;
-                            } else {
-                              const hours = Math.floor(inUseDuration / 60);
-                              const minutes = inUseDuration % 60;
-                              durationLabel = `${hours} giờ${
-                                minutes > 0 ? ` ${minutes} phút` : ""
-                              }`;
-                            }
-
-                            // Tính giờ kết thúc và thời gian còn lại
-                            let endTimeLabel = "";
-                            let remainingTimeLabel = "";
-                            if (schedule.endTime) {
-                              const eventEnd = dayjs(schedule.endTime);
-                              endTimeLabel = eventEnd.format("HH:mm");
-                              const remainingMinutes = eventEnd.diff(
-                                dayjs(),
-                                "minute",
-                              );
-                              if (remainingMinutes > 0) {
-                                if (remainingMinutes < 60) {
-                                  remainingTimeLabel = `Còn ${remainingMinutes} phút`;
+                                // Tính thời gian đã sử dụng
+                                let durationLabel = "";
+                                if (inUseDuration < 60) {
+                                  durationLabel = `${inUseDuration} phút`;
                                 } else {
-                                  const hours = Math.floor(
-                                    remainingMinutes / 60,
-                                  );
-                                  const minutes = remainingMinutes % 60;
-                                  remainingTimeLabel = `Còn ${hours} giờ${
+                                  const hours = Math.floor(inUseDuration / 60);
+                                  const minutes = inUseDuration % 60;
+                                  durationLabel = `${hours} giờ${
                                     minutes > 0 ? ` ${minutes} phút` : ""
                                   }`;
                                 }
-                              } else {
-                                remainingTimeLabel = "Đã quá giờ";
-                              }
-                            } else {
-                              // Nếu chưa có endTime, tính đến currentTime hoặc endOfDay
-                              const endOfDay = eventStart
-                                .startOf("day")
-                                .hour(DAY_END_HOUR)
-                                .minute(0);
-                              const now = dayjs();
-                              const actualEnd = now.isBefore(endOfDay)
-                                ? now
-                                : endOfDay;
-                              endTimeLabel = actualEnd.format("HH:mm");
-                            }
 
-                            // Nguồn đặt
-                            const sourceLabel =
-                              schedule.source === "customer"
-                                ? "Khách đặt online"
-                                : schedule.source === "walk-in"
-                                  ? "Khách vãng lai"
-                                  : "Admin đặt";
+                                // Tính giờ kết thúc và thời gian còn lại
+                                let endTimeLabel = "";
+                                let remainingTimeLabel = "";
+                                if (schedule.endTime) {
+                                  const eventEnd = dayjs(schedule.endTime);
+                                  endTimeLabel = eventEnd.format("HH:mm");
+                                  const remainingMinutes = eventEnd.diff(
+                                    dayjs(),
+                                    "minute",
+                                  );
+                                  if (remainingMinutes > 0) {
+                                    if (remainingMinutes < 60) {
+                                      remainingTimeLabel = `Còn ${remainingMinutes} phút`;
+                                    } else {
+                                      const hours = Math.floor(
+                                        remainingMinutes / 60,
+                                      );
+                                      const minutes = remainingMinutes % 60;
+                                      remainingTimeLabel = `Còn ${hours} giờ${
+                                        minutes > 0 ? ` ${minutes} phút` : ""
+                                      }`;
+                                    }
+                                  } else {
+                                    remainingTimeLabel = "Đã quá giờ";
+                                  }
+                                } else {
+                                  // Nếu chưa có endTime, tính đến currentTime hoặc hết khung ca
+                                  const endOfDay = getTimelineDayEnd(roomsDate);
+                                  const now = dayjs();
+                                  const actualEnd = now.isBefore(endOfDay)
+                                    ? now
+                                    : endOfDay;
+                                  endTimeLabel = actualEnd.format("HH:mm");
+                                }
 
-                            return (
-                              <Tooltip key={schedule._id}>
-                                <TooltipTrigger asChild>
-                                  {eventElement}
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <div className="space-y-1">
-                                    <p className="font-semibold">
-                                      Thông tin sử dụng
-                                    </p>
-                                    <div className="text-sm space-y-0.5">
-                                      <p>
-                                        <span className="text-gray-500">
-                                          Size:
-                                        </span>{" "}
-                                        {scheduleSizeLabel}
-                                      </p>
-                                      <p>
-                                        <span className="text-gray-500">
-                                          Bắt đầu:
-                                        </span>{" "}
-                                        {eventStart.format("HH:mm")}
-                                      </p>
-                                      <p>
-                                        <span className="text-gray-500">
-                                          Kết thúc:
-                                        </span>{" "}
-                                        {endTimeLabel}
-                                      </p>
-                                      <p>
-                                        <span className="text-gray-500">
-                                          Đã sử dụng:
-                                        </span>{" "}
-                                        {durationLabel}
-                                      </p>
-                                      {remainingTimeLabel && (
-                                        <p>
-                                          <span className="text-gray-500">
-                                            Thời gian còn lại:
-                                          </span>{" "}
-                                          <span
-                                            className={
-                                              remainingTimeLabel ===
-                                              "Đã quá giờ"
-                                                ? "text-red-500 font-medium"
-                                                : ""
-                                            }
-                                          >
-                                            {remainingTimeLabel}
-                                          </span>
+                                // Nguồn đặt
+                                const sourceLabel =
+                                  schedule.source === "customer"
+                                    ? "Khách đặt online"
+                                    : schedule.source === "walk-in"
+                                      ? "Khách vãng lai"
+                                      : "Admin đặt";
+
+                                return (
+                                  <Tooltip key={schedule._id}>
+                                    <TooltipTrigger asChild>
+                                      {eventElement}
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      <div className="space-y-1">
+                                        <p className="font-semibold">
+                                          Thông tin sử dụng
                                         </p>
-                                      )}
-                                    </div>
-                                    {(schedule.customerName ||
-                                      schedule.customerPhone ||
-                                      schedule.note) && (
-                                      <div className="pt-1 border-t text-sm space-y-0.5">
-                                        {schedule.customerName && (
+                                        <div className="text-sm space-y-0.5">
                                           <p>
                                             <span className="text-gray-500">
-                                              Khách hàng:
+                                              Size:
                                             </span>{" "}
-                                            {schedule.customerName}
+                                            {scheduleSizeLabel}
                                           </p>
-                                        )}
-                                        {schedule.customerPhone && (
                                           <p>
                                             <span className="text-gray-500">
-                                              SĐT:
+                                              Bắt đầu:
                                             </span>{" "}
-                                            {schedule.customerPhone}
+                                            {eventStart.format("HH:mm")}
                                           </p>
-                                        )}
-                                        {schedule.note && (
                                           <p>
                                             <span className="text-gray-500">
-                                              Ghi chú:
+                                              Kết thúc:
                                             </span>{" "}
-                                            <span className="italic">
-                                              {schedule.note}
-                                            </span>
+                                            {endTimeLabel}
                                           </p>
+                                          <p>
+                                            <span className="text-gray-500">
+                                              Đã sử dụng:
+                                            </span>{" "}
+                                            {durationLabel}
+                                          </p>
+                                          {remainingTimeLabel && (
+                                            <p>
+                                              <span className="text-gray-500">
+                                                Thời gian còn lại:
+                                              </span>{" "}
+                                              <span
+                                                className={
+                                                  remainingTimeLabel ===
+                                                  "Đã quá giờ"
+                                                    ? "text-red-500 font-medium"
+                                                    : ""
+                                                }
+                                              >
+                                                {remainingTimeLabel}
+                                              </span>
+                                            </p>
+                                          )}
+                                        </div>
+                                        {(schedule.customerName ||
+                                          schedule.customerPhone ||
+                                          schedule.note) && (
+                                          <div className="pt-1 border-t text-sm space-y-0.5">
+                                            {schedule.customerName && (
+                                              <p>
+                                                <span className="text-gray-500">
+                                                  Khách hàng:
+                                                </span>{" "}
+                                                {schedule.customerName}
+                                              </p>
+                                            )}
+                                            {schedule.customerPhone && (
+                                              <p>
+                                                <span className="text-gray-500">
+                                                  SĐT:
+                                                </span>{" "}
+                                                {schedule.customerPhone}
+                                              </p>
+                                            )}
+                                            {schedule.note && (
+                                              <p>
+                                                <span className="text-gray-500">
+                                                  Ghi chú:
+                                                </span>{" "}
+                                                <span className="italic">
+                                                  {schedule.note}
+                                                </span>
+                                              </p>
+                                            )}
+                                          </div>
                                         )}
+                                        <div className="pt-1 border-t text-xs text-gray-500">
+                                          <p>{sourceLabel}</p>
+                                          {schedule.upgraded && (
+                                            <p className="text-orange-500">
+                                              Đã nâng cấp phòng
+                                            </p>
+                                          )}
+                                        </div>
                                       </div>
-                                    )}
-                                    <div className="pt-1 border-t text-xs text-gray-500">
-                                      <p>{sourceLabel}</p>
-                                      {schedule.upgraded && (
-                                        <p className="text-orange-500">
-                                          Đã nâng cấp phòng
-                                        </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              } else if (
+                                schedule.status.toLowerCase() === "maintenance"
+                              ) {
+                                const eventStart = dayjs(schedule.startTime);
+                                const eventEnd = schedule.endTime
+                                  ? dayjs(schedule.endTime)
+                                  : eventStart.add(240, "minute");
+                                return (
+                                  <Tooltip key={schedule._id}>
+                                    <TooltipTrigger asChild>
+                                      {eventElement}
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Bảo trì</p>
+                                      <p>
+                                        Bắt đầu: {eventStart.format("HH:mm")}
+                                      </p>
+                                      <p>
+                                        Kết thúc: {eventEnd.format("HH:mm")}
+                                      </p>
+                                      {schedule.note && (
+                                        <p>Ghi chú: {schedule.note}</p>
                                       )}
-                                    </div>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          }
-                          return eventElement;
-                        })}
-                      </div>
+                                      <p className="text-xs text-muted-foreground">
+                                        Bấm để chỉnh sửa / kết thúc
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                );
+                              }
+                              return eventElement;
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
+
+                {/* Now marker: render sau rows để nằm trên lưới CSS */}
+                {roomsIsToday &&
+                  roomsMarkerLeft >= TIMELINE_LEFT_OFFSET &&
+                  roomsMarkerLeft <= timelineTotalWidth && (
+                    <>
+                      <div
+                        className="pointer-events-none absolute z-30"
+                        style={{
+                          left: roomsMarkerLeft - 18,
+                          top: 8,
+                        }}
+                      >
+                        <div className="rounded bg-white/95 px-1 text-xs font-medium text-red-500 shadow-sm">
+                          {currentTime.format("HH:mm")}
+                        </div>
+                      </div>
+                      <div
+                        className="pointer-events-none absolute z-30 w-0.5 bg-red-500"
+                        style={{
+                          left: roomsMarkerLeft,
+                          top: 0,
+                          bottom: 0,
+                        }}
+                      />
+                    </>
+                  )}
               </div>
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="coffee" className="mt-4 space-y-6">
-          <div className="flex justify-end items-start">
-            <Popover modal={true}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-[240px] pl-3 text-left font-normal"
-                >
-                  {coffeeDate
-                    ? coffeeDate.format("DD/MM/YYYY")
-                    : "Chọn ngày"}
-                  {coffeeDate ? (
-                    <CircleXIcon
-                      className="ml-auto h-4 w-4 opacity-50"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCoffeeDate(dayjs());
-                      }}
-                    />
-                  ) : (
-                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={coffeeDate?.toDate()}
-                  onSelect={(newDate) =>
-                    newDate && setCoffeeDate(dayjs(newDate))
-                  }
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+        <TabsContent value="coffee" className="mt-4 min-w-0 space-y-6">
+          <TimelineControls
+            date={coffeeDate}
+            onDateChange={setCoffeeDate}
+            zoom={timelineZoom}
+            onZoomChange={handleZoomChange}
+            autoScrollEnabled={autoScrollEnabled}
+            onAutoScrollChange={setAutoScrollEnabled}
+            onGoToNow={() => {
+              setAutoScrollEnabled(true);
+              scrollTimelineToMarker(coffeeMarkerLeft, "smooth");
+            }}
+            isBusinessToday={coffeeIsToday}
+            dateLabel="Coffee table"
+          />
 
           {coffeeSessionsError ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -1534,81 +1770,47 @@ const RoomTimelineTable: React.FC = () => {
             </div>
           ) : (
             <div
-              className="overflow-x-auto"
+              className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white"
               ref={timelineContainerRef}
               onScroll={handleScroll}
             >
               <div
-                className="relative"
-                style={{ width: `${TIMELINE_WIDTH}px` }}
+                className="relative will-change-transform"
+                style={{ width: `${timelineTotalWidth}px` }}
               >
                 <div
                   className="flex border-b bg-gray-200 w-full"
                   style={{ position: "sticky", top: 0, zIndex: 20 }}
                 >
-                  <div className="w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200">
+                  <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200">
                     Bàn coffee
                   </div>
-                  <div className="flex-1 relative h-10">
-                    {Array.from({
-                      length: (DAY_END_HOUR - DAY_START_HOUR) * 4 + 1,
-                    }).map((_, index) => {
-                      const left = index * (HOUR_MARKER_SPACING / 4);
-                      return (
-                        <div
-                          key={`coffee-grid-${index}`}
-                          className={`absolute h-full w-px ${
-                            index % 4 === 0 ? "bg-gray-300" : "bg-gray-200"
-                          }`}
-                          style={{ left }}
-                        />
-                      );
-                    })}
+                  <div
+                    className="relative h-10"
+                    style={{
+                      width: timelineContentWidth,
+                      ...timelineGridStyle,
+                    }}
+                  >
                     {Array.from({
                       length: DAY_END_HOUR - DAY_START_HOUR + 1,
                     }).map((_, index) => {
                       const hour = DAY_START_HOUR + index;
-                      const left = index * HOUR_MARKER_SPACING;
+                      const left = index * hourMarkerSpacing;
                       return (
                         <div
                           key={`coffee-header-marker-${hour}`}
-                          className="absolute top-1/2 -translate-y-1/2 text-xs text-gray-600 text-center font-medium"
-                          style={{ left, width: 20 }}
+                          className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
+                            hour >= 24 ? "text-amber-700" : "text-gray-600"
+                          }`}
+                          style={{ left, width: hour >= 24 ? 40 : 28 }}
                         >
-                          {hour}:00
+                          {formatTimelineHourLabel(hour)}
                         </div>
                       );
                     })}
                   </div>
                 </div>
-
-                {coffeeIsToday &&
-                  coffeeMarkerLeft >= 0 &&
-                  coffeeMarkerLeft <= TIMELINE_WIDTH && (
-                  <>
-                    <div
-                      className="absolute z-20"
-                      style={{
-                        left: coffeeMarkerLeft - 18,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                      }}
-                    >
-                      <div className="text-xs text-red-500 bg-white px-1 rounded">
-                        {currentTime.format("HH:mm")}
-                      </div>
-                    </div>
-                    <div
-                      className="absolute bg-red-500 w-px"
-                      style={{
-                        left: coffeeMarkerLeft,
-                        top: 0,
-                        bottom: 0,
-                        zIndex: 10,
-                      }}
-                    />
-                  </>
-                )}
 
                 {coffeeTables.map((table) => {
                   const tableSessions =
@@ -1777,67 +1979,116 @@ const RoomTimelineTable: React.FC = () => {
                         </div>
                       </div>
 
-                      <div
-                        className="flex-1 h-12 relative cursor-pointer"
-                        onClick={() => handleCoffeeEmptySlotClick(table)}
-                      >
-                        {Array.from({
-                          length: (DAY_END_HOUR - DAY_START_HOUR) * 4 + 1,
-                        }).map((_, index) => {
-                          const left = index * (HOUR_MARKER_SPACING / 4);
-                          return (
-                            <div
-                              key={`coffee-room-grid-${table._id}-${index}`}
-                              className={`absolute h-full w-px ${
-                                index % 4 === 0 ? "bg-gray-200" : "bg-gray-100"
-                              }`}
-                              style={{ left }}
-                            />
-                          );
-                        })}
+                      {(() => {
+                        const packed = packTimelineLanes(
+                          tableSessions.map((session) => {
+                            const { left, width } =
+                              getCoffeeMarkerStyle(session);
+                            const startMin = left / timelineScale;
+                            const endMin = startMin + width / timelineScale;
+                            return { item: session, startMin, endMin };
+                          }),
+                        );
+                        const laneCount = packed[0]?.laneCount ?? 1;
+                        const rowHeight = getRoomRowHeight(laneCount);
+                        const laneTop = (lane: number) =>
+                          ROOM_ROW_PADDING_Y +
+                          lane * (ROOM_LANE_HEIGHT + ROOM_LANE_GAP);
 
-                        {tableSessions.map((session) => {
-                          const { left, width, bgColor, eventStart, eventEnd } =
-                            getCoffeeMarkerStyle(session);
+                        return (
+                          <div
+                            className="relative cursor-pointer"
+                            style={{
+                              width: timelineContentWidth,
+                              height: rowHeight,
+                              ...timelineGridStyle,
+                            }}
+                            onClick={() => handleCoffeeEmptySlotClick(table)}
+                          >
+                            {packed.map(({ item: session, lane }) => {
+                              const {
+                                left,
+                                width,
+                                bgColor,
+                                eventStart,
+                                eventEnd,
+                              } = getCoffeeMarkerStyle(session);
 
-                          const eventElement = (
-                            <div
-                              key={session._id}
-                              className={`absolute top-0 bottom-0 my-2 rounded shadow-sm ${bgColor} opacity-80 hover:opacity-100 transition-all duration-200 hover:shadow-md`}
-                              style={{ left, width }}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleCoffeeSessionClick(table, session);
-                              }}
-                            >
-                              <div className="text-xs text-white font-medium px-1 py-0.5 truncate">
-                                {getCoffeeSessionStatusLabel(session.status)}
-                              </div>
-                            </div>
-                          );
+                              const eventElement = (
+                                <div
+                                  key={session._id}
+                                  className={`absolute rounded shadow-sm ${bgColor} opacity-90 hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md`}
+                                  style={{
+                                    left,
+                                    width,
+                                    top: laneTop(lane),
+                                    height: ROOM_LANE_HEIGHT,
+                                  }}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleCoffeeSessionClick(table, session);
+                                  }}
+                                >
+                                  <div className="text-xs text-white font-medium px-1 py-0.5 truncate">
+                                    {getCoffeeSessionStatusLabel(
+                                      session.status,
+                                    )}
+                                  </div>
+                                </div>
+                              );
 
-                          return (
-                            <Tooltip key={session._id}>
-                              <TooltipTrigger asChild>
-                                {eventElement}
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  {getCoffeeSessionStatusLabel(session.status)}
-                                </p>
-                                <p>Bắt đầu: {eventStart.format("HH:mm")}</p>
-                                <p>Kết thúc: {eventEnd.format("HH:mm")}</p>
-                                {session.customerName && (
-                                  <p>Khách: {session.customerName}</p>
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
-                          );
-                        })}
-                      </div>
+                              return (
+                                <Tooltip key={session._id}>
+                                  <TooltipTrigger asChild>
+                                    {eventElement}
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>
+                                      {getCoffeeSessionStatusLabel(
+                                        session.status,
+                                      )}
+                                    </p>
+                                    <p>Bắt đầu: {eventStart.format("HH:mm")}</p>
+                                    <p>Kết thúc: {eventEnd.format("HH:mm")}</p>
+                                    {session.customerName && (
+                                      <p>Khách: {session.customerName}</p>
+                                    )}
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
+
+                {coffeeIsToday &&
+                  coffeeMarkerLeft >= TIMELINE_LEFT_OFFSET &&
+                  coffeeMarkerLeft <= timelineTotalWidth && (
+                    <>
+                      <div
+                        className="pointer-events-none absolute z-30"
+                        style={{
+                          left: coffeeMarkerLeft - 18,
+                          top: 8,
+                        }}
+                      >
+                        <div className="rounded bg-white/95 px-1 text-xs font-medium text-red-500 shadow-sm">
+                          {currentTime.format("HH:mm")}
+                        </div>
+                      </div>
+                      <div
+                        className="pointer-events-none absolute z-30 w-0.5 bg-red-500"
+                        style={{
+                          left: coffeeMarkerLeft,
+                          top: 0,
+                          bottom: 0,
+                        }}
+                      />
+                    </>
+                  )}
               </div>
             </div>
           )}
@@ -1849,7 +2100,6 @@ const RoomTimelineTable: React.FC = () => {
         <ScheduleModal
           isOpen={true}
           onClose={closeModal}
-          refetchSchedules={refetch}
           room={selectedRoom}
           selectedDate={roomsDate.toDate()}
         />
@@ -1862,28 +2112,39 @@ const RoomTimelineTable: React.FC = () => {
           schedule={lockedSchedule}
         />
       )}
-      {modal === "booked" && bookedSchedule && (
-        <ProcessBookedModal
+      {modal === "maintenance" && maintenanceSchedule && (
+        <ProcessMaintenanceModal
           isOpen={true}
           onClose={closeModal}
-          schedule={bookedSchedule}
+          refetchSchedules={refetch}
+          schedule={maintenanceSchedule}
+        />
+      )}
+      {bookedSchedule && activeBookedSchedule && (
+        <ProcessBookedModal
+          isOpen={modal === "booked"}
+          onClose={() => {
+            setModal(null);
+            window.setTimeout(() => setBookedSchedule(null), 300);
+          }}
+          schedule={activeBookedSchedule}
           refetchSchedules={refetch}
         />
       )}
-      {modal === "inUse" && inUseSchedule && (
+      {modal === "inUse" && activeInUseSchedule && (
         <ProcessInUseModal
           isOpen={true}
           onClose={closeModal}
-          schedule={inUseSchedule}
+          schedule={activeInUseSchedule}
           refetchSchedules={refetch}
           onExtendSession={() => setModal("extend")}
         />
       )}
-      {modal === "extend" && inUseSchedule && (
+      {modal === "extend" && activeInUseSchedule && (
         <ExtendSessionModal
           isOpen={true}
           onClose={closeModal}
-          schedule={inUseSchedule}
+          schedule={activeInUseSchedule}
           refetchSchedules={refetch}
         />
       )}
@@ -1893,7 +2154,9 @@ const RoomTimelineTable: React.FC = () => {
           onClose={closeModal}
           orderData={orderData}
           roomId={orderRoomId}
-          onOrderServed={() => handleOrderServed(orderRoomId)}
+          onOrderServed={() =>
+            handleOrderServed(orderRoomId, orderData.orderId)
+          }
         />
       )}
       {modal === "giftDetails" && giftData && (
@@ -1949,6 +2212,47 @@ const RoomTimelineTable: React.FC = () => {
           onOpenSession={handleOpenCoffeeSessionFromNewOrderPreview}
         />
       ) : null}
+
+      <SupportRequestModal
+        request={selectedSupportRequest}
+        roomName={selectedSupportRoomName}
+        onClose={() => setSupportRequestModalId(null)}
+      />
+
+      <AlertDialog
+        open={turnOffAllRoomsConfirmOpen}
+        onOpenChange={(open) => {
+          if (isTurningOffAllRooms) return;
+          setTurnOffAllRoomsConfirmOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tắt video tất cả phòng?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hành động này sẽ tắt video khẩn cấp trên tất cả phòng. Bạn có chắc
+              chắn muốn tiếp tục?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isTurningOffAllRooms}>
+              Huỷ
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="destructive"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleTurnOffAllRooms();
+                }}
+                disabled={isTurningOffAllRooms}
+              >
+                {isTurningOffAllRooms ? "Đang tắt..." : "Xác nhận tắt"}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

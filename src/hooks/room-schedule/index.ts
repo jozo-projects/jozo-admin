@@ -2,7 +2,8 @@
 import { IRoomSchedule } from "@/@types/Room";
 import roomApis from "@/apis/room.apis";
 import roomsScheduleApis from "@/apis/roomSchedule.api";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { parseUTCToLocal } from "@/lib/dayjs";
+import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
 
 export const getRoomSchedulesQueryKey = (date: Dayjs | string) => {
@@ -12,6 +13,54 @@ export const getRoomSchedulesQueryKey = (date: Dayjs | string) => {
       : dayjs(date);
   return ["roomSchedules", normalized.startOf("day").toISOString()] as const;
 };
+
+/** Query key theo ngày của schedule (khớp useRoomSchedules). */
+export const getRoomSchedulesQueryKeyForSchedule = (
+  schedule: Pick<IRoomSchedule, "startTime">,
+) => getRoomSchedulesQueryKey(parseUTCToLocal(schedule.startTime));
+
+/** Cập nhật một schedule trong cache roomSchedules của ngày tương ứng. */
+export const patchScheduleInRoomSchedulesCache = (
+  queryClient: QueryClient,
+  schedule: Pick<IRoomSchedule, "_id" | "startTime">,
+  patch: Partial<IRoomSchedule>,
+) => {
+  const queryKey = getRoomSchedulesQueryKeyForSchedule(schedule);
+
+  queryClient.setQueryData<IRoomSchedule[]>(queryKey, (old) => {
+    if (!old) return old;
+    return old.map((item) =>
+      item._id === schedule._id ? { ...item, ...patch } : item,
+    );
+  });
+
+  return queryKey;
+};
+
+/** Chuẩn hóa promotionId từ API/socket (string hoặc ObjectId). */
+export const normalizeSchedulePromotionId = (
+  promotionId: unknown,
+): string | undefined => {
+  if (promotionId === null || promotionId === undefined || promotionId === "") {
+    return undefined;
+  }
+  if (typeof promotionId === "string") return promotionId;
+  if (typeof promotionId === "object" && promotionId !== null && "_id" in promotionId) {
+    const id = (promotionId as { _id?: unknown })._id;
+    return id != null ? String(id) : undefined;
+  }
+  return String(promotionId);
+};
+
+/** Ghi promotionId vào cache sau khi PUT thành công — không refetch. */
+export const persistSchedulePromotionInCache = (
+  queryClient: QueryClient,
+  schedule: Pick<IRoomSchedule, "_id" | "startTime">,
+  promotionId: string | null,
+) =>
+  patchScheduleInRoomSchedulesCache(queryClient, schedule, {
+    promotionId: promotionId ?? undefined,
+  });
 
 export type RoomScheduleChangedAction =
   | "created"
@@ -33,9 +82,18 @@ export const applyScheduleChangedToCache = (
     return [...old, schedule];
   }
 
-  const updated = old.map((item) =>
-    item._id === schedule._id ? schedule : item,
-  );
+  const updated = old.map((item) => {
+    if (item._id !== schedule._id) return item;
+
+    const incomingPromotionId = normalizeSchedulePromotionId(schedule.promotionId);
+    const merged: IRoomSchedule = { ...item, ...schedule };
+
+    if ("promotionId" in schedule) {
+      merged.promotionId = incomingPromotionId;
+    }
+
+    return merged;
+  });
 
   if (action === "cancelled" || action === "finished") {
     return updated;
@@ -56,6 +114,7 @@ export const useRoomSchedules = (date: Dayjs = dayjs()) => {
       }
       return response.data.result;
     },
+    refetchOnWindowFocus: false,
   });
 };
 

@@ -1,11 +1,49 @@
 import type {
   IFnbShiftCountTemplateItem,
   IMatrixItem,
+  IShiftMeta,
   ShiftNo,
 } from "@/apis/fnbShiftCount.apis";
+import type { Dayjs } from "dayjs";
+import dayjs from "@/lib/dayjs";
 import type { FnbShiftCountFormItem, ShiftCountCellValue } from "./types";
 
 export const SHIFT_NUMBERS: ShiftNo[] = [1, 2, 3];
+
+/** Ca 3 kết thúc 01:00 — trước giờ này vẫn thuộc ngày kinh doanh hôm trước */
+export const FNB_BUSINESS_DAY_END_HOUR = 1;
+
+export const getFnbBusinessDate = (at?: Dayjs): string => {
+  const now = (at ?? dayjs()).tz("Asia/Ho_Chi_Minh");
+  if (now.hour() < FNB_BUSINESS_DAY_END_HOUR) {
+    return now.subtract(1, "day").format("YYYY-MM-DD");
+  }
+  return now.format("YYYY-MM-DD");
+};
+
+export const isFnbBusinessDate = (date: string, at?: Dayjs): boolean =>
+  date === getFnbBusinessDate(at);
+
+/** Chỉ khóa sửa khi staff đã khóa ca thủ công, không theo editable từ BE khi qua 0h */
+export const resolveShiftsForBusinessDay = (
+  shifts: Record<ShiftNo, IShiftMeta> | undefined,
+  date: string,
+): Record<ShiftNo, IShiftMeta> | undefined => {
+  if (!shifts) return undefined;
+  if (!isFnbBusinessDate(date)) return shifts;
+
+  return SHIFT_NUMBERS.reduce<Record<ShiftNo, IShiftMeta>>(
+    (acc, shiftNo) => {
+      const shift = shifts[shiftNo];
+      acc[shiftNo] = {
+        ...shift,
+        editable: !shift?.locked,
+      };
+      return acc;
+    },
+    {} as Record<ShiftNo, IShiftMeta>,
+  );
+};
 
 const toCountValue = (value?: number | null): number | "" =>
   value === undefined || value === null ? "" : value;

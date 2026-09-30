@@ -35,6 +35,9 @@ export type EarningsSummary = {
   items: EarningsItem[];
   totalHours: number;
   totalSalary: number;
+  grossSalary?: number;
+  totalDeductions?: number;
+  deductionCount?: number;
   totalShifts: number;
   totalRegistered: number;
   expectedHours: number;
@@ -169,6 +172,7 @@ const MOBILE_TEXT: Record<
     filterCompleted: string;
     filterAll: string;
     expectedPay: string;
+    deductions: string;
     weekdays: string[];
   }
 > = {
@@ -196,6 +200,7 @@ const MOBILE_TEXT: Record<
     filterCompleted: "Hoàn thành",
     filterAll: "Tất cả",
     expectedPay: "Dự kiến",
+    deductions: "Khấu trừ",
     weekdays: ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
   },
   en: {
@@ -222,6 +227,7 @@ const MOBILE_TEXT: Record<
     filterCompleted: "Completed",
     filterAll: "All",
     expectedPay: "Expected",
+    deductions: "Deductions",
     weekdays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   },
 };
@@ -565,6 +571,11 @@ const StaffEarningsMobileView = ({
           <span>•</span>
           <span>{text.shiftsCompleted(earningsData.totalShifts)}</span>
         </div>
+        {!!earningsData.totalDeductions && (
+          <p className="mt-2 text-xs text-emerald-100">
+            {(earningsData.grossSalary ?? 0).toLocaleString(numberLocale)}₫ - {earningsData.totalDeductions.toLocaleString(numberLocale)}₫ {text.deductions.toLowerCase()}
+          </p>
+        )}
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs text-emerald-100 mb-1">
             <span>{text.completionProgress}</span>
@@ -588,6 +599,15 @@ const StaffEarningsMobileView = ({
             {(earningsData.expectedSalary / 1000).toFixed(0)}k
           </p>
         </div>
+        {!!earningsData.totalDeductions && (
+          <div className="rounded-xl border bg-red-50/50 border-red-200 p-3 text-center">
+            <DollarSign className="mx-auto h-4 w-4 text-red-600 mb-1" />
+            <p className="text-xs text-muted-foreground">{text.deductions}</p>
+            <p className="text-sm font-bold text-red-700">
+              -{(earningsData.totalDeductions / 1000).toFixed(0)}k
+            </p>
+          </div>
+        )}
         <div className="rounded-xl border p-3 text-center">
           <CalendarIcon className="mx-auto h-4 w-4 text-orange-600 mb-1" />
           <p className="text-xs text-muted-foreground">{text.registered}</p>

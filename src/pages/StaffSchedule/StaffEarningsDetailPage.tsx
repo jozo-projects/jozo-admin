@@ -1,8 +1,9 @@
 import staffScheduleApis, {
   IEmployeeSchedule,
   IEmployeeSchedulesResponse,
+  IEmployeeSchedulesSummary,
 } from "@/apis/staffSchedule.apis";
-import { PageHeader } from "@/components/shared";
+import { PageHeader, StatCard, StatGrid } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -39,12 +40,14 @@ import {
   User,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useRouter, useParams } from "@tanstack/react-router";
 import StaffEarningsMobileView from "./components/StaffEarningsMobileView";
 
 const StaffEarningsDetailPage = () => {
-  const navigate = useNavigate();
-  const { userId } = useParams<{ userId: string }>();
+  const router = useRouter();
+  const { userId = "" } = useParams({
+    from: "/_authenticated/staff-schedule/$userId/earnings",
+  });
   const isMobile = useIsMobile();
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
 
@@ -70,6 +73,7 @@ const StaffEarningsDetailPage = () => {
   const { data: scheduleData, isLoading } = useQuery<{
     schedules: IEmployeeSchedule[];
     staffName: string;
+    summary?: IEmployeeSchedulesSummary;
   }>({
     queryKey: [
       "staff-schedules",
@@ -80,7 +84,7 @@ const StaffEarningsDetailPage = () => {
     ],
     queryFn: async () => {
       if (!userId) {
-        return { schedules: [], staffName: "Unknown" };
+        return { schedules: [], staffName: "Unknown", summary: undefined };
       }
 
       const response = await staffScheduleApis.getEmployeeSchedules({
@@ -111,13 +115,14 @@ const StaffEarningsDetailPage = () => {
         schedules[0]?.userName ||
         "Unknown Staff";
 
-      return { schedules, staffName };
+      return { schedules, staffName, summary: result.summary };
     },
     enabled: !!userId,
   });
 
   const schedules = scheduleData?.schedules;
   const staffName = scheduleData?.staffName || "Unknown Staff";
+  const serverSummary = scheduleData?.summary;
 
   // Calculate detailed earnings data for entire month
   const earningsData = useMemo(() => {
@@ -270,10 +275,13 @@ const StaffEarningsDetailPage = () => {
       (sum, item) => sum + item.hours,
       0,
     );
-    const totalSalary = completedItems.reduce(
+    const grossSalary = completedItems.reduce(
       (sum, item) => sum + item.salary,
       0,
     );
+    const totalDeductions = serverSummary?.totalDeductions ?? 0;
+    const deductionCount = serverSummary?.deductionCount ?? 0;
+    const totalSalary = serverSummary?.netSalary ?? Math.max(0, grossSalary - totalDeductions);
     const totalRegistered = data.filter(
       (item) => item.status !== "not-registered",
     ).length;
@@ -299,13 +307,28 @@ const StaffEarningsDetailPage = () => {
       items: data,
       totalHours: Math.round(totalHours * 100) / 100,
       totalSalary,
+      grossSalary,
+      totalDeductions,
+      deductionCount,
       totalShifts: completedItems.length,
       totalRegistered,
       expectedHours: Math.round(expectedHours * 100) / 100,
       expectedSalary,
       expectedShifts: expectedItems.length,
     };
-  }, [schedules, selectedMonth]);
+  }, [schedules, selectedMonth, serverSummary]);
+
+  const openStaffErrorLogs = () => {
+    if (!userId) return;
+    const params = new URLSearchParams({
+      userId,
+      type: "penalty",
+      status: "active",
+      startDate: startDate.format("YYYY-MM-DD"),
+      endDate: endDate.format("YYYY-MM-DD"),
+    });
+    router.navigate({ to: PATHS.STAFF_ERROR_LOGS as never, search: Object.fromEntries(params) as never });
+  };
 
   // Generate month options (current month and 11 previous months)
   const monthOptions = useMemo(() => {
@@ -324,7 +347,7 @@ const StaffEarningsDetailPage = () => {
           <p className="text-red-500">Không tìm thấy thông tin nhân viên</p>
           <Button
             variant="outline"
-            onClick={() => navigate(PATHS.STAFF_SCHEDULE)}
+            onClick={() => router.navigate({ to: PATHS.STAFF_SCHEDULE })}
             className="mt-4"
           >
             Quay lại
@@ -335,7 +358,7 @@ const StaffEarningsDetailPage = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title={`Chi Tiết Thu Nhập - ${staffName}`}
         description="Thống kê chi tiết các ca làm việc và lương thực nhận"
@@ -345,69 +368,49 @@ const StaffEarningsDetailPage = () => {
       />
 
       {/* Summary Cards - desktop only (mobile uses hero card) */}
-      <div className="hidden md:grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-green-200 bg-green-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng Lương</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {earningsData.totalSalary.toLocaleString("vi-VN")}₫
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {earningsData.totalShifts} ca đã hoàn thành
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Thu Nhập Dự Kiến
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {earningsData.expectedSalary.toLocaleString("vi-VN")}₫
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {earningsData.expectedShifts} ca ({earningsData.expectedHours}h)
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ca Đã Đăng Ký</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">
-              {earningsData.totalRegistered}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {selectedMonth.format("MM/YYYY")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tổng Giờ Làm</CardTitle>
-            <Clock className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {earningsData.totalHours}h
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              giờ làm việc thực tế
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatGrid className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <StatCard
+          label="Tổng Lương"
+          value={`${earningsData.totalSalary.toLocaleString("vi-VN")}₫`}
+          hint={`Sau khấu trừ ${earningsData.totalDeductions.toLocaleString("vi-VN")}₫`}
+          icon={DollarSign}
+          tone="success"
+        />
+        <StatCard
+          className="border-destructive/30 bg-destructive/5"
+          label="Lỗi / Khấu Trừ"
+          value={`-${earningsData.totalDeductions.toLocaleString("vi-VN")}₫`}
+          hint={`${earningsData.deductionCount} lỗi phạt đang hiệu lực · Bấm để xem`}
+          icon={DollarSign}
+          tone="danger"
+          role="button"
+          tabIndex={0}
+          onClick={openStaffErrorLogs}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") openStaffErrorLogs();
+          }}
+        />
+        <StatCard
+          label="Thu Nhập Dự Kiến"
+          value={`${earningsData.expectedSalary.toLocaleString("vi-VN")}₫`}
+          hint={`${earningsData.expectedShifts} ca (${earningsData.expectedHours}h)`}
+          icon={DollarSign}
+          tone="info"
+        />
+        <StatCard
+          label="Ca Đã Đăng Ký"
+          value={earningsData.totalRegistered}
+          hint={selectedMonth.format("MM/YYYY")}
+          icon={CalendarIcon}
+          tone="warning"
+        />
+        <StatCard
+          label="Tổng Giờ Làm"
+          value={`${earningsData.totalHours}h`}
+          hint="giờ làm việc thực tế"
+          icon={Clock}
+        />
+      </StatGrid>
 
       {/* Filters - desktop only (mobile has built-in month navigator) */}
       {!isMobile && (

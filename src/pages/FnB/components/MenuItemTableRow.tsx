@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { FnBMenuItem } from "@/hooks/use-menu-items";
+import {
+  REVENUE_CATEGORY_LABELS,
+  resolveMenuItemRevenueCategory,
+} from "@/utils/revenueBreakdown";
 import { ChevronDown, ChevronRight, Edit, Trash2 } from "lucide-react";
 
 const isItemActive = (item: FnBMenuItem) => item.isActive ?? true;
@@ -111,6 +115,20 @@ const MenuItemTableRow = memo(function MenuItemTableRow({
               Variant của: {item.parent.name}
             </div>
           )}
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            <Badge variant="outline" className="text-xs">
+              {
+                REVENUE_CATEGORY_LABELS[
+                  resolveMenuItemRevenueCategory(item.revenueCategory)
+                ]
+              }
+            </Badge>
+            {item.inventoryTracked ? (
+              <Badge variant="secondary" className="text-xs">
+                Trừ kho
+              </Badge>
+            ) : null}
+          </div>
         </div>
       </TableCell>
       <TableCell>

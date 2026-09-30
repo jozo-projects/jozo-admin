@@ -47,24 +47,21 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  DollarSign,
   Loader2,
   PlayCircle,
   Plus,
-  TrendingUp,
   XCircle,
 } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useSocket } from "@/hooks/useSocket";
 import { useToast } from "@/hooks/use-toast";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import PATHS from "@/constants/paths";
 
 const MySchedulePage = () => {
   type ShiftFilterValue = ShiftType | "all_shifts" | "custom" | undefined;
 
-  const navigate = useNavigate();
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs());
   const [selectedStatus, setSelectedStatus] = useState<
@@ -94,7 +91,10 @@ const MySchedulePage = () => {
   } = useSocket();
 
   // Deeplink support: read scheduleId from URL
-  const [searchParams, setSearchParams] = useSearchParams();
+  const searchParams = new URLSearchParams(window.location.search);
+  const setSearchParams = useCallback((next: Record<string, string>) => {
+    void router.navigate({ to: "/my-schedule", search: next as never, replace: true });
+  }, [router]);
   const scheduleIdFromUrl = searchParams.get("scheduleId");
 
   // Calculate date range based on view mode
@@ -176,20 +176,12 @@ const MySchedulePage = () => {
     selectedShiftType,
   ]);
 
-  const {
-    data: { schedules = [], summary } = { schedules: [], summary: null },
-    isLoading,
-    refetch,
-  } = useMySchedules(options);
-
-  // Get all schedules for current month (for salary calculation, no filters)
-  const {
-    data: { schedules: monthSchedules = [] } = { schedules: [] },
-    refetch: refetchMonthSchedules,
-  } = useMySchedules({
-    filterType: "month",
-    date: currentDate,
-  });
+  const scheduleQuery = useMySchedules(options);
+  const schedules = useMemo(
+    () => scheduleQuery.data?.schedules ?? [],
+    [scheduleQuery.data?.schedules],
+  );
+  const { isLoading, refetch } = scheduleQuery;
 
   // Get all schedules for calendar month (for calendar display, no filters)
   const {
@@ -278,7 +270,6 @@ const MySchedulePage = () => {
 
       // Refetch schedules to update the view
       refetch();
-      refetchMonthSchedules();
       refetchCalendarSchedules();
     };
 
@@ -305,7 +296,6 @@ const MySchedulePage = () => {
 
       // Refetch schedules to update the view
       refetch();
-      refetchMonthSchedules();
       refetchCalendarSchedules();
     };
 
@@ -322,7 +312,6 @@ const MySchedulePage = () => {
     onScheduleAssigned,
     offScheduleAssigned,
     refetch,
-    refetchMonthSchedules,
     refetchCalendarSchedules,
     toast,
   ]);
@@ -386,7 +375,6 @@ const MySchedulePage = () => {
     // Clear scheduleId from URL
     setSearchParams({});
     refetch();
-    refetchMonthSchedules();
     refetchCalendarSchedules();
   };
 
@@ -500,177 +488,13 @@ const MySchedulePage = () => {
     return "bg-gray-100 text-gray-800";
   };
 
-  // Calculate salary information based on current month (not filtered)
-  const salaryInfo = useMemo(() => {
-    const hourlyRate = 22000; // 22k VND per hour
-    const completedSchedules = monthSchedules.filter(
-      (s) => s.status === EmployeeScheduleStatus.Completed,
-    );
-
-    // Calculate total hours for completed shifts
-    let totalHours = 0;
-    completedSchedules.forEach((schedule) => {
-      if (schedule.customStartTime && schedule.customEndTime) {
-        // Calculate hours from custom times
-        const [startHour, startMin] = schedule.customStartTime
-          .split(":")
-          .map(Number);
-        const [endHour, endMin] = schedule.customEndTime.split(":").map(Number);
-        const startTotal = startHour * 60 + startMin;
-        let endTotal = endHour * 60 + endMin;
-        if (endTotal <= startTotal) {
-          endTotal += 24 * 60;
-        }
-        const diffMinutes = endTotal - startTotal;
-        totalHours += diffMinutes / 60;
-      } else {
-        // Default shift hours (5 hours per shift)
-        const shift = schedule.shift || schedule.shiftType;
-        if (
-          shift === "shift1" ||
-          shift === "shift2" ||
-          shift === "morning" ||
-          shift === "afternoon" ||
-          shift === "evening" ||
-          shift === "shift3" ||
-          shift === "all"
-        ) {
-          totalHours += 5; // 5 hours per shift
-        } else {
-          // Default to 5 hours if unknown
-          totalHours += 5;
-        }
-      }
-    });
-
-    const totalSalary = totalHours * hourlyRate;
-    const totalRegistered = monthSchedules.length;
-    const totalCompleted = completedSchedules.length;
-    const completionRate =
-      totalRegistered > 0 ? (totalCompleted / totalRegistered) * 100 : 0;
-
-    return {
-      totalRegistered,
-      totalCompleted,
-      totalHours: Math.round(totalHours * 10) / 10, // Round to 1 decimal
-      totalSalary,
-      completionRate: Math.round(completionRate * 10) / 10,
-    };
-  }, [monthSchedules]);
-
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="My Work Schedule"
         description="View and manage your work schedule"
         icon={Briefcase}
       />
-
-      {/* Summary Cards */}
-      {summary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Shifts
-              </CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{summary.totalShifts}</div>
-              <p className="text-xs text-muted-foreground">
-                {summary.totalDays} days
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {summary.upcoming}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.byStatus.approved} approved shifts
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-              <PlayCircle className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {summary.inProgress}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.byStatus["in-progress"]} active shifts
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">
-                {summary.completed}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.byStatus.completed} completed shifts
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Salary Card */}
-          <Card
-            className="border-green-200 bg-green-50/50 cursor-pointer transition-all hover:shadow-lg hover:border-green-300"
-            onClick={() => navigate(PATHS.MY_EARNINGS_DETAIL)}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div>
-                <CardTitle className="text-sm font-medium">Earnings</CardTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {currentDate.format("MM/YYYY")}
-                </p>
-              </div>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {summary.totalSalary.toLocaleString("vi-VN")}₫
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {salaryInfo.totalCompleted} completed shifts
-              </p>
-              <div className="mt-2">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium">
-                    {salaryInfo.totalCompleted}/{salaryInfo.totalRegistered}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-600 h-2 rounded-full transition-all"
-                    style={{ width: `${salaryInfo.completionRate}%` }}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-green-600 mt-2 font-medium">
-                Details →
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Controls */}
       <Card>
@@ -1003,13 +827,16 @@ const MySchedulePage = () => {
         open={isCalendarModalOpen}
         onOpenChange={handleCloseCalendarModal}
       >
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[90vw] sm:max-w-[90vw] md:max-w-3xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto p-3 sm:p-4 md:p-6">
-          <DialogHeader className="px-1 sm:px-0">
-            <DialogTitle className="text-base sm:text-lg md:text-xl">
+        <DialogContent className="overflow-y-auto p-0 sm:max-w-3xl sm:p-5 lg:max-w-4xl lg:p-6">
+          <DialogHeader className="border-b px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] text-left sm:border-0 sm:px-0 sm:pb-2 sm:pt-0">
+            <DialogTitle className="text-lg tracking-tight sm:text-xl">
               Register Work Shift
             </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Choose an available date to register your shift
+            </p>
           </DialogHeader>
-          <div className="px-1 sm:px-0">
+          <div className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-0 sm:pb-0 sm:pt-0">
             <ShiftRegistrationCalendar
               schedules={calendarSchedules}
               onDateClick={handleCalendarDateClick}

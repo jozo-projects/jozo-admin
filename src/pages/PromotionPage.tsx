@@ -108,7 +108,7 @@ function PromotionPage() {
   ];
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Promotions"
         description="Quản lý các chương trình khuyến mãi và giảm giá"

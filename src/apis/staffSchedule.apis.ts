@@ -184,6 +184,9 @@ export interface IEmployeeSchedulesSummary {
   inProgress: number;
   upcoming: number;
   totalSalary: number;
+  totalDeductions?: number;
+  deductionCount?: number;
+  netSalary?: number;
   byStatus: {
     pending: number;
     approved: number;

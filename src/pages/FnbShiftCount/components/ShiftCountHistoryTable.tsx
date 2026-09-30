@@ -136,10 +136,10 @@ const ShiftCountHistoryTable = ({
                       <TableCell
                         className={cn(
                           "text-center font-semibold",
-                          record.summary.shortageCount > 0 && "text-destructive",
+                          (record.summary?.shortageCount ?? 0) > 0 && "text-destructive",
                         )}
                       >
-                        {record.summary.shortageCount}
+                        {record.summary?.shortageCount ?? 0}
                       </TableCell>
                       <TableCell>
                         {record.editable ? "Có thể sửa" : "Chỉ xem"}

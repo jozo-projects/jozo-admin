@@ -12,10 +12,8 @@ export const DAY_TYPE_OPTIONS = [
 ];
 
 export const PAYMENT_METHOD_OPTIONS = [
-  { value: PaymentMethod.Cash, label: "Cash" },
-  { value: PaymentMethod.BankTransfer, label: "Bank Transfer" },
-  { value: PaymentMethod.Momo, label: "Momo" },
-  { value: PaymentMethod.ZaloPay, label: "ZaloPay" },
+  { value: PaymentMethod.Cash, label: "Tiền mặt" },
+  { value: PaymentMethod.BankTransfer, label: "Chuyển khoản" },
 ];
 
 export const DRINK_OPTIONS = [

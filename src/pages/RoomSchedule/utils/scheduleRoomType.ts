@@ -1,10 +1,23 @@
 import { IRoom, IRoomSchedule } from "@/@types/Room";
 import { RoomStatus, RoomType } from "@/constants/enum";
 
+const ROOM_TYPE_VALUES = new Set<string>(Object.values(RoomType));
+
+/** BE có thể trả "Medium"/"Large"; FE enum dùng lowercase ("medium"). */
+export const normalizeRoomType = (
+  type?: string | RoomType | null,
+): RoomType | undefined => {
+  if (type == null || type === "") return undefined;
+  const normalized = String(type).trim().toLowerCase();
+  if (!ROOM_TYPE_VALUES.has(normalized)) return undefined;
+  return normalized as RoomType;
+};
+
 export const getEffectiveScheduleRoomType = (
   schedule: Pick<IRoomSchedule, "roomType">,
   room?: Pick<IRoom, "roomType"> | null,
-): RoomType | undefined => schedule.roomType ?? room?.roomType;
+): RoomType | undefined =>
+  normalizeRoomType(schedule.roomType) ?? normalizeRoomType(room?.roomType);
 
 export const isScheduleRoomTypeEditable = (
   schedule: Pick<IRoomSchedule, "status" | "actualEndTime">,
@@ -13,8 +26,8 @@ export const isScheduleRoomTypeEditable = (
   schedule.status !== RoomStatus.Cancelled &&
   !schedule.actualEndTime;
 
-export const getRoomTypeLabel = (type?: RoomType) => {
-  switch (type) {
+export const getRoomTypeLabel = (type?: string | RoomType | null) => {
+  switch (normalizeRoomType(type)) {
     case RoomType.Small:
       return "Nhỏ";
     case RoomType.Large:

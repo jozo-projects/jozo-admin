@@ -116,12 +116,11 @@ function CoffeePricingPage() {
   const isBusy = isLoading || isFetching || isSaving;
 
   return (
-    <div className="max-w-3xl">
+    <div className="flex w-full max-w-3xl flex-col gap-6">
       <PageHeader
         title="Pricing"
         description="Configure board game pricing for coffee lounge customers."
         icon={Coffee}
-        className="mb-4"
       />
 
       <Card>

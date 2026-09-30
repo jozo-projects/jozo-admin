@@ -16,7 +16,6 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-// import { JozoLogo } from "@/components/shared/JozoLogo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +26,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MenuItem } from "@/constants/menuItems";
 import PATHS from "@/constants/paths";
+import retailSaleApis from "@/apis/retailSale.apis";
+import fnbShiftCountApis from "@/apis/fnbShiftCount.apis";
+
 import useAuth from "@/hooks/useAuth";
 import { useMenuItems } from "@/hooks/useMenuItems";
 import { cn } from "@/lib/utils";
 import { ChevronRight, Settings, User } from "lucide-react";
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { fnbShiftCountQueryKey } from "@/pages/FnbShiftCount/hooks/useFnbShiftCount";
+import { getFnbBusinessDate } from "@/pages/FnbShiftCount/utils";
+import {
+  fetchMenuItems,
+  menuItemsQueryKeys,
+} from "@/hooks/use-menu-items";
+
+import { JozoLogo } from "../shared/JozoLogo";
 import { LogoutButton } from "../shared/LogoutButton";
 
 export function AppSidebar() {
@@ -40,6 +51,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { user } = useAuth();
   const menuItems = useMenuItems();
+  const queryClient = useQueryClient();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const closeMobileSidebar = () => {
@@ -59,8 +71,50 @@ export function AppSidebar() {
     setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
   };
 
+  const prefetchRouteData = (url?: string) => {
+    if (url === PATHS.RETAIL_SALES) {
+      void queryClient.prefetchQuery({
+        queryKey: ["retail-products"],
+        queryFn: async () => (await retailSaleApis.getProducts()).data.result || [],
+        staleTime: 60_000,
+      });
+    }
+
+    if (url === PATHS.FNB_SHIFT_COUNT) {
+      const date = getFnbBusinessDate();
+
+      void queryClient.prefetchQuery({
+        queryKey: fnbShiftCountQueryKey.detail(date),
+        queryFn: () => fnbShiftCountApis.getShiftCount({ date }),
+        staleTime: Infinity,
+      });
+
+      void queryClient.prefetchQuery({
+        queryKey: fnbShiftCountQueryKey.template(),
+        queryFn: () => fnbShiftCountApis.getItemsTemplate(),
+        staleTime: 5 * 60 * 1000,
+      });
+    }
+
+    if (url === PATHS.MENU_ITEMS) {
+      void queryClient.prefetchQuery({
+        queryKey: menuItemsQueryKeys.lists(),
+        queryFn: fetchMenuItems,
+        staleTime: 5 * 60 * 1000,
+      });
+    }
+
+  };
+
   const quickAccessItems = menuItems.filter(
-    (item) => !item.subItems || item.subItems.length === 0,
+    (item) =>
+      item.section === "quick-access" &&
+      (!item.subItems || item.subItems.length === 0),
+  );
+  const personalItems = menuItems.filter(
+    (item) =>
+      item.section === "personal" &&
+      (!item.subItems || item.subItems.length === 0),
   );
   const managementGroups = menuItems.filter(
     (item) => item.subItems && item.subItems.length > 0,
@@ -80,9 +134,16 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild className="rounded-xl">
-              <Link to="/" onClick={closeMobileSidebar}>
-                Jozo admin
-                {/* <JozoLogo iconClassName="size-8 rounded-lg" /> */}
+              <Link
+                to="/"
+                onMouseEnter={() => prefetchRouteData("/")}
+                onFocus={() => prefetchRouteData("/")}
+                onClick={closeMobileSidebar}
+              >
+                <JozoLogo
+                  showText={state !== "collapsed" || isMobile}
+                  iconClassName="size-8 rounded-lg"
+                />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -108,7 +169,12 @@ export function AppSidebar() {
                         activeMenuButtonClassName,
                       )}
                     >
-                      <Link to={item.url || "#"} onClick={closeMobileSidebar}>
+                      <Link
+                        to={item.url || "#"}
+                        onMouseEnter={() => prefetchRouteData(item.url)}
+                        onFocus={() => prefetchRouteData(item.url)}
+                        onClick={closeMobileSidebar}
+                      >
                         <item.icon />
                         <span>{item.title}</span>
                       </Link>
@@ -120,7 +186,47 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
 
-        {quickAccessItems.length > 0 && managementGroups.length > 0 && (
+        {quickAccessItems.length > 0 && personalItems.length > 0 && (
+          <SidebarSeparator className="my-2" />
+        )}
+
+        {personalItems.length > 0 && (
+          <SidebarGroup className="p-0">
+            <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-wide">
+              Personal
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="gap-1">
+                {personalItems.map((item: MenuItem) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
+                      className={cn(
+                        menuButtonClassName,
+                        activeMenuButtonClassName,
+                      )}
+                    >
+                      <Link
+                        to={item.url || "#"}
+                        onMouseEnter={() => prefetchRouteData(item.url)}
+                        onFocus={() => prefetchRouteData(item.url)}
+                        onClick={closeMobileSidebar}
+                      >
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {(quickAccessItems.length > 0 || personalItems.length > 0) &&
+          managementGroups.length > 0 && (
           <SidebarSeparator className="my-2" />
         )}
 
@@ -172,6 +278,8 @@ export function AppSidebar() {
                               >
                                 <Link
                                   to={subItem.url || "#"}
+                                  onMouseEnter={() => prefetchRouteData(subItem.url)}
+                                  onFocus={() => prefetchRouteData(subItem.url)}
                                   onClick={closeMobileSidebar}
                                 >
                                   <subItem.icon />
@@ -257,13 +365,19 @@ export function AppSidebar() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to={PATHS.PROFILE} onClick={closeMobileSidebar}>
+                  <Link
+                    to={PATHS.PROFILE as never}
+                    onClick={closeMobileSidebar}
+                  >
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to={PATHS.CHANGE_PASSWORD} onClick={closeMobileSidebar}>
+                  <Link
+                    to={PATHS.CHANGE_PASSWORD as never}
+                    onClick={closeMobileSidebar}
+                  >
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Change Password</span>
                   </Link>

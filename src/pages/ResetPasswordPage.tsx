@@ -18,7 +18,7 @@ import { useMutation } from "@tanstack/react-query";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 
@@ -30,17 +30,17 @@ const TOKEN_EXPIRED_MESSAGE =
 export default function ResetPasswordPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const search = useSearch({ from: PATHS.RESET_PASSWORD });
   const [hidePassword, setHidePassword] = useState(true);
   const [hideConfirmPassword, setHideConfirmPassword] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const forgotPasswordToken = useMemo(
     () =>
-      searchParams.get("forgot_password_token") ||
-      searchParams.get("token") ||
+      search.forgot_password_token ||
+      search.token ||
       "",
-    [searchParams],
+    [search.forgot_password_token, search.token],
   );
 
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function ResetPasswordPage() {
       toast({
         title: response.data.message || "Đặt lại mật khẩu thành công",
       });
-      navigate(PATHS.LOGIN, { replace: true });
+      navigate({ to: PATHS.LOGIN, replace: true });
     },
     onError: (error: unknown) => {
       const apiMessage =

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { userApis } from "@/apis/user.apis";
 import { UpdateUserRequest, UsersQueryParams } from "@/@types/user";
 import { toast } from "@/hooks/use-toast";
@@ -6,7 +11,7 @@ import type { AxiosError } from "axios";
 
 export const useUsers = (params: UsersQueryParams = {}) => {
   const queryClient = useQueryClient();
-  const { page = 1, limit = 1000, search, role, enabled = true } = params;
+  const { page = 1, limit = 10000, search, role, enabled = true } = params;
 
   const extractErrorMessage = (error: unknown) => {
     const axiosError = error as AxiosError<{ message?: string }>;
@@ -33,10 +38,15 @@ export const useUsers = (params: UsersQueryParams = {}) => {
         ...(role ? { role } : {}),
       }),
     enabled,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   // Lấy users từ response
-  const users = usersResponse?.data?.result?.items || [];
+  const users =
+    usersResponse?.data?.result?.items ||
+    usersResponse?.data?.result?.users ||
+    [];
   const pagination = usersResponse?.data?.result?.pagination;
 
   // Hook để lấy thông tin user theo ID

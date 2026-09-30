@@ -23,7 +23,11 @@ import {
 import { useFnbShiftCountQueryConfig } from "./hooks/useFnbShiftCountQueryConfig";
 import type { ShiftCountField } from "./types";
 import type { ShiftNo } from "@/apis/fnbShiftCount.apis";
-import { formItemsFromResponse } from "./utils";
+import {
+  formItemsFromResponse,
+  isFnbBusinessDate,
+  resolveShiftsForBusinessDay,
+} from "./utils";
 
 const FnbShiftCountPage = () => {
   const isAdmin = useIsAdmin();
@@ -79,7 +83,16 @@ const FnbShiftCountPage = () => {
   }, [templateItems, shiftCount]);
 
   const isLoading = isLoadingShiftCount || isLoadingTemplate;
-  const dayItemsEditable = shiftCount?.editable ?? false;
+
+  const resolvedShifts = useMemo(
+    () => resolveShiftsForBusinessDay(shiftCount?.shifts, queryConfig.date),
+    [shiftCount?.shifts, queryConfig.date],
+  );
+
+  const dayItemsEditable = useMemo(() => {
+    if (isFnbBusinessDate(queryConfig.date)) return true;
+    return shiftCount?.editable ?? false;
+  }, [queryConfig.date, shiftCount?.editable]);
 
   const handleShiftCellSave = useCallback(
     async (
@@ -88,7 +101,7 @@ const FnbShiftCountPage = () => {
       field: ShiftCountField,
       value: number,
     ) => {
-      if (!shiftCount?.shifts?.[shiftNo]?.editable) return;
+      if (!resolvedShifts?.[shiftNo]?.editable) return;
 
       await saveShift({
         shiftNo,
@@ -98,7 +111,7 @@ const FnbShiftCountPage = () => {
         },
       });
     },
-    [queryConfig.date, saveShift, shiftCount?.shifts],
+    [queryConfig.date, resolvedShifts, saveShift],
   );
 
   const handleDayFieldSave = useCallback(
@@ -161,7 +174,7 @@ const FnbShiftCountPage = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Kiểm kê số lượng tồn"
         description="Nhập mở ca / kết ca theo 3 ca trong ngày và đối chiếu với hệ thống bán hàng"
@@ -192,7 +205,7 @@ const FnbShiftCountPage = () => {
             </CardContent>
           </Card>
 
-          <ShiftCountSummary summary={shiftCount?.summary} />
+          <ShiftCountSummary summary={shiftCount?.summary} isAdmin={isAdmin} />
 
           <Card>
             <CardHeader className="pb-3">
@@ -201,8 +214,9 @@ const FnbShiftCountPage = () => {
             <CardContent>
               <ShiftCountGrid
                 items={formItems}
-                shifts={shiftCount?.shifts}
+                shifts={resolvedShifts}
                 dayItemsEditable={dayItemsEditable}
+                isAdmin={isAdmin}
                 search={queryConfig.search}
                 isLoading={isLoading}
                 lockingShiftNo={lockingShiftNo}

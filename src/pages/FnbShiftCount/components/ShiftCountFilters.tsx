@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { Calendar, Search } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { getFnbBusinessDate } from "../utils";
 
 interface ShiftCountFiltersProps {
   date: string;
@@ -26,7 +27,7 @@ const ShiftCountFilters = ({
   onSearchChange,
 }: ShiftCountFiltersProps) => {
   const selectedDate = date ? dayjs(date, "YYYY-MM-DD").toDate() : undefined;
-  const todayVn = dayjs().tz("Asia/Ho_Chi_Minh").format("YYYY-MM-DD");
+  const businessDateToday = getFnbBusinessDate();
 
   return (
     <div className="flex flex-wrap items-end gap-4">
@@ -77,15 +78,15 @@ const ShiftCountFilters = ({
         </div>
       </div>
 
-      {date !== todayVn && (
+      {date !== businessDateToday && (
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="h-9"
-          onClick={() => onDateChange(todayVn)}
+          onClick={() => onDateChange(businessDateToday)}
         >
-          Về hôm nay
+          Về ngày hiện tại
         </Button>
       )}
     </div>

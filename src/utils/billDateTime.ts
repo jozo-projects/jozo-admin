@@ -3,6 +3,7 @@ import dayjs, { toIsoStringWithZeroSubsecond } from "@/lib/dayjs";
 interface BuildBillDateTimeFromScheduleParams {
   scheduleStartTime: string | Date;
   selectedStartTime?: string;
+  selectedStartDate?: string;
   selectedEndTime?: string;
   selectedEndDate?: string;
   useCurrentTimeForEnd?: boolean;
@@ -40,6 +41,7 @@ const parseHourMinute = (time?: string) => {
 export const buildBillDateTimeFromSchedule = ({
   scheduleStartTime,
   selectedStartTime,
+  selectedStartDate,
   selectedEndTime,
   selectedEndDate,
   useCurrentTimeForEnd = false,
@@ -47,7 +49,11 @@ export const buildBillDateTimeFromSchedule = ({
   const scheduleStart = dayjs(scheduleStartTime);
   const startTimeParts = parseHourMinute(selectedStartTime);
 
-  const actualStart = scheduleStart
+  const baseStartDate = selectedStartDate
+    ? dayjs(selectedStartDate)
+    : dayjs(scheduleStart.format("YYYY-MM-DD"));
+
+  const actualStart = baseStartDate
     .set("hour", startTimeParts?.hour ?? scheduleStart.hour())
     .set("minute", startTimeParts?.minute ?? scheduleStart.minute())
     .set("second", 0)

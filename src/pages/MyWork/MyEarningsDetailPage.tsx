@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/shared";
+import { PageHeader, StatCard, StatGrid } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -30,9 +30,11 @@ import StaffEarningsMobileView from "@/pages/StaffSchedule/components/StaffEarni
 import dayjs, { Dayjs } from "dayjs";
 import { Calendar as CalendarIcon, Clock, DollarSign } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useRouter } from "@tanstack/react-router";
 
 const MyEarningsDetailPage = () => {
   const isMobile = useIsMobile();
+  const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
 
   const dayNames = [
@@ -52,9 +54,18 @@ const MyEarningsDetailPage = () => {
     [selectedMonth],
   );
   const endDate = useMemo(() => selectedMonth.endOf("month"), [selectedMonth]);
+  const openMyErrorLogs = () => {
+    const params = new URLSearchParams({
+      type: "penalty",
+      status: "active",
+      startDate: startDate.format("YYYY-MM-DD"),
+      endDate: endDate.format("YYYY-MM-DD"),
+    });
+    router.navigate({ to: PATHS.MY_ERROR_LOGS as never, search: Object.fromEntries(params) as never });
+  };
 
   // Get all schedules for selected month (approved, completed, absent, etc.)
-  const { data: { schedules = [] } = { schedules: [] }, isLoading } =
+  const { data: { schedules = [], summary } = { schedules: [], summary: undefined }, isLoading } =
     useMySchedules({
       filterType: "month",
       startDate,
@@ -195,10 +206,13 @@ const MyEarningsDetailPage = () => {
       (sum, item) => sum + item.hours,
       0,
     );
-    const totalSalary = completedItems.reduce(
+    const grossSalary = completedItems.reduce(
       (sum, item) => sum + item.salary,
       0,
     );
+    const totalDeductions = summary?.totalDeductions ?? 0;
+    const deductionCount = summary?.deductionCount ?? 0;
+    const totalSalary = summary?.netSalary ?? Math.max(0, grossSalary - totalDeductions);
     const totalRegistered = data.filter(
       (item) => item.status !== "not-registered",
     ).length;
@@ -223,13 +237,16 @@ const MyEarningsDetailPage = () => {
       items: data,
       totalHours: Math.round(totalHours * 100) / 100,
       totalSalary,
+      grossSalary,
+      totalDeductions,
+      deductionCount,
       totalShifts: completedItems.length,
       totalRegistered,
       expectedHours: Math.round(expectedHours * 100) / 100,
       expectedSalary,
       expectedShifts: expectedItems.length,
     };
-  }, [schedules, selectedMonth]);
+  }, [schedules, selectedMonth, summary]);
 
   // Generate month options (current month and 11 previous months)
   const monthOptions = useMemo(() => {
@@ -242,66 +259,52 @@ const MyEarningsDetailPage = () => {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
-        title="Earnings details"
-        description="Detailed breakdown of shifts and take-home pay"
+        title="My Work Statistics"
+        description="Review your shifts, working hours, deductions, and take-home pay"
         icon={DollarSign}
         showBackButton
         backUrl={PATHS.MY_SCHEDULE}
       />
 
       {/* Summary Cards - desktop only */}
-      <div className="hidden md:grid gap-4 md:grid-cols-4">
-        <Card className="border-green-200 bg-green-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total take-home
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {earningsData.totalSalary.toLocaleString("en-US")}₫
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {selectedMonth.format("MM/YYYY")}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Registered shifts
-            </CardTitle>
-            <CalendarIcon className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {earningsData.totalRegistered}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {earningsData.totalShifts} shifts completed
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total hours</CardTitle>
-            <Clock className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
-              {earningsData.totalHours}h
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              actual hours worked
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatGrid className="hidden md:grid md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total take-home"
+          value={`${earningsData.totalSalary.toLocaleString("en-US")}₫`}
+          hint={`After ${earningsData.totalDeductions.toLocaleString("en-US")}₫ deductions`}
+          icon={DollarSign}
+          tone="success"
+        />
+        <StatCard
+          className="border-destructive/30 bg-destructive/5"
+          label="Deductions"
+          value={`-${earningsData.totalDeductions.toLocaleString("en-US")}₫`}
+          hint={`${earningsData.deductionCount} active penalties · Click to view`}
+          icon={DollarSign}
+          tone="danger"
+          role="button"
+          tabIndex={0}
+          onClick={openMyErrorLogs}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") openMyErrorLogs();
+          }}
+        />
+        <StatCard
+          label="Registered shifts"
+          value={earningsData.totalRegistered}
+          hint={`${earningsData.totalShifts} shifts completed`}
+          icon={CalendarIcon}
+          tone="info"
+        />
+        <StatCard
+          label="Total hours"
+          value={`${earningsData.totalHours}h`}
+          hint="actual hours worked"
+          icon={Clock}
+        />
+      </StatGrid>
 
       {!isMobile && (
         <Card className="border-amber-200 bg-amber-50/70">

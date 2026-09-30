@@ -1,10 +1,15 @@
-import membershipApis from "@/apis/membership.apis";
+import membershipApis, {
+  GetPendingGiftsParams,
+} from "@/apis/membership.apis";
 import {
   GrantUserPointsPayload,
+  IAddStreakGiftItemsPayload,
   IMembershipConfig,
   IPendingGiftsResponse,
+  IRemoveStreakGiftItemPayload,
   IServeStreakGiftPayload,
-  IStreakGiftsResponse,
+  IStreakGiftItemsResult,
+  IUpdateStreakGiftItemPayload,
   IUserStreakInfo,
   MembershipConfigPayload,
   UpdateStreakPayload,
@@ -112,37 +117,58 @@ export const useUpdateMemberStreak = (userId?: string) => {
 };
 
 export const usePendingGifts = (
-  phone?: string,
+  phoneOrParams?: string | GetPendingGiftsParams,
   options?: { enabled?: boolean },
 ) => {
+  const params =
+    typeof phoneOrParams === "string"
+      ? { phone: phoneOrParams }
+      : phoneOrParams;
+  const phone = params?.phone;
+  const userId = params?.userId;
+  const scheduleId = params?.scheduleId;
+  const category = params?.category;
+
   return useQuery({
-    queryKey: ["pending-gifts", phone],
+    queryKey: ["pending-gifts", phone, userId, scheduleId, category],
     queryFn: async () => {
-      if (!phone) {
-        throw new Error("Thiếu số điện thoại");
+      if (!phone && !userId) {
+        throw new Error("Thiếu số điện thoại hoặc userId");
       }
-      const response = await membershipApis.getPendingGifts(phone);
-      return response.data.result as IPendingGiftsResponse | undefined;
+      const response = await membershipApis.getPendingGifts({
+        phone,
+        userId,
+        scheduleId,
+        category,
+      });
+      return normalizeStreakGiftsResponse(
+        response.data.result as IPendingGiftsResponse | undefined,
+      );
     },
-    enabled: (options?.enabled ?? true) && !!phone,
-    staleTime: 30 * 1000, // 30 giây
+    enabled: (options?.enabled ?? true) && !!(phone || userId),
+    staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
   });
 };
 
+/** Staff lookup quà streak theo SĐT (+ scheduleId để lấy servedGifts) */
 export const useStreakGifts = (
   phone?: string,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; scheduleId?: string },
 ) => {
+  const scheduleId = options?.scheduleId;
   return useQuery({
-    queryKey: ["streak-gifts", phone],
+    queryKey: ["streak-gifts", phone, scheduleId],
     queryFn: async () => {
       if (!phone) {
         throw new Error("Thiếu số điện thoại");
       }
-      const response = await membershipApis.getStreakGifts(phone);
+      const response = await membershipApis.getPendingGifts({
+        phone,
+        scheduleId,
+      });
       return normalizeStreakGiftsResponse(
-        response.data.result as IStreakGiftsResponse | undefined,
+        response.data.result as IPendingGiftsResponse | undefined,
       );
     },
     enabled: (options?.enabled ?? true) && !!phone,
@@ -151,30 +177,155 @@ export const useStreakGifts = (
   });
 };
 
+export const useStreakGiftItems = (
+  category?: string,
+  options?: { enabled?: boolean },
+) => {
+  return useQuery({
+    queryKey: ["streak-gift-items", category],
+    queryFn: async () => {
+      const response = await membershipApis.getStreakGiftItems(category);
+      return response.data.result as IStreakGiftItemsResult | undefined;
+    },
+    enabled: options?.enabled ?? true,
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: true,
+  });
+};
+
+const getApiErrorMessage = (error: unknown, fallback: string) =>
+  (error as { response?: { data?: { message?: string } } })?.response?.data
+    ?.message || fallback;
+
+const invalidateStreakGiftQueries = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  phone?: string,
+  scheduleId?: string,
+) => {
+  if (phone) {
+    queryClient.invalidateQueries({ queryKey: ["streak-gifts", phone] });
+    queryClient.invalidateQueries({ queryKey: ["pending-gifts", phone] });
+  }
+  queryClient.invalidateQueries({ queryKey: ["pending-gifts"] });
+  queryClient.invalidateQueries({ queryKey: ["streak-gifts"] });
+  if (scheduleId) {
+    queryClient.invalidateQueries({ queryKey: ["bill", scheduleId] });
+    queryClient.invalidateQueries({
+      queryKey: ["fnbOrderDetail", scheduleId],
+    });
+  }
+};
+
 export const useServeStreakGift = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: (payload: IServeStreakGiftPayload) =>
-      membershipApis.serveStreakGift(payload),
+      membershipApis.claimGift(payload),
     onSuccess: (response, payload) => {
       toast({
         title: "Thành công",
         description:
-          response.data.message || "Đã phục vụ quà tặng cho khách hàng",
+          response.data.message || "Đã claim quà streak cho khách hàng",
       });
-      queryClient.invalidateQueries({
-        queryKey: ["streak-gifts", payload.phone],
-      });
+      invalidateStreakGiftQueries(
+        queryClient,
+        payload.phone,
+        payload.scheduleId,
+      );
     },
     onError: (error: unknown) => {
-      const message =
-        (error as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || "Không thể phục vụ quà tặng. Vui lòng thử lại.";
       toast({
         title: "Lỗi",
-        description: message,
+        description: getApiErrorMessage(
+          error,
+          "Không thể claim quà streak. Vui lòng thử lại.",
+        ),
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useAddStreakGiftItems = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (payload: IAddStreakGiftItemsPayload) =>
+      membershipApis.addStreakGiftItems(payload),
+    onSuccess: (response, payload) => {
+      toast({
+        title: "Đã thêm món quà",
+        description: response.data.message || "Đã cập nhật quota quà streak",
+      });
+      invalidateStreakGiftQueries(
+        queryClient,
+        payload.phone,
+        payload.scheduleId,
+      );
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: "Lỗi",
+        description: getApiErrorMessage(error, "Không thể thêm món quà"),
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useUpdateStreakGiftItem = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (payload: IUpdateStreakGiftItemPayload) =>
+      membershipApis.updateStreakGiftItem(payload),
+    onSuccess: (response, payload) => {
+      toast({
+        title: payload.quantity === 0 ? "Đã xoá món quà" : "Đã cập nhật số lượng",
+        description: response.data.message || "Đã cập nhật quota quà streak",
+      });
+      invalidateStreakGiftQueries(
+        queryClient,
+        payload.phone,
+        payload.scheduleId,
+      );
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: "Lỗi",
+        description: getApiErrorMessage(error, "Không thể cập nhật món quà"),
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useRemoveStreakGiftItem = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (payload: IRemoveStreakGiftItemPayload) =>
+      membershipApis.removeStreakGiftItem(payload),
+    onSuccess: (response, payload) => {
+      toast({
+        title: "Đã xoá món quà",
+        description: response.data.message || "Đã trả lại quota quà streak",
+      });
+      invalidateStreakGiftQueries(
+        queryClient,
+        payload.phone,
+        payload.scheduleId,
+      );
+    },
+    onError: (error: unknown) => {
+      toast({
+        title: "Lỗi",
+        description: getApiErrorMessage(error, "Không thể xoá món quà"),
         variant: "destructive",
       });
     },
@@ -192,7 +343,7 @@ export const useMemberStreakInfo = (userId?: string) => {
       return response.data.result as IUserStreakInfo | undefined;
     },
     enabled: !!userId,
-    staleTime: 30 * 1000, // 30 giây
+    staleTime: 30 * 1000,
     refetchOnWindowFocus: true,
   });
 };

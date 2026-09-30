@@ -23,7 +23,8 @@ export interface IMatrixItem {
   category: FnbShiftCountCategory;
   shifts: Record<ShiftNo, IShiftCell>;
   totalStockIn: number;
-  systemSold: number;
+  /** Chỉ có trong response của admin. */
+  systemSold?: number;
   expectedClosing?: number;
   latestClosing: number;
   latestClosingShiftNo: 0 | ShiftNo;
@@ -60,7 +61,8 @@ export interface IFnbShiftCountResponse {
   editable: boolean;
   shifts: Record<ShiftNo, IShiftMeta>;
   items: IMatrixItem[];
-  summary: IFnbShiftCountSummary;
+  /** Chỉ có trong response của admin. */
+  summary?: IFnbShiftCountSummary;
 }
 
 export interface IFnbShiftCountSaveShiftItem {

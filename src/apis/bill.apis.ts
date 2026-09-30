@@ -1,4 +1,9 @@
-import { IBill } from "@/@types/Bill";
+import {
+  BillPaymentMethod,
+  IBill,
+  IBillPaymentMethodHistory,
+  IRevenueResult,
+} from "@/@types/Bill";
 import http from "@/utils/http";
 import dayjs, { toIsoStringWithZeroSubsecond } from "@/lib/dayjs";
 
@@ -8,7 +13,8 @@ const billAPis = {
     promotionId?: string,
     actualEndTime?: string,
     actualStartTime?: string,
-    applyFreeHourPromotion?: boolean
+    applyFreeHourPromotion?: boolean,
+    phone?: string,
   ) => {
     const params = new URLSearchParams();
 
@@ -35,8 +41,12 @@ const billAPis = {
       params.append("applyFreeHourPromotion", applyFreeHourPromotion.toString());
     }
 
+    if (phone?.trim()) {
+      params.append("phone", phone.trim());
+    }
+
     return http.get<HTTPResponse<IBill>>(
-      `/bill/${scheduleId}?${params.toString()}`
+      `/bill/${scheduleId}?${params.toString()}`,
     );
   },
 
@@ -77,7 +87,9 @@ const billAPis = {
       promotionId?: string;
       actualStartTime?: string;
       applyFreeHourPromotion?: boolean;
-    }
+      phone?: string;
+      customerPhone?: string;
+    },
   ) => http.post<HTTPResponse<IBill>>(`/bill/${scheduleId}`, data),
 
   // Print bill via WiFi printer
@@ -88,7 +100,9 @@ const billAPis = {
       actualEndTime: string;
       promotionId?: string;
       actualStartTime?: string;
-    }
+      phone?: string;
+      customerPhone?: string;
+    },
   ) => http.post<HTTPResponse<IBill>>(`/bill/${scheduleId}/wifi`, data),
 
   // Save bill to bills collection
@@ -106,6 +120,7 @@ const billAPis = {
     }>;
     totalAmount: number;
     customerPhone?: string;
+    phone?: string;
     paymentMethod: string;
     startTime: string;
     endTime: string;
@@ -119,7 +134,13 @@ const billAPis = {
   // API generate PDF, trả về file PDF ở dạng buffer (arraybuffer)
   generateBill: async (
     scheduleId: string,
-    data: { paymentMethod: string; actualEndTime: string; promotionId?: string }
+    data: {
+      paymentMethod: string;
+      actualEndTime: string;
+      promotionId?: string;
+      phone?: string;
+      customerPhone?: string;
+    },
   ) =>
     http.post(`/bill/${scheduleId}/generate`, data, {
       responseType: "blob",
@@ -129,18 +150,66 @@ const billAPis = {
     }),
   /** GET /bill/revenue — FE tự tính startDate/endDate (ISO), gửi lên một endpoint duy nhất */
   getBillRevenue: async (startDate: string, endDate: string) =>
+    http.get<HTTPResponse<IRevenueResult>>(
+      `/bill/revenue?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+    ),
+
+  getGiftAppliedBills: async (params: {
+    page?: number;
+    limit?: number;
+    startDate?: string;
+    endDate?: string;
+    kind?: "all" | "fnb" | "discount";
+    source?: "all" | "membership" | "gift" | "streak";
+    search?: string;
+  }) =>
     http.get<
       HTTPResponse<{
-        timeRange?: string;
-        dateRange: string;
-        startDate: string;
-        endDate: string;
-        totalRevenue: number;
-        billCount: number;
-        bills: IBill[];
+        items: Array<{
+          _id: string;
+          invoiceCode: string;
+          roomName: string;
+          customerName: string;
+          customerPhone: string;
+          memberTier?: string;
+          appliedKind: "fnb" | "discount";
+          appliedSource: "membership" | "gift" | "streak";
+          appliedReason: string;
+          streakGifts?: Array<{ streakCount: number; items: Array<{ name: string; quantity: number }> }>;
+          giftName: string;
+          giftValue?: number;
+          giftDiscountAmount: number;
+          membershipDiscountAmount: number;
+          totalAmount: number;
+          endTime: string;
+          completedBy?: string;
+        }>;
+        summary: {
+          totalBills: number;
+          fnbBills: number;
+          discountBills: number;
+          membershipBills: number;
+          giftBills: number;
+          streakBills: number;
+          totalGiftDiscountAmount: number;
+          totalMembershipDiscountAmount: number;
+        };
+        pagination: { page: number; limit: number; total: number; totalPages: number };
       }>
-    >(
-      `/bill/revenue?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`
+    >(`/bill/gift-applied?${new URLSearchParams(
+      Object.entries(params)
+        .filter(([, value]) => value !== undefined && value !== "")
+        .map(([key, value]) => [key, String(value)]),
+    ).toString()}`),
+  updatePaymentMethod: (billId: string, paymentMethod: BillPaymentMethod) =>
+    http.patch<HTTPResponse<{ bill: IBill; log: unknown }>>(
+      `/bill/${billId}/payment-method`,
+      { paymentMethod },
+    ),
+
+  getPaymentMethodHistory: (billId: string) =>
+    http.get<HTTPResponse<IBillPaymentMethodHistory>>(
+      `/bill/${billId}/payment-method-history`,
     ),
 };
 

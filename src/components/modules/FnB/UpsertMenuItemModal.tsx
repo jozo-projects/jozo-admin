@@ -25,7 +25,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { FnbRevenueCategory } from "@/@types/Bill";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { FnBCategory } from "@/constants/enum";
+import {
+  FNB_REVENUE_CATEGORIES,
+  FNB_REVENUE_CATEGORY_HINTS,
+  REVENUE_CATEGORY_LABELS,
+  getRevenueCategoryUpdateFields,
+  resolveMenuItemRevenueCategory,
+  shouldRequireRevenueCategoryReason,
+} from "@/utils/revenueBreakdown";
+import { AxiosError } from "axios";
 import {
   FnBMenuItem,
   menuItemsQueryKeys,
@@ -125,6 +137,18 @@ const formSchema = z.object({
   customizationTemplateRefs: z.array(customizationTemplateRefSchema).optional(),
   customizationOverrides: z.array(customizationOverrideSchema).optional(),
   customizationGroups: z.array(customizationGroupSchema).optional(),
+  revenueCategory: z.enum(["FNB_RETAIL", "FNB_PREPARED"]).optional(),
+  inventoryTracked: z.boolean().optional(),
+  reason: z.string().optional(),
+}).superRefine((data, ctx) => {
+  const isSelling = data.isActive !== false;
+  if (isSelling && !data.revenueCategory) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["revenueCategory"],
+      message: "Chọn loại doanh thu khi món đang bán",
+    });
+  }
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -179,6 +203,9 @@ const UpsertMenuItemModal: React.FC<UpsertMenuItemModalProps> = ({
       customizationTemplateRefs: [],
       customizationOverrides: [],
       customizationGroups: [],
+      revenueCategory: "FNB_RETAIL",
+      inventoryTracked: false,
+      reason: "",
     },
   });
 
@@ -247,6 +274,11 @@ const UpsertMenuItemModal: React.FC<UpsertMenuItemModalProps> = ({
         customizationTemplateRefs: processedTemplateRefs,
         customizationOverrides: processedOverrides,
         customizationGroups: processedCustomizationGroups,
+        revenueCategory: resolveMenuItemRevenueCategory(
+          detail.revenueCategory ?? item?.revenueCategory,
+        ),
+        inventoryTracked: detail.inventoryTracked ?? false,
+        reason: "",
       });
     } else if (!item) {
       // Reset form khi tạo mới
@@ -255,6 +287,7 @@ const UpsertMenuItemModal: React.FC<UpsertMenuItemModalProps> = ({
         category: FnBCategory.SNACK,
         parentId: null,
         hasVariant: false,
+        isActive: true,
         price: 0,
         image: "",
         inventory: {
@@ -264,6 +297,9 @@ const UpsertMenuItemModal: React.FC<UpsertMenuItemModalProps> = ({
         customizationTemplateRefs: [],
         customizationOverrides: [],
         customizationGroups: [],
+        revenueCategory: "FNB_RETAIL",
+        inventoryTracked: false,
+        reason: "",
       });
     }
     // Reset files
@@ -538,6 +574,52 @@ const UpsertMenuItemModal: React.FC<UpsertMenuItemModalProps> = ({
         JSON.stringify(data.customizationOverrides || [])
       );
 
+      const isSelling = data.isActive !== false;
+      const originalRevenueCategory =
+        itemDetail?.data?.result?.revenueCategory ?? item?.revenueCategory;
+      const nextRevenueCategory = data.revenueCategory || "FNB_RETAIL";
+
+      if (!isEdit && (isSelling || data.revenueCategory)) {
+        submitFormData.append("revenueCategory", nextRevenueCategory);
+      }
+
+      if (isEdit) {
+        const revenueCategoryUpdate = getRevenueCategoryUpdateFields(
+          originalRevenueCategory,
+          nextRevenueCategory,
+          data.reason,
+        );
+
+        if (revenueCategoryUpdate.kind === "error") {
+          form.setError("reason", {
+            type: "manual",
+            message: revenueCategoryUpdate.message,
+          });
+          toast({
+            title: "Lỗi",
+            description: revenueCategoryUpdate.message,
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        if (revenueCategoryUpdate.kind === "include") {
+          submitFormData.append(
+            "revenueCategory",
+            revenueCategoryUpdate.revenueCategory,
+          );
+          submitFormData.append("reason", revenueCategoryUpdate.reason);
+        }
+      }
+
+      if (isSelling || data.inventoryTracked !== undefined) {
+        submitFormData.append(
+          "inventoryTracked",
+          (data.inventoryTracked ?? false).toString(),
+        );
+      }
+
       const response =
         isEdit && item?._id
           ? await fnbMenuApis.updateMenuItem(item._id, submitFormData)
@@ -569,9 +651,12 @@ const UpsertMenuItemModal: React.FC<UpsertMenuItemModalProps> = ({
       handleClose();
     } catch (error) {
       console.error("Error saving menu item:", error);
+      const axiosError = error as AxiosError<{ message?: string }>;
       toast({
         title: "Lỗi",
-        description: "Có lỗi xảy ra khi lưu menu item",
+        description:
+          axiosError.response?.data?.message ||
+          "Có lỗi xảy ra khi lưu menu item",
         variant: "destructive",
       });
     } finally {
@@ -595,6 +680,9 @@ const UpsertMenuItemModal: React.FC<UpsertMenuItemModalProps> = ({
       customizationTemplateRefs: [],
       customizationOverrides: [],
       customizationGroups: [],
+      revenueCategory: "FNB_RETAIL",
+      inventoryTracked: false,
+      reason: "",
     });
     onClose();
   };
@@ -735,6 +823,83 @@ const UpsertMenuItemModal: React.FC<UpsertMenuItemModalProps> = ({
                   }
                 />
                 <Label htmlFor="isActive">Đang bán</Label>
+              </div>
+
+              <div className="space-y-4 rounded-lg border p-4">
+                <div className="space-y-2">
+                  <Label htmlFor="revenueCategory">
+                    Loại doanh thu{(form.watch("isActive") ?? true) ? " *" : ""}
+                  </Label>
+                  <Select
+                    value={form.watch("revenueCategory") || "FNB_RETAIL"}
+                    onValueChange={(value) =>
+                      form.setValue(
+                        "revenueCategory",
+                        value as FnbRevenueCategory,
+                      )
+                    }
+                  >
+                    <SelectTrigger id="revenueCategory">
+                      <SelectValue placeholder="Chọn loại doanh thu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FNB_REVENUE_CATEGORIES.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {REVENUE_CATEGORY_LABELS[category]} —{" "}
+                          {FNB_REVENUE_CATEGORY_HINTS[category]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Không dùng Phí thu âm (SERVICE_ROOM) trên form món. Variant
+                    kế thừa loại của món cha.
+                  </p>
+                  {form.formState.errors.revenueCategory && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.revenueCategory.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="inventoryTracked"
+                    checked={form.watch("inventoryTracked") ?? false}
+                    onCheckedChange={(checked) =>
+                      form.setValue("inventoryTracked", checked === true)
+                    }
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="inventoryTracked" className="font-normal">
+                      Có trừ kho khi bán
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Bật nếu món này trừ tồn kho khi thanh toán.
+                    </p>
+                  </div>
+                </div>
+
+                {isEdit &&
+                  shouldRequireRevenueCategoryReason(
+                    itemDetail?.data?.result?.revenueCategory ??
+                      item?.revenueCategory,
+                    form.watch("revenueCategory"),
+                  ) && (
+                    <div className="space-y-2">
+                      <Label htmlFor="reason">Lý do đổi loại doanh thu *</Label>
+                      <Textarea
+                        id="reason"
+                        {...form.register("reason")}
+                        placeholder="Nhập lý do thay đổi (bắt buộc)"
+                      />
+                      {form.formState.errors.reason && (
+                        <p className="text-sm text-red-500">
+                          {form.formState.errors.reason.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
               </div>
 
               {/* Hình ảnh chính */}

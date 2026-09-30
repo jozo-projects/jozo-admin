@@ -18,7 +18,10 @@ export const userApis = {
   getAllUsers: (params?: UsersQueryParams) => {
     const { page = 1, limit = 1000, search, role } = params || {};
 
-    return http.get<UsersResponse>("/membership/members", {
+    const isStaffScope = role?.split(",").some((value) => value === "admin" || value === "staff");
+    const endpoint = isStaffScope ? "/users" : "/membership/members";
+
+    return http.get<UsersResponse>(endpoint, {
       params: {
         page,
         limit,

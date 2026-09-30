@@ -1,20 +1,24 @@
 import { ICreateRoomScheduleRequest } from "@/apis/roomSchedule.api";
 import roomsScheduleApis from "@/apis/roomSchedule.api";
 import membershipApis from "@/apis/membership.apis";
-import { IStreakGiftsResponse } from "@/@types/Membership";
-import { useGiftItemsByIds } from "@/hooks/use-gifts";
-import { useServeStreakGift, useStreakGifts } from "@/hooks/use-membership";
+import { IClaimGiftItem, IPendingGiftsResponse } from "@/@types/Membership";
 import {
-  collectSnacksGiftIds,
-  normalizeStreakGiftsResponse,
-} from "@/pages/RoomSchedule/utils/streakGifts";
+  useAddStreakGiftItems,
+  useRemoveStreakGiftItem,
+  useServeStreakGift,
+  useStreakGifts,
+  useUpdateStreakGiftItem,
+} from "@/hooks/use-membership";
+import { normalizeStreakGiftsResponse } from "@/pages/RoomSchedule/utils/streakGifts";
 import { toast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { isValidMemberPhone } from "../utils/memberPhone";
 
 const EMPTY_AVAILABLE_GIFTS: never[] = [];
 const EMPTY_STREAK_REWARDS: never[] = [];
+const EMPTY_SELECTABLE_ITEMS: never[] = [];
+const EMPTY_SERVED_GIFTS: never[] = [];
 
 interface UseScheduleMemberPhoneOptions {
   scheduleId: string;
@@ -25,6 +29,11 @@ interface UseScheduleMemberPhoneOptions {
   onGiftServed?: () => void;
 }
 
+/**
+ * Nhập SĐT → tra cứu streak/điểm/hạng + phát quà ngay (không bắt buộc Lưu SĐT vào booking).
+ * Lưu SĐT chỉ khi muốn gắn member vào schedule (vd. discount lúc checkout).
+ * Checkout membership discount lấy từ GET /bill?phone=.
+ */
 export const useScheduleMemberPhone = ({
   scheduleId,
   initialPhone = "",
@@ -49,64 +58,92 @@ export const useScheduleMemberPhone = ({
     setIsGiftEnabled(Boolean(initialGiftEnabled));
   }, [isOpen, initialGiftEnabled]);
 
-  const isPhoneDirty = phone.trim() !== savedPhone.trim();
+  const trimmedPhone = phone.trim();
+  const isPhoneDirty = trimmedPhone !== savedPhone.trim();
   const hasSavedValidPhone = isValidMemberPhone(savedPhone);
-  const shouldLookupMember = isOpen && hasSavedValidPhone && !isPhoneDirty;
+  const isCurrentPhoneValid = isValidMemberPhone(trimmedPhone);
+  /** Tra cứu ngay khi nhập đủ SĐT — không cần Lưu / gắn booking. */
+  const shouldLookupMember = isOpen && isCurrentPhoneValid;
+  const lookupPhone = isCurrentPhoneValid ? trimmedPhone : "";
 
   const {
     data: streakGiftsData,
     isLoading: isLoadingMemberInfo,
     isError: isMemberInfoError,
     isFetched: hasFetchedMemberInfo,
-  } = useStreakGifts(savedPhone, { enabled: shouldLookupMember });
+  } = useStreakGifts(lookupPhone, {
+    enabled: shouldLookupMember,
+    scheduleId,
+  });
 
   const memberInfo = streakGiftsData?.user ?? null;
   const availableGifts = streakGiftsData?.availableGifts ?? EMPTY_AVAILABLE_GIFTS;
   const streakRewards = streakGiftsData?.streakRewards ?? EMPTY_STREAK_REWARDS;
-  const snacksGiftIds = useMemo(
-    () => collectSnacksGiftIds(availableGifts, streakRewards),
-    [availableGifts, streakRewards],
-  );
-  const giftItemsById = useGiftItemsByIds(snacksGiftIds, {
-    enabled: shouldLookupMember && !!memberInfo && snacksGiftIds.length > 0,
-  });
+  const selectableItems =
+    streakGiftsData?.selectableItems ?? EMPTY_SELECTABLE_ITEMS;
+  const servedGifts = streakGiftsData?.servedGifts ?? EMPTY_SERVED_GIFTS;
   const isMemberNotFound =
     shouldLookupMember &&
     hasFetchedMemberInfo &&
     !memberInfo &&
     !isMemberInfoError;
 
+  const afterGiftMutation = useCallback(() => {
+    refetchSchedules?.();
+    onGiftServed?.();
+  }, [refetchSchedules, onGiftServed]);
+
   const prefetchStreakGifts = useCallback(
     async (customerPhone: string) => {
       await queryClient.fetchQuery({
-        queryKey: ["streak-gifts", customerPhone],
+        queryKey: ["streak-gifts", customerPhone, scheduleId],
         queryFn: async () => {
-          const response = await membershipApis.getStreakGifts(customerPhone);
+          const response = await membershipApis.getPendingGifts({
+            phone: customerPhone,
+            scheduleId,
+          });
           return normalizeStreakGiftsResponse(
-            response.data.result as IStreakGiftsResponse | undefined,
+            response.data.result as IPendingGiftsResponse | undefined,
           );
         },
         staleTime: 30 * 1000,
       });
     },
-    [queryClient],
+    [queryClient, scheduleId],
   );
 
-  const { mutate: savePhoneMutation, isPending: isSavingPhone } = useMutation({
-    mutationFn: (customerPhone: string) =>
+  const {
+    mutate: savePhoneMutation,
+    mutateAsync: savePhoneMutationAsync,
+    isPending: isSavingPhone,
+  } = useMutation({
+    mutationFn: ({
+      customerPhone,
+    }: {
+      customerPhone: string;
+      silent?: boolean;
+    }) =>
       roomsScheduleApis.updateSchedule(scheduleId, {
         customerPhone,
       } as Partial<ICreateRoomScheduleRequest>),
-    onSuccess: async (_, customerPhone) => {
+    onSuccess: async (_, { customerPhone, silent }) => {
       setSavedPhone(customerPhone);
+      setPhone(customerPhone);
       refetchSchedules?.();
-      await prefetchStreakGifts(customerPhone);
-      toast({
-        title: "Đã lưu",
-        description: "Số điện thoại thành viên đã được cập nhật",
-      });
+      if (customerPhone) {
+        await prefetchStreakGifts(customerPhone);
+      }
+      if (!silent) {
+        toast({
+          title: customerPhone ? "Đã lưu" : "Đã bỏ thành viên",
+          description: customerPhone
+            ? "Số điện thoại thành viên đã được cập nhật"
+            : "Đã gỡ số điện thoại / thành viên khỏi phiên",
+        });
+      }
     },
-    onError: () => {
+    onError: (_error, { silent }) => {
+      if (silent) return;
       toast({
         title: "Lỗi",
         description: "Không thể cập nhật số điện thoại",
@@ -145,37 +182,79 @@ export const useScheduleMemberPhone = ({
       },
     });
 
-  const { mutate: serveStreakGiftMutation, isPending: isServingGift } =
+  const { mutate: claimGiftMutation, isPending: isClaimingGift } =
     useServeStreakGift();
+  const { mutate: addGiftItemsMutation, isPending: isAddingGiftItems } =
+    useAddStreakGiftItems();
+  const { mutate: updateGiftItemMutation, isPending: isUpdatingGiftItem } =
+    useUpdateStreakGiftItem();
+  const { mutate: removeGiftItemMutation, isPending: isRemovingGiftItem } =
+    useRemoveStreakGiftItem();
 
-  const serveStreakGift = useCallback(
-    (streakCount: number) => {
-      const value = savedPhone.trim();
-      if (!isValidMemberPhone(value)) {
-        toast({
-          title: "Số điện thoại không hợp lệ",
-          description: "Vui lòng lưu SĐT hợp lệ trước khi phục vụ quà",
-          variant: "destructive",
-        });
-        return;
-      }
-      serveStreakGiftMutation(
-        { phone: value, streakCount, scheduleId },
-        {
-          onSuccess: () => {
-            refetchSchedules?.();
-            onGiftServed?.();
-          },
-        },
+  /** Dùng SĐT đang nhập — phát quà không cần Lưu vào booking trước. */
+  const requireValidPhone = useCallback(() => {
+    const value = phone.trim();
+    if (!isValidMemberPhone(value)) {
+      toast({
+        title: "Số điện thoại không hợp lệ",
+        description: "Vui lòng nhập SĐT hợp lệ trước khi thao tác quà",
+        variant: "destructive",
+      });
+      return null;
+    }
+    return value;
+  }, [phone]);
+
+  const claimStreakGift = useCallback(
+    (streakCount: number, items: IClaimGiftItem[] = []) => {
+      const value = requireValidPhone();
+      if (!value) return;
+      claimGiftMutation(
+        { phone: value, streakCount, scheduleId, items },
+        { onSuccess: afterGiftMutation },
       );
     },
-    [
-      savedPhone,
-      scheduleId,
-      serveStreakGiftMutation,
-      refetchSchedules,
-      onGiftServed,
-    ],
+    [requireValidPhone, claimGiftMutation, scheduleId, afterGiftMutation],
+  );
+
+  /** Alias cũ — claim soft (items optional) */
+  const serveStreakGift = claimStreakGift;
+
+  const addStreakGiftItems = useCallback(
+    (streakCount: number, items: IClaimGiftItem[]) => {
+      const value = requireValidPhone();
+      if (!value) return;
+      if (!items.length) return;
+      addGiftItemsMutation(
+        { phone: value, streakCount, scheduleId, items },
+        { onSuccess: afterGiftMutation },
+      );
+    },
+    [requireValidPhone, addGiftItemsMutation, scheduleId, afterGiftMutation],
+  );
+
+  const updateStreakGiftItemQty = useCallback(
+    (streakCount: number, itemId: string, quantity: number) => {
+      const value = requireValidPhone();
+      if (!value) return;
+      updateGiftItemMutation(
+        { phone: value, streakCount, scheduleId, itemId, quantity },
+        { onSuccess: afterGiftMutation },
+      );
+    },
+    [requireValidPhone, updateGiftItemMutation, scheduleId, afterGiftMutation],
+  );
+
+  const removeStreakGiftItem = useCallback(
+    (streakCount: number, itemId: string) => {
+      const value = requireValidPhone();
+      if (!value) return;
+      removeGiftItemMutation(
+        { phone: value, streakCount, scheduleId, itemId },
+        { onSuccess: afterGiftMutation },
+      );
+    },
+    [requireValidPhone, removeGiftItemMutation, scheduleId, afterGiftMutation],
   );
 
   const savePhone = useCallback(() => {
@@ -188,8 +267,90 @@ export const useScheduleMemberPhone = ({
       });
       return;
     }
-    savePhoneMutation(value);
+    savePhoneMutation({ customerPhone: value });
   }, [phone, savePhoneMutation]);
+
+  const clearPhone = useCallback(() => {
+    if (!phone.trim() && !savedPhone.trim()) return;
+
+    const previousPhone = phone;
+    setPhone("");
+    if (!savedPhone.trim()) return;
+
+    savePhoneMutation(
+      { customerPhone: "" },
+      {
+        onError: () => {
+          setPhone(previousPhone);
+        },
+      },
+    );
+  }, [phone, savedPhone, savePhoneMutation]);
+
+  const ensurePhoneSavedForSubmit = useCallback(async (): Promise<
+    string | null
+  > => {
+    if (!isPhoneDirty) {
+      const value = savedPhone.trim();
+      if (value && !isValidMemberPhone(value)) {
+        toast({
+          title: "Số điện thoại không hợp lệ",
+          description:
+            "Vui lòng cập nhật số điện thoại thành 10–11 số trước khi kết thúc",
+          variant: "destructive",
+        });
+        return null;
+      }
+      return value;
+    }
+
+    const value = phone.trim();
+    if (!value) {
+      if (savedPhone.trim()) {
+        try {
+          await savePhoneMutationAsync({ customerPhone: "", silent: true });
+        } catch {
+          toast({
+            title: "Lỗi",
+            description: "Không thể bỏ số điện thoại trước khi kết thúc",
+            variant: "destructive",
+          });
+          return null;
+        }
+      } else {
+        setSavedPhone("");
+      }
+      return "";
+    }
+
+    if (!isValidMemberPhone(value)) {
+      toast({
+        title: "Số điện thoại không hợp lệ",
+        description:
+          "Vui lòng nhập đúng 10–11 số, bắt đầu bằng 0 trước khi kết thúc",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      await savePhoneMutationAsync({ customerPhone: value, silent: true });
+      return value;
+    } catch {
+      toast({
+        title: "Lỗi",
+        description: "Không thể lưu số điện thoại trước khi kết thúc",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [isPhoneDirty, phone, savedPhone, savePhoneMutationAsync]);
+
+  const isMutatingGift =
+    isClaimingGift ||
+    isAddingGiftItems ||
+    isUpdatingGiftItem ||
+    isRemovingGiftItem;
 
   return {
     phone,
@@ -202,14 +363,22 @@ export const useScheduleMemberPhone = ({
     isPhoneDirty,
     hasSavedValidPhone,
     savePhone,
+    clearPhone,
+    ensurePhoneSavedForSubmit,
     memberInfo,
     availableGifts,
     streakRewards,
-    giftItemsById,
+    selectableItems,
+    servedGifts,
     isLoadingMemberInfo,
     isMemberInfoError,
     isMemberNotFound,
+    claimStreakGift,
     serveStreakGift,
-    isServingGift,
+    addStreakGiftItems,
+    updateStreakGiftItemQty,
+    removeStreakGiftItem,
+    isServingGift: isMutatingGift,
+    isMutatingGift,
   };
 };

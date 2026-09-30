@@ -59,7 +59,7 @@ const FnBPage = () => {
   });
 
   return (
-    <div className="container mx-auto py-10">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Food & Beverage Menu"
         description={`Quản lý thực đơn đồ ăn và thức uống${

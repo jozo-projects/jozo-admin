@@ -48,7 +48,7 @@ import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Portal } from "@radix-ui/react-portal";
 import { useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
 import { CalendarIcon, CircleXIcon, PlusIcon } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -308,7 +308,12 @@ export default function UpsertPromotionModal({
                                   mode="single"
                                   selected={field.value}
                                   onSelect={field.onChange}
-                                  disabled={(date) => date < new Date()}
+                                  disabled={(date) =>
+                                    isBefore(
+                                      startOfDay(date),
+                                      startOfDay(new Date()),
+                                    )
+                                  }
                                   initialFocus
                                 />
                               </PopoverContent>

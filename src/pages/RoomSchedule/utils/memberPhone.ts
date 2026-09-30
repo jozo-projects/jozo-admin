@@ -1,11 +1,21 @@
 export const PHONE_REGEX = /^0\d{9,10}$/;
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const isValidMemberPhone = (phone: string) =>
   PHONE_REGEX.test(phone.trim());
 
+export const isValidMemberEmail = (email?: string | null) => {
+  const value = email?.trim() || "";
+  return !value || EMAIL_REGEX.test(value);
+};
+
 /** Chỉ giữ chữ số, tối đa 11 ký tự (SĐT VN). */
 export const sanitizePhoneInput = (value: string) =>
   value.replace(/\D/g, "").slice(0, 11);
+
+/** Rỗng hoặc chỉ chứa ký tự kiểu SĐT → chế độ nhập số; có chữ → tìm theo tên. */
+export const isPhoneLikeInput = (value: string) =>
+  value.trim() === "" || /^[\d\s+().-]+$/.test(value.trim());
 
 export const getMemberDisplayName = (user: {
   full_name?: string | null;

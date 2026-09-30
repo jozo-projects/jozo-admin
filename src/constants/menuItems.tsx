@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BedDouble,
+  BellRing,
   Briefcase,
   Calendar,
   ClipboardList,
@@ -11,9 +12,11 @@ import {
   Gamepad2,
   Gift,
   Home,
+  MonitorSmartphone,
   Music,
   PercentIcon,
   Settings2,
+  ShoppingCart,
   Sparkles,
   UtensilsCrossed,
   Users,
@@ -28,6 +31,7 @@ export type MenuItem = {
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
   subItems?: MenuItem[];
   roles?: Role[]; // Restrict visibility by role
+  section?: "quick-access" | "personal";
 };
 
 const STAFF_AND_ADMIN = [Role.Admin, Role.Staff];
@@ -39,24 +43,49 @@ const MENU_ITEMS: MenuItem[] = [
     url: PATHS.HOME,
     icon: Home,
     roles: STAFF_AND_ADMIN,
+    section: "quick-access",
+  },
+  {
+    title: "Lịch sử hỗ trợ",
+    url: PATHS.SUPPORT_HISTORY,
+    icon: ClipboardList,
+    roles: STAFF_AND_ADMIN,
+    section: "quick-access",
   },
   {
     title: "My Schedule",
     url: PATHS.MY_SCHEDULE,
     icon: Briefcase,
     roles: STAFF_AND_ADMIN,
+    section: "personal",
+  },
+  {
+    title: "My Work Statistics",
+    url: PATHS.MY_EARNINGS_DETAIL,
+    icon: BarChart3,
+    roles: STAFF_AND_ADMIN,
+    section: "personal",
+  },
+  {
+    title: "My Error Logs",
+    url: PATHS.MY_ERROR_LOGS,
+    icon: BellRing,
+    roles: STAFF_AND_ADMIN,
+    section: "personal",
   },
   {
     title: "Calendar",
     url: PATHS.CALENDAR,
     icon: Calendar,
-    roles: STAFF_AND_ADMIN,
+    roles: ADMIN_ONLY,
+    section: "quick-access",
   },
   {
     title: "Total Revenue",
     url: PATHS.TOTAL_REVENUE,
     icon: BarChart3,
     roles: STAFF_AND_ADMIN,
+    section: "quick-access",
   },
   {
     title: "Rooms",
@@ -67,6 +96,12 @@ const MENU_ITEMS: MenuItem[] = [
         title: "Rooms Management",
         url: PATHS.ROOMS,
         icon: DoorOpenIcon,
+        roles: STAFF_AND_ADMIN,
+      },
+      {
+        title: "Device Connections",
+        url: PATHS.ROOM_DEVICE_CONNECTIONS,
+        icon: MonitorSmartphone,
         roles: STAFF_AND_ADMIN,
       },
       {
@@ -92,6 +127,12 @@ const MENU_ITEMS: MenuItem[] = [
         title: "Inventory Count",
         url: PATHS.FNB_SHIFT_COUNT,
         icon: ClipboardList,
+        roles: STAFF_AND_ADMIN,
+      },
+      {
+        title: "Retail Sales",
+        url: PATHS.RETAIL_SALES,
+        icon: ShoppingCart,
         roles: STAFF_AND_ADMIN,
       },
       {
@@ -163,6 +204,12 @@ const MENU_ITEMS: MenuItem[] = [
         roles: ADMIN_ONLY,
       },
       {
+        title: "Staff Error Logs",
+        url: PATHS.STAFF_ERROR_LOGS,
+        icon: BellRing,
+        roles: ADMIN_ONLY,
+      },
+      {
         title: "Recruitment",
         url: PATHS.RECRUITMENT,
         icon: UserPlus,
@@ -202,6 +249,12 @@ const MENU_ITEMS: MenuItem[] = [
       {
         title: "Songs Collection",
         url: PATHS.SONGS_COLLECTION,
+        icon: Music,
+        roles: ADMIN_ONLY,
+      },
+      {
+        title: "Danh mục nhạc",
+        url: PATHS.MUSIC_CATEGORIES,
         icon: Music,
         roles: ADMIN_ONLY,
       },

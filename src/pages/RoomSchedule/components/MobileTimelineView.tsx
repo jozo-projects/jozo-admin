@@ -7,6 +7,7 @@ import {
   Gamepad2,
   Gift,
   UtensilsCrossed,
+  XCircle,
 } from "lucide-react";
 import {
   Tooltip,
@@ -25,10 +26,20 @@ import {
   getEffectiveScheduleRoomType,
   getRoomTypeLabel as getScheduleRoomTypeLabel,
   getScheduleTimelineLabel,
+  normalizeRoomType,
 } from "../utils/scheduleRoomType";
+import { isRoomUnderMaintenance } from "../utils/roomStatus";
+import {
+  DAY_END_HOUR,
+  DAY_START_HOUR,
+  TIMELINE_MINUTE_SPAN,
+  formatTimelineHourLabel,
+  getScheduleTimelineEnd,
+  getTimelineDayEnd,
+  getTimelineDayStart,
+  packTimelineLanes,
+} from "../utils/timelineHours";
 
-const DAY_START_HOUR = 0;
-const DAY_END_HOUR = 24;
 const MOBILE_HOUR_HEIGHT = 60; // Chiều cao mỗi giờ tính bằng pixel
 const MOBILE_SCALE = MOBILE_HOUR_HEIGHT / 60; // Scale cho mỗi phút
 const MOBILE_TIMELINE_HEIGHT =
@@ -47,11 +58,11 @@ interface MobileTimelineViewProps {
   notifications: { [roomId: string]: { message: string; timestamp: number } };
   blinkingRooms: { [key: string]: boolean };
   orderNotifications: {
-    [roomId: string]: {
+    [roomId: string]: Array<{
       message: string;
       timestamp: number;
       orderData: any;
-    };
+    }>;
   };
   orderBlinkingRooms: { [key: string]: boolean };
   giftNotifications?: {
@@ -65,12 +76,12 @@ interface MobileTimelineViewProps {
   onRoomClick: (roomId: string) => void;
   onScheduleClick: (schedule: IRoomSchedule) => void;
   onResolveRequest: (roomId: string) => void;
-  onOrderClick: (roomId: string) => void;
+  onOrderClick: (roomId: string, orderId: string) => void;
   onGiftClick?: (roomId: string) => void;
 }
 
-const getRoomTypeLabel = (type: RoomType) => {
-  switch (type) {
+const getRoomTypeLabel = (type: RoomType | string) => {
+  switch (normalizeRoomType(type)) {
     case RoomType.Medium:
       return "Vừa";
     case RoomType.Large:
@@ -82,9 +93,9 @@ const getRoomTypeLabel = (type: RoomType) => {
   }
 };
 
-const getRoomTypeLeadIcon = (type: RoomType) => {
+const getRoomTypeLeadIcon = (type: RoomType | string) => {
   const className = "h-4 w-4 sm:h-5 sm:w-5 shrink-0 text-slate-500";
-  if (type === RoomType.Dorm) {
+  if (normalizeRoomType(type) === RoomType.Dorm) {
     return <Gamepad2 className={className} aria-hidden />;
   }
   return <DoorOpen className={className} aria-hidden />;
@@ -94,10 +105,12 @@ const getRoomTypeLeadIcon = (type: RoomType) => {
 const getVerticalMarkerStyle = (
   schedule: IRoomSchedule,
   currentTime: Dayjs,
-  isToday: boolean
+  isToday: boolean,
+  viewDate: Dayjs,
 ) => {
   const eventStart = dayjs(schedule.startTime);
-  const dayStart = eventStart.startOf("day").hour(DAY_START_HOUR).minute(0);
+  const dayStart = getTimelineDayStart(viewDate);
+  const dayEnd = getTimelineDayEnd(viewDate);
   let offsetMinutes = eventStart.diff(dayStart, "minute");
   if (offsetMinutes < 0) offsetMinutes = 0;
 
@@ -120,13 +133,28 @@ const getVerticalMarkerStyle = (
       const eventEnd = dayjs(schedule.endTime);
       durationMinutes = eventEnd.diff(eventStart, "minute");
     } else {
-      const endOfDay = eventStart.startOf("day").hour(DAY_END_HOUR).minute(0);
       const now = dayjs();
-      const actualEnd = now.isBefore(endOfDay) ? now : endOfDay;
+      const actualEnd = now.isBefore(dayEnd) ? now : dayEnd;
       durationMinutes = actualEnd.diff(eventStart, "minute");
       if (durationMinutes <= 0) durationMinutes = 1;
     }
+  } else if (status === "finished" || status === "completed") {
+    const eventEnd = getScheduleTimelineEnd(
+      schedule,
+      eventStart.add(120, "minute"),
+    );
+    durationMinutes = eventEnd.diff(eventStart, "minute");
   }
+
+  if (offsetMinutes > TIMELINE_MINUTE_SPAN) {
+    offsetMinutes = TIMELINE_MINUTE_SPAN;
+    durationMinutes = 1;
+  }
+
+  durationMinutes = Math.min(
+    Math.max(durationMinutes, 1),
+    TIMELINE_MINUTE_SPAN - offsetMinutes,
+  );
 
   const top = offsetMinutes * MOBILE_SCALE;
   let height = durationMinutes * MOBILE_SCALE;
@@ -159,11 +187,9 @@ const getVerticalMarkerStyle = (
 
   // Nếu sự kiện đã hoàn toàn nằm phía trên now marker (đã qua) thì thay đổi màu
   if (isToday) {
-    const totalMinutes =
-      (currentTime.hour() - DAY_START_HOUR) * 60 + currentTime.minute();
     const clampedMinutes = Math.min(
-      Math.max(totalMinutes, 0),
-      (DAY_END_HOUR - DAY_START_HOUR) * 60
+      Math.max(currentTime.diff(dayStart, "minute"), 0),
+      TIMELINE_MINUTE_SPAN,
     );
     const markerTop = clampedMinutes * MOBILE_SCALE;
 
@@ -192,6 +218,7 @@ const getVerticalMarkerStyle = (
 const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
   roomsData,
   grouped,
+  date,
   currentTime,
   isToday,
   notifications,
@@ -224,10 +251,12 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
         const roomSchedules = grouped[room._id] || [];
         const hasNotification = notifications[room._id];
         const isBlinking = blinkingRooms[room._id];
-        const hasOrderNotification = orderNotifications[room._id];
+        const orderNotificationsForRoom = orderNotifications[room._id] || [];
+        const hasOrderNotification = orderNotificationsForRoom.length > 0;
         const isOrderBlinking = orderBlinkingRooms[room._id];
         const hasGiftNotification = giftNotifications[room._id];
         const isGiftBlinking = giftBlinkingRooms[room._id];
+        const isMaintenance = isRoomUnderMaintenance(room);
 
         // Tìm schedule có gift nhưng chưa finished
         const scheduleWithGift = roomSchedules.find((schedule) => {
@@ -272,7 +301,11 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
 
         return (
           <Collapsible key={room._id} defaultOpen={shouldDefaultOpen}>
-            <Card className="overflow-hidden">
+            <Card
+              className={`overflow-hidden ${
+                isMaintenance ? "border-red-200 bg-red-50/40" : ""
+              }`}
+            >
               <CollapsibleTrigger className="w-full touch-manipulation">
                 <div className="flex items-center justify-between p-3 sm:p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -281,7 +314,9 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         e.stopPropagation();
                         onRoomClick(room._id);
                       }}
-                      className={`text-blue-600 hover:underline active:opacity-70 text-left font-medium text-sm sm:text-base touch-manipulation min-h-[44px] inline-flex items-center gap-1.5 ${
+                      className={`hover:underline active:opacity-70 text-left font-medium text-sm sm:text-base touch-manipulation min-h-[44px] inline-flex items-center gap-1.5 ${
+                        isMaintenance ? "text-red-600" : "text-blue-600"
+                      } ${
                         isBlinking
                           ? "animate-[blink_1s_ease-in-out_infinite]"
                           : ""
@@ -293,6 +328,21 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                     <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
                       {getRoomTypeLabel(room.roomType)}
                     </span>
+                    {isMaintenance && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className="inline-flex items-center shrink-0"
+                            aria-label="Đang bảo trì"
+                          >
+                            <XCircle className="h-4 w-4 text-red-500" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Đang bảo trì — không thể đặt phòng</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                     {hasNotification && (
@@ -316,26 +366,34 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    {hasOrderNotification && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOrderClick(room._id);
-                            }}
-                            className={`flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-70 ${
-                              isOrderBlinking ? "animate-pulse" : ""
-                            }`}
-                          >
-                            <UtensilsCrossed className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{hasOrderNotification.message}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                    {hasOrderNotification &&
+                      orderNotificationsForRoom.map((notification, orderIndex) => (
+                        <Tooltip key={notification.orderData.orderId}>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOrderClick(
+                                  room._id,
+                                  notification.orderData.orderId,
+                                );
+                              }}
+                              className={`flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-70 ${
+                                isOrderBlinking ? "animate-pulse" : ""
+                              }`}
+                              aria-label={`Đơn FNB ${orderIndex + 1} của ${room.roomName}`}
+                            >
+                              <UtensilsCrossed className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{notification.message}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Đơn {orderIndex + 1}/{orderNotificationsForRoom.length}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
                     {scheduleGiftInfo && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -403,8 +461,12 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                             className="absolute left-0 right-0 border-t border-gray-200"
                             style={{ top: `${top}px` }}
                           >
-                            <div className="absolute left-0 top-0 -translate-y-1/2 bg-white px-2 text-xs sm:text-sm text-gray-600 font-medium">
-                              {hour.toString().padStart(2, "0")}:00
+                            <div
+                              className={`absolute left-0 top-0 -translate-y-1/2 bg-white px-2 text-xs sm:text-sm font-medium ${
+                                hour >= 24 ? "text-amber-700" : "text-gray-600"
+                              }`}
+                            >
+                              {formatTimelineHourLabel(hour)}
                             </div>
                           </div>
                         );
@@ -424,15 +486,13 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         );
                       })}
 
-                      {/* Now marker (nếu là hôm nay) */}
+                      {/* Now marker (nếu đang trong khung ngày kinh doanh) */}
                       {isToday &&
                         (() => {
-                          const totalMinutes =
-                            (currentTime.hour() - DAY_START_HOUR) * 60 +
-                            currentTime.minute();
+                          const dayStart = getTimelineDayStart(date);
                           const clampedMinutes = Math.min(
-                            Math.max(totalMinutes, 0),
-                            (DAY_END_HOUR - DAY_START_HOUR) * 60
+                            Math.max(currentTime.diff(dayStart, "minute"), 0),
+                            TIMELINE_MINUTE_SPAN,
                           );
                           const markerTop = clampedMinutes * MOBILE_SCALE;
                           return (
@@ -460,24 +520,45 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         })()}
 
                       {/* Schedule blocks */}
-                      {roomSchedules
-                        .filter((schedule) => {
+                      {(() => {
+                        const visible = roomSchedules.filter((schedule) => {
                           if (!isStaff) return true;
                           const status = schedule.status.toLowerCase();
                           return (
                             status !== "finished" && status !== "completed"
                           );
-                        })
-                        .map((schedule) => {
+                        });
+                        const packed = packTimelineLanes(
+                          visible.map((schedule) => {
+                            const { top, height } = getVerticalMarkerStyle(
+                              schedule,
+                              currentTime,
+                              isToday,
+                              date,
+                            );
+                            return {
+                              item: schedule,
+                              startMin: top / MOBILE_SCALE,
+                              endMin: (top + height) / MOBILE_SCALE,
+                            };
+                          }),
+                        );
+                        const laneCount = packed[0]?.laneCount ?? 1;
+
+                        return packed.map(({ item: schedule, lane }) => {
                         const { top, height, bgColor } = getVerticalMarkerStyle(
                           schedule,
                           currentTime,
-                          isToday
+                          isToday,
+                          date,
                         );
+                        const leftPct = 12 + lane * ((100 - 14) / laneCount);
+                        const widthPct = (100 - 14) / laneCount - 1;
                         const eventStart = dayjs(schedule.startTime);
-                        const eventEnd = schedule.endTime
-                          ? dayjs(schedule.endTime)
-                          : eventStart.add(120, "minute");
+                        const eventEnd = getScheduleTimelineEnd(
+                          schedule,
+                          eventStart.add(120, "minute"),
+                        );
                         const status = schedule.status.toLowerCase();
                         const scheduleLabel = getScheduleTimelineLabel(
                           room.roomName,
@@ -513,15 +594,24 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                                     : ""
                                 }`;
                           tooltipContent = `Size: ${scheduleSizeLabel}\nĐang sử dụng ${durationText}`;
+                        } else if (status === "maintenance") {
+                          tooltipContent = `Bảo trì\nBắt đầu: ${eventStart.format(
+                            "HH:mm",
+                          )}\nKết thúc: ${eventEnd.format(
+                            "HH:mm",
+                          )}\nBấm để chỉnh sửa / kết thúc`;
                         }
 
                         const eventElement = (
                           <div
                             key={schedule._id}
-                            className={`absolute left-12 sm:left-14 right-2 sm:right-4 ${bgColor} opacity-75 rounded shadow-sm hover:opacity-100 active:opacity-90 transition-all duration-200 hover:shadow-md cursor-pointer touch-manipulation min-h-[32px]`}
+                            className={`absolute ${bgColor} opacity-80 rounded shadow-sm hover:opacity-100 active:opacity-90 transition-[opacity,box-shadow] duration-150 hover:shadow-md cursor-pointer touch-manipulation min-h-[32px]`}
                             style={{
                               top: `${top}px`,
                               height: `${Math.max(height, 32)}px`,
+                              left: `${Math.max(leftPct, 10)}%`,
+                              width: `${Math.max(widthPct, 18)}%`,
+                              zIndex: lane + 1,
                             }}
                             onClick={() => onScheduleClick(schedule)}
                           >
@@ -558,7 +648,8 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         }
 
                         return eventElement;
-                      })}
+                      });
+                      })()}
                     </div>
                   </div>
                 </div>

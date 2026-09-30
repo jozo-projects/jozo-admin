@@ -1,7 +1,37 @@
+import { AUTH_EVENTS } from "@/constants/events";
+import PATHS from "@/constants/paths";
 import { toast } from "@/hooks/use-toast";
 import axios from "axios";
 
 const apiUrl = import.meta.env.VITE_API_BASE_URL;
+
+const PUBLIC_AUTH_PATHS = [
+  "/users/login",
+  "/users/forgot-password",
+  "/users/reset-password",
+  "/users/logout",
+];
+
+let isHandlingUnauthorized = false;
+
+function isPublicAuthRequest(url?: string) {
+  if (!url) return false;
+  return PUBLIC_AUTH_PATHS.some((path) => url.includes(path));
+}
+
+function handleUnauthorized() {
+  if (isHandlingUnauthorized || window.location.pathname === PATHS.LOGIN) {
+    return;
+  }
+
+  isHandlingUnauthorized = true;
+
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  window.dispatchEvent(new Event(AUTH_EVENTS.LOGOUT_SUCCESS));
+
+  window.location.replace(PATHS.LOGIN);
+}
 
 const http = axios.create({
   baseURL: apiUrl,
@@ -44,6 +74,13 @@ http.interceptors.response.use(
     return response;
   },
   function (error) {
+    const status = error.response?.status;
+
+    if (status === 401 && !isPublicAuthRequest(error.config?.url)) {
+      handleUnauthorized();
+      return Promise.reject(error);
+    }
+
     if (!error.config?.skipErrorToast) {
       toast({
         title: "Error",

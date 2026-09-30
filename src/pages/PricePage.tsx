@@ -133,7 +133,7 @@ function PricePage() {
   );
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Pricing"
         description="Quản lý bảng giá phòng theo loại và khung giờ"

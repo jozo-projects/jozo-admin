@@ -1,16 +1,23 @@
 import { PageHeader } from "@/components/shared";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarIcon, UserCog, Gift } from "lucide-react";
+import {
+  Award,
+  CalendarIcon,
+  Gift,
+  Mail,
+  Phone,
+  UserCog,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UpdateUserRequest, User } from "@/@types/user";
 import { useUsers } from "@/hooks/use-users";
-import { useNavigate, useParams } from "react-router-dom";
+import { useRouter, useParams } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
 import { format } from "date-fns";
 import {
@@ -26,6 +33,12 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/utils";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 const toDateTimeLocalValue = (iso?: string | null) => {
   if (!iso) return "";
@@ -39,7 +52,6 @@ const toDateTimeLocalValue = (iso?: string | null) => {
 const updateUserSchema = z
   .object({
     name: z.string().min(1, "Tên là bắt buộc"),
-    username: z.string().min(3, "Username phải có ít nhất 3 ký tự"),
     email: z.string().email("Email không hợp lệ").optional().or(z.literal("")),
     date_of_birth: z.coerce.date({
       required_error: "Ngày sinh là bắt buộc",
@@ -69,7 +81,7 @@ const updateUserSchema = z
 type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
 const updatePointsSchema = z.object({
-  points: z.coerce.number().positive("Điểm phải lớn hơn 0"),
+  points: z.coerce.number().int().min(0, "Điểm không được âm"),
   reason: z.string().optional(),
 });
 
@@ -82,8 +94,12 @@ const updateStreakSchema = z.object({
 type UpdateStreakFormData = z.infer<typeof updateStreakSchema>;
 
 const EditUserForm = () => {
-  const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const userParams = useParams({
+    from: "/_authenticated/users-management/$id/edit",
+  });
+  const id = userParams.id;
+  const [activeSection, setActiveSection] = useState("overview");
   const { updateUser, useUserById, useUserMembership, isUpdatingUser } =
     useUsers();
   const { mutate: updateMemberPoints, isPending: isUpdatingMemberPoints } =
@@ -111,6 +127,7 @@ const EditUserForm = () => {
     typeof value === "number" ? value.toLocaleString("vi-VN") : "—";
 
   const membershipPoints =
+    membershipDetail?.user?.availablePoint ??
     membershipDetail?.user?.points ??
     membershipDetail?.user?.loyalty_points ??
     membershipDetail?.user?.loyalty;
@@ -138,7 +155,7 @@ const EditUserForm = () => {
     resolver: zodResolver(updateUserSchema),
     defaultValues: {
       name: "",
-      username: "",
+
       email: "",
       date_of_birth: undefined,
       phone_number: "",
@@ -167,7 +184,7 @@ const EditUserForm = () => {
     if (user && user._id) {
       form.reset({
         name: user.name || user.full_name || "",
-        username: user.username || "",
+
         email: user.email || "",
         date_of_birth: new Date(user.date_of_birth),
         phone_number: user.phone_number,
@@ -186,6 +203,13 @@ const EditUserForm = () => {
       });
     }
   }, [user, form]);
+
+  useEffect(() => {
+    const currentPoints = membershipDetail?.user?.availablePoint;
+    if (typeof currentPoints === "number") {
+      pointsForm.reset({ points: currentPoints, reason: "" });
+    }
+  }, [membershipDetail?.user?.availablePoint, pointsForm]);
 
   // Cập nhật streak form khi có dữ liệu membership
   useEffect(() => {
@@ -215,7 +239,7 @@ const EditUserForm = () => {
 
     const updateData: UpdateUserRequest = {
       name: data.name,
-      username: data.username,
+
       email: data.email || undefined,
       date_of_birth: data.date_of_birth,
       phone_number: data.phone_number,
@@ -235,7 +259,7 @@ const EditUserForm = () => {
       { id, data: updateData },
       {
         onSuccess: () => {
-          navigate(PATHS.USERS_MANAGEMENT);
+          router.navigate({ to: PATHS.USERS_MANAGEMENT });
         },
       },
     );
@@ -269,15 +293,120 @@ const EditUserForm = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Chỉnh sửa User"
-        description="Cập nhật thông tin người dùng"
+        description="Ưu tiên kiểm tra trạng thái member trước, sau đó mới cập nhật hồ sơ"
         icon={UserCog}
         showBackButton
         backUrl={PATHS.USERS_MANAGEMENT}
       />
-      <Card className="max-w-2xl mx-auto">
+      <Tabs
+        value={activeSection}
+        onValueChange={setActiveSection}
+        className="mx-auto w-full max-w-5xl"
+      >
+        <TabsList className="grid h-auto w-full grid-cols-3">
+          <TabsTrigger value="overview" className="py-2.5">
+            Tổng quan
+          </TabsTrigger>
+          <TabsTrigger value="membership" className="py-2.5">
+            Membership & quà
+          </TabsTrigger>
+          <TabsTrigger value="profile" className="py-2.5">
+            Hồ sơ & thử việc
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Member</p>
+                  <h2 className="mt-1 text-2xl font-semibold">
+                    {user?.name || user?.full_name || "Đang tải thông tin..."}
+                  </h2>
+                  <div className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground sm:flex-row sm:gap-4">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Phone className="h-3.5 w-3.5" />
+                      {user?.phone_number || "Chưa có số điện thoại"}
+                    </span>
+                    {user?.email && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Mail className="h-3.5 w-3.5" />
+                        {user.email}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActiveSection("membership")}
+                >
+                  <Gift className="mr-2 h-4 w-4" />
+                  Xem membership
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardContent className="pt-5">
+                <div className="text-sm text-muted-foreground">Điểm hiện có</div>
+                <div className="mt-1 text-2xl font-semibold">
+                  {formatNumber(membershipPoints)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-5">
+                <div className="text-sm text-muted-foreground">Hạng hiện tại</div>
+                <div className="mt-1 flex items-center gap-2 text-2xl font-semibold">
+                  <Award className="h-5 w-5 text-primary" />
+                  {membershipTier}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-5">
+                <div className="text-sm text-muted-foreground">Streak hiện tại</div>
+                <div className="mt-1 text-2xl font-semibold">
+                  {streakInfoData?.streak?.count ?? membershipStreak ?? "—"}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {streakInfoData?.streak?.isActive
+                    ? "Đang hoạt động"
+                    : "Kiểm tra trạng thái streak"}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold">Cần chú ý</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Xem nhanh mốc quà đã nhận và quà đang chờ phát trong tab Membership & quà.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => setActiveSection("membership")}
+                >
+                  Mở chi tiết
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="membership" className="space-y-6">
+          <Card>
         <CardContent className="pt-6">
           {isLoadingMembership ? (
             <div className="text-muted-foreground">
@@ -359,7 +488,7 @@ const EditUserForm = () => {
                     Cập nhật điểm thành viên
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Nhập số điểm cần cộng cho thành viên này (lớn hơn 0).
+                    Nhập tổng điểm mới của thành viên. Nhập 0 nếu muốn đưa điểm về 0.
                   </p>
                 </div>
                 <form
@@ -373,7 +502,7 @@ const EditUserForm = () => {
                       type="number"
                       step="1"
                       {...pointsForm.register("points")}
-                      placeholder="Nhập số điểm"
+                      placeholder="Nhập tổng điểm mới"
                     />
                     {pointsForm.formState.errors.points && (
                       <p className="text-sm text-red-500">
@@ -440,16 +569,31 @@ const EditUserForm = () => {
                           >
                             <div className="flex-1">
                               <div className="font-medium">
-                                {reward.gift ? (
+                                {reward.items && reward.items.length > 0 ? (
+                                  <span>
+                                    🎁{" "}
+                                    {reward.items
+                                      .map(
+                                        (item) =>
+                                          `${item.name} ×${item.quantity}`,
+                                      )
+                                      .join(", ")}
+                                  </span>
+                                ) : reward.gift?.giftName ? (
                                   <span>🎁 {reward.gift.giftName}</span>
                                 ) : (
-                                  <span>💰 {reward.points} điểm</span>
+                                  <span>
+                                    💰{" "}
+                                    {reward.bonusPoints ?? reward.points ?? 0}{" "}
+                                    điểm
+                                  </span>
                                 )}
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 Streak: {reward.streakCount}
-                                {reward.gift &&
-                                  ` • Loại: ${reward.gift.giftType}`}
+                                {reward.itemCount
+                                  ? ` • ${reward.itemCount} món`
+                                  : ""}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 Nhận lúc:{" "}
@@ -464,37 +608,29 @@ const EditUserForm = () => {
                     </div>
                   )}
 
-                {/* Quà đang chờ claim */}
-                {pendingGiftsData?.pending &&
-                  pendingGiftsData.pending.length > 0 && (
+                {/* Quà sẵn sàng phát */}
+                {pendingGiftsData?.availableGifts &&
+                  pendingGiftsData.availableGifts.length > 0 && (
                     <div className="space-y-3">
                       <div className="text-base font-medium text-orange-600">
-                        Quà chờ nhận ({pendingGiftsData.pending.length})
+                        Quà sẵn sàng phát (
+                        {pendingGiftsData.availableGifts.length})
                       </div>
                       <div className="grid gap-3">
-                        {pendingGiftsData.pending.map((gift) => (
+                        {pendingGiftsData.availableGifts.map((gift) => (
                           <div
-                            key={gift.rewardHistoryId}
+                            key={gift.streakCount}
                             className="flex items-center gap-3 p-3 border rounded-lg bg-orange-50"
                           >
-                            {gift.giftImage && (
-                              <img
-                                src={gift.giftImage}
-                                alt={gift.giftName}
-                                className="h-12 w-12 rounded object-cover"
-                              />
-                            )}
                             <div className="flex-1">
-                              <div className="font-medium">{gift.giftName}</div>
-                              <div className="text-sm text-muted-foreground">
-                                Loại: {gift.giftType} • Streak:{" "}
-                                {gift.streakCount}
+                              <div className="font-medium">
+                                Mốc streak {gift.streakCount}
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                Nhận lúc:{" "}
-                                {new Date(gift.assignedAt).toLocaleString(
-                                  "vi-VN",
-                                )}
+                              <div className="text-sm text-muted-foreground">
+                                Chọn {gift.itemCount} món
+                                {gift.bonusPoints
+                                  ? ` • +${gift.bonusPoints} điểm`
+                                  : ""}
                               </div>
                             </div>
                           </div>
@@ -503,38 +639,37 @@ const EditUserForm = () => {
                     </div>
                   )}
 
-                {/* Quà đủ điều kiện nhận */}
-                {pendingGiftsData?.eligible &&
-                  pendingGiftsData.eligible.length > 0 && (
+                {/* Tiến độ mốc streak */}
+                {pendingGiftsData?.streakRewards &&
+                  pendingGiftsData.streakRewards.length > 0 && (
                     <div className="space-y-3">
                       <div className="text-base font-medium text-green-600">
-                        Quà đủ điều kiện nhận (
-                        {pendingGiftsData.eligible.length})
+                        Tiến độ streak (
+                        {pendingGiftsData.streakRewards.length})
                       </div>
                       <div className="grid gap-3">
-                        {pendingGiftsData.eligible.map((gift, index) => (
+                        {pendingGiftsData.streakRewards.map((reward) => (
                           <div
-                            key={`${gift.giftId}-${index}`}
+                            key={reward.streakCount}
                             className="flex items-center gap-3 p-3 border rounded-lg bg-green-50"
                           >
-                            {gift.giftImage && (
-                              <img
-                                src={gift.giftImage}
-                                alt={gift.giftName}
-                                className="h-12 w-12 rounded object-cover"
-                              />
-                            )}
                             <div className="flex-1">
-                              <div className="font-medium">{gift.giftName}</div>
-                              <div className="text-sm text-muted-foreground">
-                                Loại: {gift.giftType} • Streak:{" "}
-                                {gift.streakCount}
+                              <div className="font-medium">
+                                Streak {reward.streakCount}
                               </div>
-                              {gift.bonusPoints && (
-                                <div className="text-xs text-green-600 font-medium">
-                                  Thưởng: +{gift.bonusPoints} điểm
-                                </div>
-                              )}
+                              <div className="text-sm text-muted-foreground">
+                                {reward.itemCount
+                                  ? `${reward.itemCount} món`
+                                  : "Không có món"}
+                                {reward.bonusPoints
+                                  ? ` • +${reward.bonusPoints} điểm`
+                                  : ""}
+                                {reward.claimed
+                                  ? " • Đã nhận"
+                                  : reward.isReached
+                                    ? " • Đã đạt"
+                                    : ""}
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -614,10 +749,10 @@ const EditUserForm = () => {
                 {/* Không có quà */}
                 {(!streakInfoData?.claimedRewards ||
                   streakInfoData.claimedRewards.length === 0) &&
-                  (!pendingGiftsData?.pending ||
-                    pendingGiftsData.pending.length === 0) &&
-                  (!pendingGiftsData?.eligible ||
-                    pendingGiftsData.eligible.length === 0) && (
+                  (!pendingGiftsData?.availableGifts ||
+                    pendingGiftsData.availableGifts.length === 0) &&
+                  (!pendingGiftsData?.streakRewards ||
+                    pendingGiftsData.streakRewards.length === 0) && (
                     <div className="text-center py-8 text-muted-foreground">
                       User hiện không có quà nào
                     </div>
@@ -627,7 +762,10 @@ const EditUserForm = () => {
           </div>
         </CardContent>
       </Card>
-      <Card className="max-w-2xl mx-auto">
+          </TabsContent>
+
+          <TabsContent value="profile">
+            <Card>
         <CardContent className="pt-6">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Tên */}
@@ -645,20 +783,6 @@ const EditUserForm = () => {
               )}
             </div>
 
-            {/* Username */}
-            <div className="space-y-2">
-              <Label htmlFor="username">Username *</Label>
-              <Input
-                id="username"
-                {...form.register("username")}
-                placeholder="Nhập username (dùng để đăng nhập)"
-              />
-              {form.formState.errors.username && (
-                <p className="text-sm text-red-500">
-                  {form.formState.errors.username.message}
-                </p>
-              )}
-            </div>
 
             {/* Email */}
             <div className="space-y-2">
@@ -822,7 +946,7 @@ const EditUserForm = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate(PATHS.USERS_MANAGEMENT)}
+                onClick={() => router.navigate({ to: PATHS.USERS_MANAGEMENT })}
                 className="flex-1"
               >
                 Hủy
@@ -830,8 +954,10 @@ const EditUserForm = () => {
             </div>
           </form>
         </CardContent>
-      </Card>
-    </div>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
   );
 };
 

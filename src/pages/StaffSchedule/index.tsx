@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeScheduleStatus, Role, ShiftType } from "@/constants/enum";
-import PATHS from "@/constants/paths";
 import { useStaffSchedules, ViewMode } from "@/hooks/use-staff-schedules";
 import { useToast } from "@/hooks/use-toast";
 import { useIsAdmin } from "@/hooks/usePermission";
@@ -29,16 +28,19 @@ import StaffScheduleRegistrationModal from "@/pages/RoomSchedule/components/Staf
 import dayjs, { Dayjs } from "dayjs";
 import { CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "@tanstack/react-router";
 import { Calendar } from "@/components/ui/calendar";
 import StaffScheduleDetailModal from "./components/StaffScheduleDetailModal";
 import StaffScheduleShiftFilter, {
   getVisibleShifts,
   type ShiftFilter,
 } from "./components/StaffScheduleShiftFilter";
+import PaginationContainer from "@/pages/RecruitmentPage/components/PaginationContainer";
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 const StaffSchedulePage = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs());
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -48,13 +50,20 @@ const StaffSchedulePage = () => {
   const [selectedSchedule, setSelectedSchedule] =
     useState<IEmployeeSchedule | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [shiftFilter, setShiftFilter] = useState<ShiftFilter>("all");
   const [initialDate, setInitialDate] = useState<Date | undefined>(undefined);
   const [initialShift, setInitialShift] = useState<ShiftType | undefined>(
     undefined,
   );
 
-  const { users, isLoadingUsers } = useUsers();
+  const { users, isLoadingUsers, pagination } = useUsers({
+    page: currentPage,
+    limit: pageSize,
+    search: searchTerm || undefined,
+    role: Role.Staff,
+  });
   const isAdmin = useIsAdmin();
 
   const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
@@ -139,16 +148,35 @@ const StaffSchedulePage = () => {
     };
   }, [onNewScheduleRegistration, offNewScheduleRegistration, refetch, toast]);
 
-  const staffList = users.filter((user: User) => user.role === Role.Staff);
+  const staffList = users;
+  const filteredStaff = staffList;
 
-  const filteredStaff = staffList.filter(
-    (user: User) =>
-      (user.name || user.full_name || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.phone_number.includes(searchTerm),
-  );
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, pageSize]);
+
+  const totalRecords = pagination?.total ?? filteredStaff.length;
+  const totalPages =
+    pagination?.total_pages ??
+    Math.max(1, Math.ceil(totalRecords / (pageSize || 1)));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedStaff = filteredStaff;
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1);
+  };
 
   const getUserName = (user: User) => {
     return user.name || user.full_name || "No name";
@@ -295,7 +323,7 @@ const StaffSchedulePage = () => {
   };
 
   const handleStaffClick = (userId: string) => {
-    navigate(PATHS.STAFF_EARNINGS_DETAIL.replace(":userId", userId));
+    router.navigate({ to: "/staff-schedule/$userId/earnings", params: { userId } });
   };
 
   const handleCloseModal = () => {
@@ -365,15 +393,14 @@ const StaffSchedulePage = () => {
   }
 
   return (
-    <div>
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Staff Schedule Management"
         description="Click on staff name to view earnings details, or click on a cell to view/register schedule"
         icon={CalendarIcon}
-        className="mb-6"
       />
 
-      <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Tabs
             value={viewMode}
@@ -486,7 +513,7 @@ const StaffSchedulePage = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredStaff.length === 0 ? (
+            {paginatedStaff.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={dates.length * visibleShifts.length + 1}
@@ -496,7 +523,7 @@ const StaffSchedulePage = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredStaff.map((user: User) => {
+              paginatedStaff.map((user: User) => {
                 const userName = getUserName(user);
                 return (
                   <TableRow key={user._id}>
@@ -570,6 +597,18 @@ Trạng thái: ${schedule ? status || "Không có" : "Chưa đăng ký"}${
           </TableBody>
         </Table>
       </div>
+
+      {totalRecords > 0 && (
+        <PaginationContainer
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          total={totalRecords}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          pageSizeOptions={PAGE_SIZE_OPTIONS}
+        />
+      )}
 
       {selectedUserId && (
         <StaffScheduleRegistrationModal
