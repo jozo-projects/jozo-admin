@@ -18,7 +18,13 @@ export interface MediaJob {
   hlsUrl?: string;
   r2Prefix?: string;
   uploadedObjectCount?: number;
+  totalObjectCount?: number;
+  uploadedBytes?: number;
+  totalBytes?: number;
+  uploadProgress?: number;
+  currentObjectKey?: string;
   error?: string;
+  errorMessage?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -29,8 +35,11 @@ interface MediaEnvelope {
   message?: string;
 }
 
+export const mediaWorkerBaseUrl =
+  import.meta.env.VITE_MEDIA_WORKER_URL || "http://localhost:4001";
+
 const mediaWorkerHttp = axios.create({
-  baseURL: import.meta.env.VITE_MEDIA_WORKER_URL || "http://localhost:4001",
+  baseURL: mediaWorkerBaseUrl,
   timeout: 30_000,
   headers: { "Content-Type": "application/json" },
 });
@@ -47,6 +56,8 @@ const mediaWorkerApis = {
     const response = await mediaWorkerHttp.get<MediaEnvelope>(`/api/media/${mediaId}`);
     return response.data.data;
   },
+  getMediaEventsUrl: (mediaId: string) =>
+    `${mediaWorkerBaseUrl}/api/media/${mediaId}/events`,
 };
 
 export default mediaWorkerApis;

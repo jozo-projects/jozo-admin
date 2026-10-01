@@ -2,8 +2,10 @@ import roomsMusicApis, {
   type PruneUnavailableYoutubeParams,
   type SongPruneJob,
 } from "@/apis/roomMusic.apis";
+import mediaWorkerApis from "@/apis/mediaWorker.apis";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
 
 export const useSongsCollection = (params?: {
   page?: number;
@@ -137,6 +139,27 @@ export const useDeleteSong = () => {
       toast({
         title: "Lỗi",
         description: "Không thể xóa bài hát",
+        variant: "destructive",
+      });
+    },
+  });
+};
+
+export const useCreateSongHls = () => {
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (payload: { videoId: string; title?: string }) =>
+      mediaWorkerApis.createHls(payload),
+    onError: (error) => {
+      const description = axios.isAxiosError(error) && error.code === "ERR_NETWORK"
+        ? "Chưa kết nối được jozo-local-worker ở localhost:4001. Hãy chạy worker trước."
+        : error instanceof Error
+          ? error.message
+          : "Không kết nối được local worker";
+      toast({
+        title: "Không thể tạo HLS",
+        description,
         variant: "destructive",
       });
     },

@@ -28,11 +28,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { SongPruneJob } from "@/apis/roomMusic.apis";
+import mediaWorkerApis, { type MediaJob } from "@/apis/mediaWorker.apis";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   fetchSongPruneStatus,
   useCancelSongPrune,
+  useCreateSongHls,
   useDeleteSong,
   useNormalizeSongs,
   useSongsCollection,
@@ -47,6 +49,7 @@ import { useSocket } from "@/hooks/useSocket";
 import { formatDate } from "@/utils/formatters";
 import {
   Download,
+  Film,
   Loader2,
   Music,
   RefreshCcw,
@@ -82,6 +85,7 @@ type ConfirmDialogState =
   | { type: "normalize" }
   | { type: "startPrune" }
   | { type: "cancelPrune" }
+  | { type: "convertHls"; videoId: string; title: string }
   | { type: "deleteSong"; videoId: string; title: string };
 
 const getConfirmDialogContent = (state: ConfirmDialogState | null) => {
@@ -109,6 +113,14 @@ const getConfirmDialogContent = (state: ConfirmDialogState | null) => {
           "Tiến trình dừng sau khi xong bài đang probe (có thể vài giây). Cron hoặc job API đều hủy được.",
         confirmLabel: "Hủy job",
         destructive: true,
+      };
+    case "convertHls":
+      return {
+        title: "Tạo HLS cho bài hát?",
+        description:
+          `Worker local sẽ tải "${state.title}" từ YouTube, encode 1080p/720p và upload lên R2.`,
+        confirmLabel: "Bắt đầu tạo HLS",
+        destructive: false,
       };
     case "deleteSong":
       return {
@@ -180,6 +192,98 @@ const SongsCollectionPage = () => {
     mutate: deleteSong,
     isPending: isDeleting,
   } = useDeleteSong();
+  const {
+    mutateAsync: createSongHls,
+    isPending: isCreatingSongHls,
+  } = useCreateSongHls();
+  const [hlsJobs, setHlsJobs] = useState<Record<string, MediaJob>>({});
+  const hlsEventSourcesRef = useRef<Record<string, EventSource>>({});
+  const hlsFallbackTimersRef = useRef<Record<string, number>>({});
+  const hlsFallbackDelayRef = useRef<Record<string, number>>({});
+  const hlsSseDisabledRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const activeJobs = Object.entries(hlsJobs).filter(
+      ([, job]) => job.status !== "ready" && job.status !== "failed",
+    );
+    const activeIds = new Set(activeJobs.map(([videoId]) => videoId));
+
+    const applyJobUpdate = (videoId: string, job: MediaJob) => {
+      setHlsJobs((current) => ({ ...current, [videoId]: job }));
+      if (job.status === "ready" || job.status === "failed") {
+        hlsEventSourcesRef.current[videoId]?.close();
+        delete hlsEventSourcesRef.current[videoId];
+        const timer = hlsFallbackTimersRef.current[videoId];
+        if (timer) window.clearTimeout(timer);
+        delete hlsFallbackTimersRef.current[videoId];
+        delete hlsFallbackDelayRef.current[videoId];
+      }
+    };
+
+    const scheduleFallback = (videoId: string, job: MediaJob) => {
+      if (activeIds.has(videoId) === false || hlsFallbackTimersRef.current[videoId]) return;
+      const delay = hlsFallbackDelayRef.current[videoId] ?? 5_000;
+      hlsFallbackTimersRef.current[videoId] = window.setTimeout(async () => {
+        delete hlsFallbackTimersRef.current[videoId];
+        try {
+          const updated = await mediaWorkerApis.getMedia(job.id);
+          applyJobUpdate(videoId, updated);
+          if (updated.status !== "ready" && updated.status !== "failed") {
+            hlsFallbackDelayRef.current[videoId] = Math.min(delay * 2, 30_000);
+            scheduleFallback(videoId, updated);
+          }
+        } catch {
+          hlsFallbackDelayRef.current[videoId] = Math.min(delay * 2, 30_000);
+          scheduleFallback(videoId, job);
+        }
+      }, delay);
+    };
+
+    activeJobs.forEach(([videoId, job]) => {
+      if (hlsEventSourcesRef.current[videoId] || hlsFallbackTimersRef.current[videoId]) return;
+
+      if (hlsSseDisabledRef.current.has(videoId)) {
+        scheduleFallback(videoId, job);
+        return;
+      }
+
+      const source = new EventSource(mediaWorkerApis.getMediaEventsUrl(job.id));
+      hlsEventSourcesRef.current[videoId] = source;
+      const handleUpdate = (event: Event) => {
+        try {
+          const updated = JSON.parse((event as MessageEvent).data) as MediaJob;
+          applyJobUpdate(videoId, updated);
+        } catch {
+          // Ignore malformed events; the fallback GET remains authoritative.
+        }
+      };
+      source.addEventListener("media.updated", handleUpdate);
+      source.onerror = () => {
+        source.close();
+        delete hlsEventSourcesRef.current[videoId];
+        hlsSseDisabledRef.current.add(videoId);
+        scheduleFallback(videoId, job);
+      };
+    });
+
+    Object.keys(hlsEventSourcesRef.current).forEach((videoId) => {
+      if (!activeIds.has(videoId)) {
+        hlsEventSourcesRef.current[videoId].close();
+        delete hlsEventSourcesRef.current[videoId];
+      }
+    });
+    Object.keys(hlsFallbackTimersRef.current).forEach((videoId) => {
+      if (!activeIds.has(videoId)) {
+        window.clearTimeout(hlsFallbackTimersRef.current[videoId]);
+        delete hlsFallbackTimersRef.current[videoId];
+      }
+    });
+  }, [hlsJobs]);
+
+  useEffect(() => () => {
+    Object.values(hlsEventSourcesRef.current).forEach((source) => source.close());
+    Object.values(hlsFallbackTimersRef.current).forEach((timer) => window.clearTimeout(timer));
+  }, []);
 
   const {
     mutateAsync: startSongPruneAsync,
@@ -432,6 +536,23 @@ const SongsCollectionPage = () => {
         case "cancelPrune":
           await executeCancelYoutubePrune();
           break;
+        case "convertHls": {
+          hlsSseDisabledRef.current.delete(confirmDialogState.videoId);
+          delete hlsFallbackDelayRef.current[confirmDialogState.videoId];
+          const job = await createSongHls({
+            videoId: confirmDialogState.videoId,
+            title: confirmDialogState.title,
+          });
+          setHlsJobs((current) => ({
+            ...current,
+            [confirmDialogState.videoId]: job,
+          }));
+          toast({
+            title: "Đã xếp hàng tạo HLS",
+            description: "Local đang xử lý video.",
+          });
+          break;
+        }
         case "deleteSong":
           deleteSong(confirmDialogState.videoId);
           break;
@@ -458,6 +579,31 @@ const SongsCollectionPage = () => {
     return `${minutes}:${remainingSeconds}`;
   };
 
+  const formatBytes = (bytes?: number) => {
+    if (bytes === undefined || Number.isNaN(bytes)) return "-";
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getHlsStatusLabel = (status?: MediaJob["status"]) => {
+    switch (status) {
+      case "pending":
+        return "Chờ xử lý";
+      case "downloading":
+        return "Đang tải";
+      case "encoding":
+        return "Đang encode";
+      case "uploading":
+        return "Đang upload R2";
+      case "ready":
+        return "Sẵn sàng";
+      case "failed":
+        return "Thất bại";
+      default:
+        return "";
+    }
+  };
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
@@ -465,6 +611,14 @@ const SongsCollectionPage = () => {
   const handlePageSizeChange = (size: number) => {
     setPageSize(size);
     setCurrentPage(1); // Reset về trang đầu tiên khi thay đổi page size
+  };
+
+  const requestConvertHls = (videoId: string, title: string) => {
+    const existingJob = hlsJobs[videoId];
+    if (existingJob && existingJob.status !== "failed" && existingJob.status !== "ready") {
+      return;
+    }
+    openConfirmDialog({ type: "convertHls", videoId, title });
   };
 
   const requestDeleteSong = (videoId: string, title: string) => {
@@ -929,9 +1083,29 @@ const SongsCollectionPage = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() =>
-                            requestDeleteSong(song.video_id, song.title)
+                          onClick={() => requestConvertHls(song.video_id, song.title)}
+                          disabled={
+                            isCreatingSongHls ||
+                            ["pending", "downloading", "encoding", "uploading"].includes(
+                              hlsJobs[song.video_id]?.status ?? "",
+                            )
                           }
+                          title="Tạo HLS và upload R2"
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          {hlsJobs[song.video_id]?.status === "pending" ||
+                          hlsJobs[song.video_id]?.status === "downloading" ||
+                          hlsJobs[song.video_id]?.status === "encoding" ||
+                          hlsJobs[song.video_id]?.status === "uploading" ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Film className="w-4 h-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => requestDeleteSong(song.video_id, song.title)}
                           disabled={isDeleting}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
@@ -939,7 +1113,60 @@ const SongsCollectionPage = () => {
                         </Button>
                       </div>
                       {(() => {
+                        const hlsJob = hlsJobs[song.video_id];
                         const download = getMediaDownload(song.video_id);
+                        if (hlsJob) {
+                          return (
+                            <div className="text-xs text-muted-foreground space-y-0.5">
+                              <p className={hlsJob.status === "failed" ? "text-destructive" : ""}>
+                                {getHlsStatusLabel(hlsJob.status)}
+                              </p>
+                              {hlsJob.status === "uploading" &&
+                              hlsJob.totalObjectCount ? (
+                                <>
+                                  <div className="flex justify-between gap-2">
+                                    <span>
+                                      {hlsJob.uploadedObjectCount ?? 0}/
+                                      {hlsJob.totalObjectCount} objects
+                                    </span>
+                                    <span>{hlsJob.uploadProgress ?? 0}%</span>
+                                  </div>
+                                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                    <div
+                                      className="h-full rounded-full bg-blue-600 transition-[width] duration-300"
+                                      style={{
+                                        width: `${Math.min(100, Math.max(0, hlsJob.uploadProgress ?? 0))}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <p>
+                                    {formatBytes(hlsJob.uploadedBytes)} / {formatBytes(hlsJob.totalBytes)}
+                                  </p>
+                                </>
+                              ) : null}
+                              {hlsJob.currentObjectKey ? (
+                                <p className="truncate" title={hlsJob.currentObjectKey}>
+                                  {hlsJob.currentObjectKey.split("/").slice(-2).join("/")}
+                                </p>
+                              ) : null}
+                              {hlsJob.status === "ready" && hlsJob.hlsUrl ? (
+                                <a
+                                  href={hlsJob.hlsUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-600 hover:underline break-all line-clamp-2"
+                                >
+                                  HLS
+                                </a>
+                              ) : null}
+                              {hlsJob.status === "failed" && (hlsJob.errorMessage || hlsJob.error) ? (
+                                <p className="text-destructive line-clamp-2">
+                                  {hlsJob.errorMessage || hlsJob.error}
+                                </p>
+                              ) : null}
+                            </div>
+                          );
+                        }
                         if (!download) {
                           return downloadedVideoIds.has(song.video_id) ? (
                             <p className="text-xs text-green-600 font-medium">
@@ -973,7 +1200,7 @@ const SongsCollectionPage = () => {
                           </div>
                         );
                       })()}
-                    </div>
+                      </div>
                   </TableCell>
                 </TableRow>
               ))}
