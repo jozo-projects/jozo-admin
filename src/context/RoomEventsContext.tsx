@@ -50,7 +50,7 @@ import supportRequestApis from "@/apis/supportRequest.apis";
 import type { SupportRequest } from "@/@types/SupportRequest";
 
 /** Tạm mute giọng đọc hỗ trợ và đơn hàng. Bật lại bằng cách đổi thành false. */
-const MUTE_SUPPORT_AND_ORDER_AUDIO = true;
+const MUTE_SUPPORT_AND_ORDER_AUDIO = false;
 
 type SupportNotification = {
   roomId: string;
