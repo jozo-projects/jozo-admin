@@ -202,6 +202,41 @@ const SongsCollectionPage = () => {
   const hlsFallbackDelayRef = useRef<Record<string, number>>({});
   const hlsSseDisabledRef = useRef<Set<string>>(new Set());
 
+  // The worker is the durable source of truth for media jobs. Rehydrate
+  // active jobs after a page reload before opening their SSE streams.
+  useEffect(() => {
+    let cancelled = false;
+
+    void mediaWorkerApis
+      .listMedia()
+      .then((jobs) => {
+        if (cancelled) return;
+        const activeJobs = jobs.filter(
+          (job) =>
+            Boolean(job.videoId) &&
+            job.status !== "ready" &&
+            job.status !== "failed",
+        );
+        if (activeJobs.length === 0) return;
+
+        setHlsJobs((current) => {
+          const next = { ...current };
+          activeJobs.forEach((job) => {
+            next[job.videoId!] = job;
+          });
+          return next;
+        });
+      })
+      .catch(() => {
+        // The existing create-job error toast remains the actionable path;
+        // a reload must not make the whole Songs page fail if worker is down.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     const activeJobs = Object.entries(hlsJobs).filter(
       ([, job]) => job.status !== "ready" && job.status !== "failed",
@@ -296,7 +331,6 @@ const SongsCollectionPage = () => {
   const { toast } = useToast();
   const {
     startDownload,
-    downloadedVideoIds,
     isBusy: isMediaDownloadBusy,
     isStarting: isMediaDownloadStarting,
     getDownload: getMediaDownload,
@@ -585,7 +619,13 @@ const SongsCollectionPage = () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const getHlsStatusLabel = (status?: MediaJob["status"]) => {
+  const getHlsStatusLabel = (
+    status?: MediaJob["status"],
+    catalogHlsReady = false,
+  ) => {
+    if (status === "ready" && !catalogHlsReady) {
+      return "Worker xong, chưa đồng bộ HLS vào BE";
+    }
     switch (status) {
       case "pending":
         return "Chờ xử lý";
@@ -1037,6 +1077,11 @@ const SongsCollectionPage = () => {
                   </TableCell>
                   <TableCell className="max-w-[280px]">
                     <div className="font-medium line-clamp-2">{song.title}</div>
+                    {song.media_status === "ready" && song.hls_url ? (
+                      <span className="mt-1 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                        Đã tải HLS
+                      </span>
+                    ) : null}
                     {song.url && (
                       <a
                         href={song.url}
@@ -1119,7 +1164,10 @@ const SongsCollectionPage = () => {
                           return (
                             <div className="text-xs text-muted-foreground space-y-0.5">
                               <p className={hlsJob.status === "failed" ? "text-destructive" : ""}>
-                                {getHlsStatusLabel(hlsJob.status)}
+                                {getHlsStatusLabel(
+                                  hlsJob.status,
+                                  song.media_status === "ready" && Boolean(song.hls_url),
+                                )}
                               </p>
                               {hlsJob.status === "uploading" &&
                               hlsJob.totalObjectCount ? (
@@ -1149,9 +1197,9 @@ const SongsCollectionPage = () => {
                                   {hlsJob.currentObjectKey.split("/").slice(-2).join("/")}
                                 </p>
                               ) : null}
-                              {hlsJob.status === "ready" && hlsJob.hlsUrl ? (
+                              {hlsJob.status === "ready" && song.media_status === "ready" && song.hls_url ? (
                                 <a
-                                  href={hlsJob.hlsUrl}
+                                  href={song.hls_url}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="text-blue-600 hover:underline break-all line-clamp-2"
@@ -1168,23 +1216,14 @@ const SongsCollectionPage = () => {
                           );
                         }
                         if (!download) {
-                          return downloadedVideoIds.has(song.video_id) ? (
-                            <p className="text-xs text-green-600 font-medium">
-                              Đã tải local
-                            </p>
-                          ) : null;
+                          return null;
                         }
                         return (
                           <div className="text-xs text-muted-foreground space-y-0.5">
-                            {downloadedVideoIds.has(song.video_id) ? (
-                              <p className="text-green-600 font-medium">
-                                Đã tải local
-                              </p>
-                            ) : null}
                             <p>{getMediaStatusLabel(download.status)}</p>
-                            {download.status === "ready" && download.hlsUrl ? (
+                            {download.status === "ready" && song.media_status === "ready" && song.hls_url ? (
                               <a
-                                href={download.hlsUrl}
+                                href={song.hls_url}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-blue-600 hover:underline break-all line-clamp-2"

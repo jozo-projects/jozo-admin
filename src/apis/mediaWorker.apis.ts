@@ -56,6 +56,13 @@ const mediaWorkerApis = {
     const response = await mediaWorkerHttp.get<MediaEnvelope>(`/api/media/${mediaId}`);
     return response.data.data;
   },
+  listMedia: async (limit = 20_000) => {
+    const response = await mediaWorkerHttp.get<{
+      success: boolean;
+      data: MediaJob[];
+    }>("/api/media", { params: { limit } });
+    return response.data.data;
+  },
   getMediaEventsUrl: (mediaId: string) =>
     `${mediaWorkerBaseUrl}/api/media/${mediaId}/events`,
 };
