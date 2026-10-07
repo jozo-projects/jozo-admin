@@ -49,6 +49,9 @@ import roomApis from "@/apis/room.apis";
 import supportRequestApis from "@/apis/supportRequest.apis";
 import type { SupportRequest } from "@/@types/SupportRequest";
 
+/** Tạm mute giọng đọc hỗ trợ và đơn hàng. Bật lại bằng cách đổi thành false. */
+const MUTE_SUPPORT_AND_ORDER_AUDIO = false;
+
 type SupportNotification = {
   roomId: string;
   message: string;
@@ -294,6 +297,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
       rawLookupKey: string,
       fallbackSpeakText: string,
     ) => {
+      if (MUTE_SUPPORT_AND_ORDER_AUDIO) return;
       const key = rawLookupKey.trim();
       const url = urls[key];
       if (!url || typeof window === "undefined") {

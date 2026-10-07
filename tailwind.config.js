@@ -89,11 +89,26 @@ export default {
             opacity: "0.3",
           },
         },
+        "messenger-border-fade": {
+          "0%": {
+            borderColor: "rgb(239 68 68)",
+            boxShadow: "0 0 0 3px rgb(239 68 68 / 0.35)",
+          },
+          "55%": {
+            borderColor: "rgb(239 68 68)",
+            boxShadow: "0 0 0 2px rgb(239 68 68 / 0.2)",
+          },
+          "100%": {
+            borderColor: "hsl(var(--border))",
+            boxShadow: "0 0 0 0 rgb(239 68 68 / 0)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         blink: "blink 1s ease-in-out infinite",
+        "messenger-border-fade": "messenger-border-fade 2.8s ease-out forwards",
       },
     },
   },

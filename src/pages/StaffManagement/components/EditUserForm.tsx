@@ -172,7 +172,12 @@ const EditUserForm = () => {
         username: user.username || "",
         email: user.email || "",
         date_of_birth: new Date(user.date_of_birth),
-        role: user.role === Role.Admin ? Role.Admin : Role.Staff,
+        role:
+          user.role === Role.Admin
+            ? Role.Admin
+            : user.role === Role.Member || user.role === Role.User
+              ? Role.Member
+              : Role.Staff,
         phone_number: user.phone_number,
         probationStartDate: start.date,
         probationStartTime: start.time,
@@ -375,6 +380,7 @@ const EditUserForm = () => {
                 <SelectContent>
                   <SelectItem value={Role.Staff}>Staff</SelectItem>
                   <SelectItem value={Role.Admin}>Admin</SelectItem>
+                  <SelectItem value={Role.Member}>Member</SelectItem>
                 </SelectContent>
               </Select>
               {form.formState.errors.role && (

@@ -3,6 +3,7 @@ export { default as AccessDenied } from "./AccessDenied";
 export { DeleteModal } from "./DeleteModal";
 export { default as RoleBasedContent } from "./RoleBasedContent";
 export { NotificationBell } from "./NotificationBell";
+export { MessengerInbox } from "./MessengerInbox";
 export { ChangePasswordModal } from "./ChangePasswordModal";
 export { PageHeader } from "./PageHeader";
 export type { PageHeaderProps } from "./PageHeader";
