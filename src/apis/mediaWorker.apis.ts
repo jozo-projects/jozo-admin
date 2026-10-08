@@ -14,6 +14,10 @@ export interface MediaJob {
   title?: string;
   type: "video" | "audio";
   status: MediaStatus;
+  beSyncStatus?: "pending" | "syncing" | "synced" | "failed";
+  beSyncError?: string;
+  beSyncAttempts?: number;
+  beSyncUpdatedAt?: string;
   hlsPath?: string;
   hlsUrl?: string;
   r2Prefix?: string;
@@ -61,6 +65,10 @@ const mediaWorkerApis = {
       success: boolean;
       data: MediaJob[];
     }>("/api/media", { params: { limit } });
+    return response.data.data;
+  },
+  retryBeSync: async (mediaId: string) => {
+    const response = await mediaWorkerHttp.post<MediaEnvelope>(`/api/media/${encodeURIComponent(mediaId)}/sync-be`);
     return response.data.data;
   },
   getMediaEventsUrl: (mediaId: string) =>

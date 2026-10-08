@@ -60,9 +60,10 @@ import {
   Youtube,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PaginationContainer from "@/pages/RecruitmentPage/components/PaginationContainer";
 import AddSongsToCategoryDialog from "./SongsCollectionPage/components/AddSongsToCategoryDialog";
+import { getBeSyncView } from "./SongsCollectionPage/beSyncStatus";
 
 const PRUNE_STATUS_POLL_MS = 3000;
 
@@ -197,13 +198,14 @@ const SongsCollectionPage = () => {
     isPending: isCreatingSongHls,
   } = useCreateSongHls();
   const [hlsJobs, setHlsJobs] = useState<Record<string, MediaJob>>({});
+  const [syncingMediaId, setSyncingMediaId] = useState<string | null>(null);
   const hlsEventSourcesRef = useRef<Record<string, EventSource>>({});
   const hlsFallbackTimersRef = useRef<Record<string, number>>({});
   const hlsFallbackDelayRef = useRef<Record<string, number>>({});
   const hlsSseDisabledRef = useRef<Set<string>>(new Set());
 
-  // The worker is the durable source of truth for media jobs. Rehydrate
-  // active jobs after a page reload before opening their SSE streams.
+  // Restore the most recent job per video, including R2-ready records whose BE
+  // callback has not been confirmed. A ready worker job is not catalog readiness.
   useEffect(() => {
     let cancelled = false;
 
@@ -211,18 +213,10 @@ const SongsCollectionPage = () => {
       .listMedia()
       .then((jobs) => {
         if (cancelled) return;
-        const activeJobs = jobs.filter(
-          (job) =>
-            Boolean(job.videoId) &&
-            job.status !== "ready" &&
-            job.status !== "failed",
-        );
-        if (activeJobs.length === 0) return;
-
         setHlsJobs((current) => {
           const next = { ...current };
-          activeJobs.forEach((job) => {
-            next[job.videoId!] = job;
+          jobs.forEach((job) => {
+            if (job.videoId && !next[job.videoId]) next[job.videoId] = job;
           });
           return next;
         });
@@ -376,8 +370,41 @@ const SongsCollectionPage = () => {
   };
 
   // Extract songs and pagination from response
-  const songs = responseData?.result?.songs || [];
+  const songs = useMemo(() => responseData?.result?.songs || [], [responseData]);
   const pagination = responseData?.result?.pagination;
+
+  // SSE ends at R2-ready; poll the short BE callback phase separately.
+  // Only the BE catalog confirms the mapping used by the player.
+  useEffect(() => {
+    const pending = songs.filter((song) => {
+      const job = hlsJobs[song.video_id];
+      const recentlyUploaded = job?.updatedAt && Date.now() - new Date(job.updatedAt).getTime() < 60_000;
+      return job?.status === "ready" &&
+        (job.beSyncStatus === "syncing" || job.beSyncStatus === "synced" ||
+          (job.beSyncStatus === "pending" && Boolean(recentlyUploaded))) &&
+        getBeSyncView(job, song).label !== "Đã đồng bộ BE";
+    });
+    if (!pending.length) return;
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void Promise.all(pending.map(async (song) => {
+        const job = hlsJobs[song.video_id];
+        if (!job) return;
+        try {
+          const updated = await mediaWorkerApis.getMedia(job.id);
+          if (!cancelled) setHlsJobs((current) => current[song.video_id]?.id === job.id
+            ? { ...current, [song.video_id]: updated } : current);
+          if (!cancelled && updated.beSyncStatus === "synced") {
+            await queryClient.invalidateQueries({ queryKey: ["songs-collection"] });
+          }
+        } catch {
+          // The next poll retries; never infer BE success from a failed worker read.
+        }
+      }));
+    }, 5_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [hlsJobs, songs, queryClient]);
+
   const selectedSongs = songs.filter((song) => selectedSongIds.has(song.video_id));
 
   const toggleSongSelection = (videoId: string, checked: boolean) => {
@@ -619,13 +646,7 @@ const SongsCollectionPage = () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const getHlsStatusLabel = (
-    status?: MediaJob["status"],
-    catalogHlsReady = false,
-  ) => {
-    if (status === "ready" && !catalogHlsReady) {
-      return "Worker xong, chưa đồng bộ HLS vào BE";
-    }
+  const getHlsStatusLabel = (status?: MediaJob["status"]) => {
     switch (status) {
       case "pending":
         return "Chờ xử lý";
@@ -659,6 +680,30 @@ const SongsCollectionPage = () => {
       return;
     }
     openConfirmDialog({ type: "convertHls", videoId, title });
+  };
+
+  const retryBeSync = async (videoId: string, mediaId: string) => {
+    if (syncingMediaId) return;
+    setSyncingMediaId(mediaId);
+    try {
+      const updated = await mediaWorkerApis.retryBeSync(mediaId);
+      setHlsJobs((current) => current[videoId]?.id === mediaId
+        ? { ...current, [videoId]: updated } : current);
+      await queryClient.invalidateQueries({ queryKey: ["songs-collection"] });
+      toast({
+        title: updated.beSyncStatus === "synced" ? "BE đã nhận kết quả" : "Chưa đồng bộ được BE",
+        ...(updated.beSyncStatus !== "synced" ? { variant: "destructive" as const } : {}),
+      });
+    } catch {
+      try {
+        const latest = await mediaWorkerApis.getMedia(mediaId);
+        setHlsJobs((current) => current[videoId]?.id === mediaId
+          ? { ...current, [videoId]: latest } : current);
+      } catch { /* Worker may be offline; keep the previous state. */ }
+      toast({ title: "Chưa đồng bộ được BE", description: "Kiểm tra lỗi ở dòng video rồi thử lại.", variant: "destructive" });
+    } finally {
+      setSyncingMediaId(null);
+    }
   };
 
   const requestDeleteSong = (videoId: string, title: string) => {
@@ -1164,11 +1209,27 @@ const SongsCollectionPage = () => {
                           return (
                             <div className="text-xs text-muted-foreground space-y-0.5">
                               <p className={hlsJob.status === "failed" ? "text-destructive" : ""}>
-                                {getHlsStatusLabel(
-                                  hlsJob.status,
-                                  song.media_status === "ready" && Boolean(song.hls_url),
-                                )}
+                                {getHlsStatusLabel(hlsJob.status)}
                               </p>
+                              {hlsJob.status === "ready" ? (() => {
+                                const sync = getBeSyncView(hlsJob, song);
+                                return (
+                                  <div className="space-y-1">
+                                    <p className={sync.error ? "text-destructive" : ""}>{sync.label}</p>
+                                    {hlsJob.beSyncUpdatedAt ? (
+                                      <p>Cập nhật: {formatDate(hlsJob.beSyncUpdatedAt)}</p>
+                                    ) : null}
+                                    {sync.error ? <p className="text-destructive break-words">{sync.error}</p> : null}
+                                    {sync.canRetry ? (
+                                      <Button type="button" size="sm" variant="outline"
+                                        disabled={syncingMediaId !== null}
+                                        onClick={() => void retryBeSync(song.video_id, hlsJob.id)}>
+                                        {syncingMediaId === hlsJob.id ? "Đang gửi..." : "Thử đồng bộ lại BE"}
+                                      </Button>
+                                    ) : null}
+                                  </div>
+                                );
+                              })() : null}
                               {hlsJob.status === "uploading" &&
                               hlsJob.totalObjectCount ? (
                                 <>
