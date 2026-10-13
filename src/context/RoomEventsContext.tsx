@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { useSocket } from "@/hooks/useSocket";
+import { refreshScheduleBillAndOrder } from "@/utils/billCheckout";
 import { Gift as GiftType } from "@/@types/Gift";
 import { IBookingSocketData } from "@/@types/Booking";
 import { OrderData } from "@/pages/RoomSchedule/components/RoomTimelineTable";
@@ -174,6 +175,8 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
   children,
 }) => {
   const {
+    onConnect,
+    offConnect,
     joinRoom,
     leaveRoom,
     onNotification,
@@ -614,6 +617,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
       roomId: string;
       orderId?: string;
     }) => {
+      void refreshScheduleBillAndOrder(queryClient);
       clearOrderNotification(String(data.roomId), data.orderId);
     };
 
@@ -625,6 +629,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
       orderData: OrderData;
     }) => {
       if (data.type !== "new_order") return;
+      void refreshScheduleBillAndOrder(queryClient, data.orderData.customerInfo.roomScheduleId);
 
       console.log("data", data.orderData);
 
@@ -675,7 +680,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
       gift: GiftType;
     }) => {
       const roomId = data.roomId;
-
+      void refreshScheduleBillAndOrder(queryClient, data.scheduleId);
       setGiftNotifications((prev) => ({
         ...prev,
         [roomId]: {
@@ -958,6 +963,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
 
     const handleScheduleChanged = (data: IRoomScheduleChangedSocketPayload) => {
       if (!data.schedule?._id) return;
+      void refreshScheduleBillAndOrder(queryClient, data.schedule._id);
 
       const { action, schedule } = data;
       const dateKey =
@@ -971,6 +977,10 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
       );
     };
 
+    const handleBillReconnect = () => {
+      void refreshScheduleBillAndOrder(queryClient);
+    };
+    onConnect(handleBillReconnect);
     onNotification(handleNotification);
     onSupportRequestCreated(handleSupportRequestCreated);
     onSupportRequestAcknowledged(handleSupportRequestUpdated);
@@ -989,6 +999,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     onOrderSupportRequested(handleOrderSupportRequested);
 
     return () => {
+      offConnect(handleBillReconnect);
       offNotification(handleNotification);
       offSupportRequestCreated(handleSupportRequestCreated);
       offSupportRequestAcknowledged(handleSupportRequestUpdated);
@@ -1009,6 +1020,8 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
       leaveRoom("admin");
     };
   }, [
+    onConnect,
+    offConnect,
     joinRoom,
     leaveRoom,
     onNotification,

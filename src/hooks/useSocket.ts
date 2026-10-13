@@ -77,6 +77,14 @@ export const useSocket = () => {
     };
   }, [toast, user]);
 
+  const onConnect = (callback: () => void) => {
+    socketRef.current?.on("connect", callback);
+  };
+
+  const offConnect = (callback: () => void) => {
+    socketRef.current?.off("connect", callback);
+  };
+
   const joinRoom = (roomId: string) => {
     socketRef.current?.emit("join_room", roomId);
   };
@@ -462,6 +470,8 @@ export const useSocket = () => {
 
   return {
     socket: socketRef.current,
+    onConnect,
+    offConnect,
     joinRoom,
     leaveRoom,
     onNotification,

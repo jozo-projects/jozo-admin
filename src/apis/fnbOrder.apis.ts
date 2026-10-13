@@ -175,9 +175,16 @@ const fnbOrderApis = {
   },
   // Mark order as served
   markOrderAsServed: (roomId: string, orderId: string) => {
-    return http.post<HTTPResponse<{ success: boolean; message: string }>>(
-      `/rooms/${roomId}/orders/${orderId}/serve`
-    );
+    return http.post<
+      HTTPResponse<{ success?: boolean; message?: string; orderId?: string }> & {
+        success?: boolean;
+        orderId?: string;
+        servedBy?: string;
+        servedAt?: string;
+        itemCount?: number;
+        roomId?: string;
+      }
+    >(`/rooms/${roomId}/orders/${orderId}/serve`);
   },
   // Thống kê FNB: period, date (optional), category (optional drink|snack), search (optional)
   getFnbOrderStats: (params: IFnbOrderStatsParams) => {

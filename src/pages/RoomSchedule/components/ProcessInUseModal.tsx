@@ -1,9 +1,5 @@
 import { OrderDetail } from "@/@types/FnbOrder";
-import {
-  getOrderItemQuantity,
-  mergeBillItemsByItemId,
-  mergeOrderDetailItems,
-} from "@/utils/mergeOrderDetailItems";
+import { getOrderItemQuantity } from "@/utils/mergeOrderDetailItems";
 import { BillGift } from "@/@types/Gift";
 import { IRoom, IRoomSchedule } from "@/@types/Room";
 import billAPis from "@/apis/bill.apis";
@@ -25,7 +21,8 @@ import { toast } from "@/hooks/use-toast";
 import dayjs, { parseUTCToLocal } from "@/lib/dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosResponse } from "axios";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { canCheckoutBill, refreshScheduleBillAndOrder } from "@/utils/billCheckout";
 import { useScheduleMemberPhone } from "../hooks/useScheduleMemberPhone";
 import {
   getScheduleCustomerContact,
@@ -158,6 +155,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   onExtendSession,
 }) => {
   const [isMenuItemsModalOpen, setIsMenuItemsModalOpen] = useState(false);
+  const checkoutInProgress = useRef(false);
+  const [isPreparingCheckout, setIsPreparingCheckout] = useState(false);
   const [isConfirmEndOpen, setIsConfirmEndOpen] = useState(false);
   const [isMoveQueueConfirmOpen, setIsMoveQueueConfirmOpen] = useState(false);
   const [selectedPromotion, setSelectedPromotion] = useState<string>("");
@@ -242,6 +241,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     customEndDate,
     billPhone,
   ] as const;
+  const latestBillQueryKey = useRef(billQueryKey);
+  latestBillQueryKey.current = billQueryKey;
 
   const openMenuItemsModal = () => setIsMenuItemsModalOpen(true);
   const closeMenuItemsModal = () => setIsMenuItemsModalOpen(false);
@@ -536,6 +537,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   // Mutation để cập nhật số lượng item (dùng add/remove)
   const { mutate: updateItemQuantity, isPending: isUpdatingQuantity } =
     useMutation({
+      mutationKey: ["billQuantity", schedule._id],
       mutationFn: async ({
         itemId,
         quantity,
@@ -583,90 +585,15 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
           queryKey: ["fnbOrderDetail", schedule._id],
         });
 
-        // Snapshot the previous values
-        const previousBillData = queryClient.getQueryData(billQueryKey);
-
-        const previousOrderData = queryClient.getQueryData([
-          "fnbOrderDetail",
-          schedule._id,
-        ]);
-
         // Get current quantity from orderDetailData
         const currentQuantity = getOrderItemQuantity(orderDetailData, itemId);
 
         const quantityDiff = quantity - currentQuantity;
 
-        // Optimistically update bill data
-        queryClient.setQueryData(
-          billQueryKey,
-          (
-            old:
-              | {
-                  data?: {
-                    result?: {
-                      items?: BillItem[];
-                      roomTotal?: number;
-                      fnbTotal?: number;
-                      totalAmount?: number;
-                    };
-                  };
-                }
-              | undefined,
-          ) => {
-            if (!old?.data?.result?.items) return old;
+        // Financial lines and totals remain canonical until the server refresh.
+        // Never change quantities while retaining an old gross/discount snapshot.
 
-            const updatedItems = mergeBillItemsByItemId(
-              old.data.result.items,
-            ).map((item: BillItem) =>
-              item.itemId === itemId ? { ...item, quantity } : item,
-            );
-
-            // Recalculate totals
-            const newFnBTotal = updatedItems.reduce(
-              (sum: number, item: BillItem) => sum + item.price * item.quantity,
-              0,
-            );
-
-            const newTotalAmount =
-              (old.data.result.roomTotal || 0) + newFnBTotal;
-
-            return {
-              ...old,
-              data: {
-                ...old.data,
-                result: {
-                  ...old.data.result,
-                  items: updatedItems,
-                  fnbTotal: newFnBTotal,
-                  totalAmount: newTotalAmount,
-                },
-              },
-            };
-          },
-        );
-
-        // Optimistically update orderDetailData
-        queryClient.setQueryData(
-          ["fnbOrderDetail", schedule._id],
-          (old: OrderDetail | undefined) => {
-            if (!old) return old;
-
-            const newDrinks = mergeOrderDetailItems(old.items.drinks).map(
-              (item) => (item.itemId === itemId ? { ...item, quantity } : item),
-            );
-            const newSnacks = mergeOrderDetailItems(old.items.snacks).map(
-              (item) => (item.itemId === itemId ? { ...item, quantity } : item),
-            );
-
-            return {
-              ...old,
-              items: {
-                drinks: newDrinks,
-                snacks: newSnacks,
-              },
-            };
-          },
-        );
+        // Keep order quantities canonical too: mutationFn reads the old quantity.
 
         // Optimistically update menuItems inventory
         queryClient.setQueriesData(
@@ -701,19 +628,9 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
           },
         );
 
-        return { previousBillData, previousOrderData, currentQuantity };
+        return { currentQuantity };
       },
       onError: (_err, _variables, context) => {
-        // If the mutation fails, use the context returned from onMutate to roll back
-        if (context?.previousBillData) {
-          queryClient.setQueryData(billQueryKey, context.previousBillData);
-        }
-        if (context?.previousOrderData) {
-          queryClient.setQueryData(
-            ["fnbOrderDetail", schedule._id],
-            context.previousOrderData,
-          );
-        }
         // Rollback menuItems inventory
         if (context?.currentQuantity !== undefined) {
           const quantityDiff = _variables.quantity - context.currentQuantity;
@@ -755,16 +672,9 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
           variant: "destructive",
         });
       },
-      onSuccess: () => {
-        // Invalidate and refetch
-        queryClient.invalidateQueries({
-          queryKey: billQueryKey,
-        });
-        queryClient.invalidateQueries({
-          queryKey: ["fnbOrderDetail", schedule._id],
-        });
-        // Refetch menuItems để đảm bảo inventory được cập nhật từ server
-        queryClient.invalidateQueries({ queryKey: ["menuItems"] });
+      onSettled: async () => {
+        await refreshScheduleBillAndOrder(queryClient, schedule._id);
+        await queryClient.invalidateQueries({ queryKey: ["menuItems"] });
       },
     });
 
@@ -777,7 +687,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   });
 
   // Bill data query - gọi với thời gian thực tế ngay từ đầu
-  const { data: billData } = useQuery({
+  const { data: billData, isFetching: isFetchingBill, isError: isBillError } = useQuery({
     queryKey: billQueryKey,
     queryFn: () => {
       return billAPis.getBillByScheduleId(
@@ -857,7 +767,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       };
     });
 
-    return mergeBillItemsByItemId(mappedItems);
+    return mappedItems;
   }, [billData?.data.result, orderDetailData, menuItems]);
 
   // Sử dụng trực tiếp dữ liệu từ API vì backend đã tính toán promotion
@@ -933,48 +843,72 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       : null;
 
   const handleCompleteSession = async () => {
-    const actualEndTime = billDateTimePayload.actualEndTime;
-    const actualStartTime = billDateTimePayload.actualStartTime;
-
-    const { customerEmail } = getScheduleCustomerContact({
-      memberInfo: member.memberInfo,
-      scheduleCustomerName: schedule.customerName,
-      scheduleCustomerEmail: schedule.customerEmail,
-    });
-    if (!isValidMemberEmail(customerEmail)) {
-      toast({
-        title: "Email không hợp lệ",
-        description:
-          "Vui lòng cập nhật lại email thành viên trước khi kết thúc",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Auto-save SĐT nếu đang dirty (đã nhập nhưng chưa bấm Lưu)
-    const ensuredPhone = await member.ensurePhoneSavedForSubmit();
-    if (ensuredPhone === null) return;
-
-    // Dùng đúng SĐT đã ensure (kể cả "" khi đã clear) — không fallback schedule cũ
-    const customerPhone = ensuredPhone;
-    setIsConfirmEndOpen(false);
-
-    // Tạo bill object để save
-    const billToSave = {
-      scheduleId: schedule._id,
-      roomId: schedule.roomId,
-      items: items || [],
-      totalAmount: totalAmount || 0,
-      customerPhone,
-      phone: customerPhone || undefined,
-      paymentMethod: paymentMethod,
-      startTime: actualStartTime,
-      endTime: actualEndTime,
-      note: noteValue || note,
-      promotionId: selectedPromotion || undefined,
-    };
-
+    if (isCheckoutBlocked || checkoutInProgress.current) return;
+    if (queryClient.isMutating({ mutationKey: ["billQuantity", schedule._id] }) > 0) return;
+    checkoutInProgress.current = true;
+    setIsPreparingCheckout(true);
     try {
+      const actualEndTime = billDateTimePayload.actualEndTime;
+      const actualStartTime = billDateTimePayload.actualStartTime;
+
+      const { customerEmail: emailToValidate } = getScheduleCustomerContact({
+        memberInfo: member.memberInfo,
+        scheduleCustomerName: schedule.customerName,
+        scheduleCustomerEmail: schedule.customerEmail,
+      });
+      if (!isValidMemberEmail(emailToValidate)) {
+        toast({
+          title: "Email không hợp lệ",
+          description:
+            "Vui lòng cập nhật lại email thành viên trước khi kết thúc",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Auto-save SĐT nếu đang dirty (đã nhập nhưng chưa bấm Lưu)
+      const ensuredPhone = await member.ensurePhoneSavedForSubmit();
+      if (ensuredPhone === null) return;
+
+      // Dùng đúng SĐT đã ensure (kể cả "" khi đã clear) — không fallback schedule cũ
+      const customerPhone = ensuredPhone;
+      const checkoutKey = [...billQueryKey.slice(0, -1), customerPhone];
+      // Saving a phone may change membership pricing: fetch that exact variant.
+      const canonicalResponse = await queryClient.fetchQuery({
+        queryKey: checkoutKey,
+        queryFn: () => billAPis.getBillByScheduleId(
+          schedule._id, selectedPromotion || undefined, actualEndTime,
+          actualStartTime, undefined, customerPhone || undefined,
+        ),
+        staleTime: 0,
+      });
+      const canonicalBill = canonicalResponse.data.result as BillData | undefined;
+      const checkoutState = queryClient.getQueryState(checkoutKey);
+      if (!canCheckoutBill({
+        hasBill: !!canonicalBill?.items && Number.isFinite(canonicalBill?.totalAmount),
+        isError: checkoutState?.status === "error",
+        isFetching: checkoutState?.fetchStatus !== "idle",
+        isInvalidated: checkoutState?.isInvalidated !== false,
+        isMutating: queryClient.isMutating({ mutationKey: ["billQuantity", schedule._id] }) > 0,
+      }) || !canonicalBill ||
+        JSON.stringify(latestBillQueryKey.current.slice(0, -1)) !== JSON.stringify(checkoutKey.slice(0, -1))) return;
+      setIsConfirmEndOpen(false);
+
+      // Submit canonical financial lines unchanged (including gross snapshots).
+      const billToSave = {
+        scheduleId: schedule._id,
+        roomId: schedule.roomId,
+        items: canonicalBill.items || [],
+        totalAmount: canonicalBill.totalAmount || 0,
+        customerPhone,
+        phone: customerPhone || undefined,
+        paymentMethod: paymentMethod,
+        startTime: actualStartTime,
+        endTime: actualEndTime,
+        note: noteValue || note,
+        promotionId: selectedPromotion || undefined,
+      };
+
       // Bước 1: lưu bill trước.
       await saveBillAsync(billToSave);
 
@@ -1006,6 +940,10 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     } catch (error) {
       // onError của mutation đã hiển thị toast tương ứng.
       console.error("Không thể hoàn tất phiên sau khi lưu bill:", error);
+      toast({ title: "Không thể hoàn tất phiên", description: "Vui lòng tải lại hóa đơn và thử lại.", variant: "destructive" });
+    } finally {
+      checkoutInProgress.current = false;
+      setIsPreparingCheckout(false);
     }
   };
 
@@ -1182,6 +1120,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     change: number,
     category: string,
   ) => {
+    if (checkoutInProgress.current || isUpdatingQuantity || isFetchingBill ||
+      queryClient.isMutating({ mutationKey: ["billQuantity", schedule._id] }) > 0) return;
     const newQuantity = Math.max(0, currentQuantity + change);
     if (newQuantity === currentQuantity) return;
 
@@ -1288,6 +1228,15 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       });
     },
   });
+
+  const isCheckoutBlocked = isPreparingCheckout || isPending || isSavingBill ||
+    member.isSavingPhone || member.isMutatingGift || !canCheckoutBill({
+      hasBill: !!billData?.data.result && !!billResult.items && Number.isFinite(totalAmount),
+      isError: isBillError,
+      isFetching: isFetchingBill,
+      isInvalidated: queryClient.getQueryState(billQueryKey)?.isInvalidated !== false,
+      isMutating: isUpdatingQuantity,
+    });
 
   return (
     <>
@@ -1647,7 +1596,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                                         }
                                         disabled={
                                           item.quantity <= 0 ||
-                                          isUpdatingQuantity
+                                          isUpdatingQuantity || isFetchingBill || isPreparingCheckout
                                         }
                                         className="h-7 w-7 shrink-0 p-0"
                                       >
@@ -1662,7 +1611,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                                         onClick={() =>
                                           adjustItemQuantity(item, 1)
                                         }
-                                        disabled={isUpdatingQuantity}
+                                        disabled={isUpdatingQuantity || isFetchingBill || isPreparingCheckout}
                                         className="h-7 w-7 shrink-0 p-0"
                                       >
                                         <Plus className="h-3 w-3" />
@@ -2242,7 +2191,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                 variant="destructive"
                 size="sm"
                 onClick={() => setIsConfirmEndOpen(true)}
-                disabled={isPending || isSavingBill || member.isSavingPhone}
+                disabled={isCheckoutBlocked}
                 className="h-9 w-full sm:w-auto"
               >
                 Kết thúc
@@ -2269,7 +2218,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                 e.preventDefault();
                 void handleCompleteSession();
               }}
-              disabled={isSavingBill || isPending || member.isSavingPhone}
+              disabled={isCheckoutBlocked}
             >
               {member.isSavingPhone
                 ? "Đang lưu SĐT..."

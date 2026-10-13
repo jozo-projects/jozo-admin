@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { refreshScheduleBillAndOrder, requireServedSuccess } from "@/utils/billCheckout";
 import fnbOrderApis from "@/apis/fnbOrder.apis";
 import {
   UtensilsCrossed,
@@ -36,11 +37,22 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
   onOrderServed,
 }) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { mutate: markAsServed, isPending } = useMutation({
-    mutationFn: () =>
-      fnbOrderApis.markOrderAsServed(roomId, orderData?.orderId || ""),
-    onSuccess: () => {
+    mutationFn: async (order: OrderData) => {
+      const response = await fnbOrderApis.markOrderAsServed(roomId, order.orderId);
+      const body = response.data as {
+        success?: boolean;
+        message?: string;
+        orderId?: string;
+        result?: { success?: boolean; message?: string; orderId?: string };
+      };
+      requireServedSuccess(body.result ?? body);
+      return response;
+    },
+    onSuccess: async (_response, order) => {
+      await refreshScheduleBillAndOrder(queryClient, order.customerInfo.roomScheduleId);
       toast({
         title: "Thành công",
         description: "Đã xác nhận phục vụ đơn hàng",
@@ -60,7 +72,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
   const handleMarkAsServed = () => {
     if (orderData) {
-      markAsServed();
+      markAsServed(orderData);
     }
   };
 
