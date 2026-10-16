@@ -4,6 +4,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Award,
@@ -25,7 +26,18 @@ import {
   useUpdateMemberStreak,
   usePendingGifts,
   useMemberStreakInfo,
+  useMembershipConfig,
 } from "@/hooks/use-membership";
+import { useQuery } from "@tanstack/react-query";
+import billAPis from "@/apis/bill.apis";
+import BillMemberSummary from "@/components/bill/BillMemberSummary";
+import {
+  claimedRewardKey,
+  formatRunningStreak,
+  historyClaimedRewards,
+  rewardCycle,
+  streakProgressRatio,
+} from "@/pages/RoomSchedule/utils/streakCycle";
 import {
   Popover,
   PopoverContent,
@@ -39,6 +51,12 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const toDateTimeLocalValue = (iso?: string | null) => {
   if (!iso) return "";
@@ -100,6 +118,7 @@ const EditUserForm = () => {
   });
   const id = userParams.id;
   const [activeSection, setActiveSection] = useState("overview");
+  const [openBillId, setOpenBillId] = useState<string | null>(null);
   const { updateUser, useUserById, useUserMembership, isUpdatingUser } =
     useUsers();
   const { mutate: updateMemberPoints, isPending: isUpdatingMemberPoints } =
@@ -122,6 +141,15 @@ const EditUserForm = () => {
   // Lấy thông tin streak và quà đã claim
   const { data: streakInfoData, isLoading: isLoadingStreakInfo } =
     useMemberStreakInfo(id);
+  const { data: membershipConfig } = useMembershipConfig();
+  const { data: openBill, isLoading: isLoadingOpenBill } = useQuery({
+    queryKey: ["bill-details", openBillId],
+    queryFn: () => billAPis.getBillById(openBillId!),
+    enabled: Boolean(openBillId),
+  });
+
+  const claimedHistory = historyClaimedRewards(streakInfoData?.claimedRewards);
+  const runningStreak = streakInfoData?.streak;
 
   const formatNumber = (value?: number) =>
     typeof value === "number" ? value.toLocaleString("vi-VN") : "—";
@@ -374,7 +402,12 @@ const EditUserForm = () => {
               <CardContent className="pt-5">
                 <div className="text-sm text-muted-foreground">Streak hiện tại</div>
                 <div className="mt-1 text-2xl font-semibold">
-                  {streakInfoData?.streak?.count ?? membershipStreak ?? "—"}
+                  {streakInfoData?.streak
+                    ? formatRunningStreak(
+                        streakInfoData.streak.count,
+                        streakInfoData.streak.cycle,
+                      )
+                    : (membershipStreak ?? "—")}
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {streakInfoData?.streak?.isActive
@@ -542,224 +575,144 @@ const EditUserForm = () => {
           )}
         </CardContent>
       </Card>
-      {/* Card hiển thị quà của user */}
       <Card className="max-w-2xl mx-auto">
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Gift className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold">Quà tặng của User</h3>
-            </div>
-            {isLoadingGifts || isLoadingStreakInfo ? (
-              <div className="text-muted-foreground">Đang tải...</div>
-            ) : (
-              <div className="space-y-6">
-                {/* Quà đã claim */}
-                {streakInfoData?.claimedRewards &&
-                  streakInfoData.claimedRewards.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="text-base font-medium text-blue-600">
-                        Quà đã nhận ({streakInfoData.claimedRewards.length})
-                      </div>
-                      <div className="grid gap-3">
-                        {streakInfoData.claimedRewards.map((reward, index) => (
-                          <div
-                            key={`${reward.streakCount}-${index}`}
-                            className="flex items-start gap-3 p-3 border rounded-lg bg-blue-50"
-                          >
-                            <div className="flex-1">
-                              <div className="font-medium">
-                                {reward.items && reward.items.length > 0 ? (
-                                  <span>
-                                    🎁{" "}
-                                    {reward.items
-                                      .map(
-                                        (item) =>
-                                          `${item.name} ×${item.quantity}`,
-                                      )
-                                      .join(", ")}
-                                  </span>
-                                ) : reward.gift?.giftName ? (
-                                  <span>🎁 {reward.gift.giftName}</span>
-                                ) : (
-                                  <span>
-                                    💰{" "}
-                                    {reward.bonusPoints ?? reward.points ?? 0}{" "}
-                                    điểm
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                Streak: {reward.streakCount}
-                                {reward.itemCount
-                                  ? ` • ${reward.itemCount} món`
-                                  : ""}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Nhận lúc:{" "}
-                                {new Date(reward.claimedAt).toLocaleString(
-                                  "vi-VN",
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                {/* Quà sẵn sàng phát */}
-                {pendingGiftsData?.availableGifts &&
-                  pendingGiftsData.availableGifts.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="text-base font-medium text-orange-600">
-                        Quà sẵn sàng phát (
-                        {pendingGiftsData.availableGifts.length})
-                      </div>
-                      <div className="grid gap-3">
-                        {pendingGiftsData.availableGifts.map((gift) => (
-                          <div
-                            key={gift.streakCount}
-                            className="flex items-center gap-3 p-3 border rounded-lg bg-orange-50"
-                          >
-                            <div className="flex-1">
-                              <div className="font-medium">
-                                Mốc streak {gift.streakCount}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                Chọn {gift.itemCount} món
-                                {gift.bonusPoints
-                                  ? ` • +${gift.bonusPoints} điểm`
-                                  : ""}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                {/* Tiến độ mốc streak */}
-                {pendingGiftsData?.streakRewards &&
-                  pendingGiftsData.streakRewards.length > 0 && (
-                    <div className="space-y-3">
-                      <div className="text-base font-medium text-green-600">
-                        Tiến độ streak (
-                        {pendingGiftsData.streakRewards.length})
-                      </div>
-                      <div className="grid gap-3">
-                        {pendingGiftsData.streakRewards.map((reward) => (
-                          <div
-                            key={reward.streakCount}
-                            className="flex items-center gap-3 p-3 border rounded-lg bg-green-50"
-                          >
-                            <div className="flex-1">
-                              <div className="font-medium">
-                                Streak {reward.streakCount}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {reward.itemCount
-                                  ? `${reward.itemCount} món`
-                                  : "Không có món"}
-                                {reward.bonusPoints
-                                  ? ` • +${reward.bonusPoints} điểm`
-                                  : ""}
-                                {reward.claimed
-                                  ? " • Đã nhận"
-                                  : reward.isReached
-                                    ? " • Đã đạt"
-                                    : ""}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                {/* Thông tin streak */}
-                {streakInfoData?.streak && (
-                  <div className="pt-4 border-t">
-                    <div className="text-sm font-medium mb-2">
-                      Thông tin Streak
-                    </div>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <div>
-                        Streak hiện tại:{" "}
-                        <span className="font-medium text-foreground">
-                          {streakInfoData.streak.count}
-                        </span>
-                      </div>
-                      <div>
-                        Trạng thái:{" "}
-                        <span
-                          className={`font-medium ${
-                            streakInfoData.streak.isActive
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {streakInfoData.streak.isActive
-                            ? "Đang hoạt động"
-                            : "Không hoạt động"}
-                        </span>
-                      </div>
-                      <div>
-                        Lần ghé thăm cuối:{" "}
-                        <span className="font-medium text-foreground">
-                          {new Date(
-                            streakInfoData.streak.lastVisitAt,
-                          ).toLocaleString("vi-VN")}
-                        </span>
-                      </div>
-                      <div>
-                        Hết hạn lúc:{" "}
-                        <span className="font-medium text-foreground">
-                          {new Date(
-                            streakInfoData.streak.expiredAt,
-                          ).toLocaleString("vi-VN")}
-                        </span>
-                      </div>
-                    </div>
+        <CardContent className="space-y-5 pt-6">
+          <h3 className="font-semibold">Quà tặng</h3>
+          {isLoadingGifts || isLoadingStreakInfo ? (
+            <p className="text-sm text-muted-foreground">Đang tải...</p>
+          ) : (
+            <>
+              {runningStreak && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium">
+                      {formatRunningStreak(
+                        runningStreak.count,
+                        runningStreak.cycle,
+                      )}
+                    </p>
+                    <Badge variant={runningStreak.isActive ? "success" : "secondary"}>
+                      {runningStreak.isActive ? "Đang chạy" : "Đã dừng"}
+                    </Badge>
                   </div>
-                )}
-
-                {/* Thông tin user từ pending gifts response */}
-                {pendingGiftsData?.user && (
-                  <div className="pt-4 border-t">
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <div>
-                        Hạng:{" "}
-                        <span className="font-medium text-foreground">
-                          {pendingGiftsData.user.tier}
-                        </span>
-                      </div>
-                      <div>
-                        Điểm hiện có:{" "}
-                        <span className="font-medium text-foreground">
-                          {pendingGiftsData.user.availablePoint.toLocaleString(
-                            "vi-VN",
-                          )}
-                        </span>
-                      </div>
-                    </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary"
+                      style={{
+                        width: `${
+                          streakProgressRatio(
+                            runningStreak.count,
+                            membershipConfig?.streak?.rewards,
+                          ) * 100
+                        }%`,
+                      }}
+                    />
                   </div>
-                )}
+                  <div className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+                    <p>
+                      Ghé gần nhất{" "}
+                      {new Date(runningStreak.lastVisitAt).toLocaleString("vi-VN")}
+                    </p>
+                    <p>
+                      Hết hạn{" "}
+                      {new Date(runningStreak.expiredAt).toLocaleString("vi-VN")}
+                    </p>
+                  </div>
+                </div>
+              )}
 
-                {/* Không có quà */}
-                {(!streakInfoData?.claimedRewards ||
-                  streakInfoData.claimedRewards.length === 0) &&
-                  (!pendingGiftsData?.availableGifts ||
-                    pendingGiftsData.availableGifts.length === 0) &&
-                  (!pendingGiftsData?.streakRewards ||
-                    pendingGiftsData.streakRewards.length === 0) && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      User hiện không có quà nào
-                    </div>
-                  )}
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Chưa phát</p>
+                {pendingGiftsData?.availableGifts?.length ? (
+                  <div className="divide-y rounded-md border">
+                    {pendingGiftsData.availableGifts.map((gift) => (
+                      <div
+                        key={gift.streakCount}
+                        className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                      >
+                        <span>Lần {gift.streakCount}</span>
+                        <span className="text-muted-foreground">
+                          {gift.itemCount} món
+                          {gift.bonusPoints ? ` · +${gift.bonusPoints} điểm` : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Không có quà chờ phát</p>
+                )}
               </div>
-            )}
-          </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Đã nhận</p>
+                {claimedHistory.length > 0 ? (
+                  <div className="divide-y rounded-md border">
+                    {claimedHistory.map((reward) => {
+                      const billLabel = reward.invoiceCode || reward.billId;
+                      return (
+                        <div
+                          key={claimedRewardKey(reward)}
+                          className="flex items-start justify-between gap-3 px-3 py-2 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <p>
+                              Vòng {rewardCycle(reward)}, lần {reward.streakCount}
+                            </p>
+                            <p className="text-muted-foreground">
+                              {reward.items
+                                ?.map((item) => `${item.name} ×${item.quantity}`)
+                                .join(", ")}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            {billLabel && reward.billId ? (
+                              <button
+                                type="button"
+                                className="font-medium text-primary underline"
+                                onClick={() => setOpenBillId(reward.billId!)}
+                              >
+                                {billLabel}
+                              </button>
+                            ) : null}
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(reward.claimedAt).toLocaleString("vi-VN")}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Chưa nhận quà</p>
+                )}
+              </div>
+
+              {pendingGiftsData?.streakRewards?.length ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Các mốc</p>
+                  <div className="divide-y rounded-md border">
+                    {pendingGiftsData.streakRewards.map((reward) => (
+                      <div
+                        key={reward.streakCount}
+                        className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                      >
+                        <span>Lần {reward.streakCount}</span>
+                        <span className="text-muted-foreground">
+                          {reward.itemCount ? `${reward.itemCount} món` : "Không có món"}
+                          {reward.bonusPoints ? ` · +${reward.bonusPoints} điểm` : ""}
+                          {reward.claimed
+                            ? " · Đã nhận"
+                            : reward.isReached
+                              ? " · Đã đạt"
+                              : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
         </CardContent>
       </Card>
           </TabsContent>
@@ -957,6 +910,46 @@ const EditUserForm = () => {
             </Card>
           </TabsContent>
         </Tabs>
+        <Dialog
+          open={Boolean(openBillId)}
+          onOpenChange={(open) => {
+            if (!open) setOpenBillId(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {openBill?.data?.result?.invoiceCode || openBillId}
+              </DialogTitle>
+            </DialogHeader>
+            {isLoadingOpenBill ? (
+              <p className="text-sm text-muted-foreground">Đang tải hóa đơn...</p>
+            ) : (
+              <div className="overflow-hidden rounded-md border text-sm">
+                <div className="grid grid-cols-2 gap-3 p-3">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Phòng</p>
+                    <p className="font-medium">
+                      {openBill?.data?.result?.roomName || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Tổng tiền</p>
+                    <p className="font-medium">
+                      {(openBill?.data?.result?.totalAmount ?? 0).toLocaleString(
+                        "vi-VN",
+                      )}{" "}
+                      đ
+                    </p>
+                  </div>
+                </div>
+                <BillMemberSummary
+                  membership={openBill?.data?.result?.membership}
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
   );
 };

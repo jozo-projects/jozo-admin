@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { SongPruneJob } from "@/apis/roomMusic.apis";
 import mediaWorkerApis, { type MediaJob } from "@/apis/mediaWorker.apis";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -66,6 +67,13 @@ import AddSongsToCategoryDialog from "./SongsCollectionPage/components/AddSongsT
 import { getBeSyncView } from "./SongsCollectionPage/beSyncStatus";
 
 const PRUNE_STATUS_POLL_MS = 3000;
+
+const ACTIVE_HLS_STATUSES = new Set<MediaJob["status"]>([
+  "pending",
+  "downloading",
+  "encoding",
+  "uploading",
+]);
 
 const isSongPruneRunning = (job: SongPruneJob | null) =>
   job?.status === "running";
@@ -324,6 +332,7 @@ const SongsCollectionPage = () => {
   } = useCancelSongPrune();
   const { toast } = useToast();
   const {
+    downloads: mediaDownloads,
     startDownload,
     isBusy: isMediaDownloadBusy,
     isStarting: isMediaDownloadStarting,
@@ -371,6 +380,31 @@ const SongsCollectionPage = () => {
 
   // Extract songs and pagination from response
   const songs = useMemo(() => responseData?.result?.songs || [], [responseData]);
+  const activeHlsJobs = useMemo(
+    () =>
+      Object.entries(hlsJobs)
+        .filter(([, job]) => ACTIVE_HLS_STATUSES.has(job.status))
+        .map(([videoId, job]) => ({ videoId, job }))
+        .sort((a, b) =>
+          (b.job.updatedAt ?? b.job.createdAt ?? "").localeCompare(
+            a.job.updatedAt ?? a.job.createdAt ?? "",
+          ),
+        ),
+    [hlsJobs],
+  );
+  const activeMediaDownloads = useMemo(
+    () =>
+      Object.entries(mediaDownloads).filter(
+        ([videoId, entry]) =>
+          (entry.status === "pending" ||
+            entry.status === "downloading" ||
+            entry.status === "encoding") &&
+          !hlsJobs[videoId],
+      ),
+    [mediaDownloads, hlsJobs],
+  );
+  const activeDownloadCount =
+    activeHlsJobs.length + activeMediaDownloads.length;
   const pagination = responseData?.result?.pagination;
 
   // SSE ends at R2-ready; poll the short BE callback phase separately.
@@ -1044,6 +1078,84 @@ const SongsCollectionPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Tabs defaultValue="library" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="library">Danh sách bài hát</TabsTrigger>
+          <TabsTrigger value="downloading">
+            Đang tải{activeDownloadCount ? ` (${activeDownloadCount})` : ""}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="downloading">
+          <Card>
+            <CardHeader>
+              <CardTitle>Bài hát đang tải</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activeDownloadCount === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  Không có bài hát nào đang tải
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tiêu đề</TableHead>
+                      <TableHead>Video ID</TableHead>
+                      <TableHead>Trạng thái</TableHead>
+                      <TableHead>Tiến độ</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeHlsJobs.map(({ videoId, job }) => (
+                      <TableRow key={job.id}>
+                        <TableCell className="max-w-[280px]">
+                          <div className="font-medium line-clamp-2">
+                            {job.title || videoId}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{videoId}</TableCell>
+                        <TableCell>{getHlsStatusLabel(job.status)}</TableCell>
+                        <TableCell className="min-w-[180px] text-xs text-muted-foreground">
+                          {job.status === "uploading" && job.totalObjectCount ? (
+                            <div className="space-y-1">
+                              <div className="flex justify-between gap-2">
+                                <span>
+                                  {job.uploadedObjectCount ?? 0}/{job.totalObjectCount} objects
+                                </span>
+                                <span>{job.uploadProgress ?? 0}%</span>
+                              </div>
+                              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full bg-blue-600"
+                                  style={{
+                                    width: `${Math.min(100, Math.max(0, job.uploadProgress ?? 0))}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {activeMediaDownloads.map(([videoId, entry]) => (
+                      <TableRow key={`media-${videoId}`}>
+                        <TableCell>{videoId}</TableCell>
+                        <TableCell className="font-mono text-sm">{videoId}</TableCell>
+                        <TableCell>{getMediaStatusLabel(entry.status)}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">—</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="library" className="space-y-4">
       <Card>
         <CardContent className="pt-6">
           <div className="relative">
@@ -1328,6 +1440,8 @@ const SongsCollectionPage = () => {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
       <AddSongsToCategoryDialog
         open={categoryDialogOpen}
         songs={selectedSongs}

@@ -15,6 +15,7 @@ import {
   getClaimableStreakRows,
   resolveStreakRewardsFromConfig,
 } from "../utils/streakConfigRewards";
+import { formatRunningStreak } from "../utils/streakCycle";
 
 export interface MemberLookupUser {
   full_name?: string | null;
@@ -25,6 +26,7 @@ export interface MemberLookupUser {
   tier?: string;
   availablePoint?: number;
   streakCount?: number;
+  streak?: { count: number; cycle?: number };
 }
 
 interface MemberPhoneLookupCardProps {
@@ -51,7 +53,9 @@ const MemberPhoneLookupCard: React.FC<MemberPhoneLookupCardProps> = ({
   configStreakRewards = [],
   className,
 }) => {
-  const streakCount = Number(memberInfo?.streakCount ?? 0) || 0;
+  const streakCount =
+    Number(memberInfo?.streak?.count ?? memberInfo?.streakCount ?? 0) || 0;
+  const streakCycle = memberInfo?.streak?.cycle;
 
   const claimedCounts = useMemo(() => {
     const set = new Set<number>();
@@ -123,7 +127,7 @@ const MemberPhoneLookupCard: React.FC<MemberPhoneLookupCardProps> = ({
           ) : null}
         </p>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Streak {streakCount}
+          {formatRunningStreak(streakCount, streakCycle)}
           <span className="mx-1.5 text-border">·</span>
           {(memberInfo.availablePoint ?? 0).toLocaleString()} điểm
         </p>

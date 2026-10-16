@@ -23,6 +23,7 @@ import {
   getMemberDisplayName,
   isValidMemberPhone,
 } from "../utils/memberPhone";
+import { formatRunningStreak } from "../utils/streakCycle";
 import {
   formatFnBCategory,
   getClaimableAvailableGifts,
@@ -232,7 +233,8 @@ const ScheduleMemberSection: React.FC<ScheduleMemberSectionProps> = ({
   }, [servedGifts]);
 
   const nextStreakReward = useMemo(() => {
-    const currentStreak = Number(memberInfo?.streakCount ?? 0) || 0;
+    const currentStreak =
+      Number(memberInfo?.streak?.count ?? memberInfo?.streakCount ?? 0) || 0;
     const blockedStreaks = new Set([
       ...servedGifts.map((gift) => gift.streakCount),
       ...servedStreakHistory,
@@ -247,7 +249,7 @@ const ScheduleMemberSection: React.FC<ScheduleMemberSectionProps> = ({
         isReached:
           reward.isReached === true || currentStreak >= reward.streakCount,
       }))[0];
-  }, [memberInfo?.streakCount, servedGifts, servedStreakHistory, streakRewards]);
+  }, [memberInfo?.streak?.count, memberInfo?.streakCount, servedGifts, servedStreakHistory, streakRewards]);
 
   // Bỏ chọn mốc đã claim mà không còn served trên schedule này
   useEffect(() => {
@@ -544,7 +546,12 @@ const ScheduleMemberSection: React.FC<ScheduleMemberSectionProps> = ({
               {(memberInfo.availablePoint ?? 0).toLocaleString()}
             </span>
             <span className="text-muted-foreground">Streak</span>
-            <span className="font-medium">{memberInfo.streakCount ?? 0}</span>
+            <span className="font-medium">
+              {formatRunningStreak(
+                memberInfo.streak?.count ?? memberInfo.streakCount ?? 0,
+                memberInfo.streak?.cycle,
+              )}
+            </span>
           </div>
         </div>
       )}
@@ -752,7 +759,7 @@ const ScheduleMemberSection: React.FC<ScheduleMemberSectionProps> = ({
                             Streak {reward.streakCount}
                             {isReached
                               ? " • Đủ streak, có thể nhận"
-                              : ` • Còn ${reward.streakCount - (Number(memberInfo?.streakCount ?? 0) || 0)} streak`}
+                              : ` • Còn ${reward.streakCount - (Number(memberInfo?.streak?.count ?? memberInfo?.streakCount ?? 0) || 0)} streak`}
                           </p>
                         </div>
                         <Badge

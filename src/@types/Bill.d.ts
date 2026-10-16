@@ -35,6 +35,10 @@ export interface IBillMembership {
   note?: string;
   /** Số tiền thực tế đã trừ (nếu BE nhét trong membership) */
   discountAppliedAmount?: number;
+  availablePoint?: number;
+  points?: number;
+  streakCount?: number;
+  streak?: { count: number; cycle?: number };
 }
 
 /** Discount hạng thành viên BE áp trên bill (chi tiết) */

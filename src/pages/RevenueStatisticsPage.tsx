@@ -1,4 +1,5 @@
 import billAPis from "@/apis/bill.apis";
+import BillMemberSummary from "@/components/bill/BillMemberSummary";
 import { PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -1528,7 +1529,7 @@ const RevenueStatisticsPage = () => {
                 </div>
               </div>
 
-              <div className="border-t" />
+              <BillMemberSummary membership={billDetail.data.result.membership} />
 
               {/* Danh sách món */}
               <div className="p-3">

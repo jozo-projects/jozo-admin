@@ -116,6 +116,8 @@ export interface IPendingGiftsUser {
   lifetimePoint?: number;
   totalPoint?: number;
   streakCount: number;
+  /** Số đang chạy từ BE. Ưu tiên hơn `streakCount` khi có. */
+  streak?: Pick<IUserStreak, "count" | "cycle">;
   progress?: IPendingGiftsUserProgress;
   /** Ưu đãi hạng — BE có thể trả kèm khi lookup theo phone */
   tierDiscount?: ITierDiscount[];
@@ -256,6 +258,8 @@ export interface IUserStreak {
   _id: string;
   userId: string;
   count: number;
+  /** Vòng streak. Thiếu trên bản ghi cũ. */
+  cycle?: number;
   lastVisitAt: string;
   expiredAt: string;
   windowDays: number;
@@ -274,6 +278,11 @@ export interface IClaimedRewardGift {
 
 export interface IClaimedReward {
   streakCount: number;
+  /** Thiếu thì coi là vòng 1. */
+  cycle?: number;
+  billId?: string;
+  invoiceCode?: string;
+  scheduleId?: string;
   points?: number;
   bonusPoints?: number;
   itemCount?: number;
@@ -315,6 +324,7 @@ export interface IMembershipMe {
   tier?: string;
   points?: number;
   tierDiscount?: ITierDiscount[];
+  streak?: Pick<IUserStreak, "count" | "cycle">;
 }
 
 export type MembershipMeResponse = HTTPResponse<IMembershipMe>;
