@@ -35,7 +35,8 @@ export interface IBonusRules {
 }
 
 export interface IStreakConfig {
-  windowDays: number;
+  /** Số ngày không đi thì streak reset về 0. Độc lập với mốc rewards. */
+  resetAfterDays: number;
   rewards: IStreakReward[];
 }
 
@@ -262,7 +263,7 @@ export interface IUserStreak {
   cycle?: number;
   lastVisitAt: string;
   expiredAt: string;
-  windowDays: number;
+  resetAfterDays: number;
   createdAt: string;
   updatedAt: string;
   isExpired: boolean;

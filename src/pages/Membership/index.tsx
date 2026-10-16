@@ -157,7 +157,10 @@ const formSchema = z.object({
     birthdayMultiplier: z.coerce.number().min(0).default(1),
   }),
   streak: z.object({
-    windowDays: z.coerce.number().int().min(1, "Số ngày cửa sổ phải từ 1"),
+    resetAfterDays: z.coerce
+      .number()
+      .int()
+      .min(1, "Số ngày reset phải từ 1"),
     rewards: z.array(streakRewardSchema),
   }),
   tierBenefits: z.array(tierBenefitGroupSchema).default([]),
@@ -177,7 +180,7 @@ const defaultValues: FormValues = {
     birthdayMultiplier: 1,
   },
   streak: {
-    windowDays: 7,
+    resetAfterDays: 30,
     rewards: [],
   },
   tierBenefits: [],
@@ -215,7 +218,8 @@ const mapConfigToFormValues = (config?: IMembershipConfig): FormValues => {
         defaultValues.bonusRules.birthdayMultiplier,
     },
     streak: {
-      windowDays: config?.streak?.windowDays ?? defaultValues.streak.windowDays,
+      resetAfterDays:
+        config?.streak?.resetAfterDays ?? defaultValues.streak.resetAfterDays,
       rewards:
         config?.streak?.rewards && config.streak.rewards.length > 0
           ? config.streak.rewards.map((reward) => ({
@@ -279,7 +283,7 @@ const buildPayload = (
       birthdayMultiplier: values.bonusRules.birthdayMultiplier,
     },
     streak: {
-      windowDays: values.streak.windowDays,
+      resetAfterDays: values.streak.resetAfterDays,
       rewards: values.streak.rewards.map((reward) => ({
         count: reward.count,
         bonusPoints: reward.bonusPoints,
@@ -952,16 +956,18 @@ const MembershipConfigPage = () => {
             <CardHeader>
               <CardTitle>Streak thưởng</CardTitle>
               <CardDescription>
-                Cấu hình thưởng duy trì liên tiếp theo cửa sổ ngày.
+                Cấu hình mốc thưởng streak và số ngày không đi thì streak về 0.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FormField
                 control={form.control}
-                name="streak.windowDays"
+                name="streak.resetAfterDays"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Cửa sổ tính streak (ngày)</FormLabel>
+                    <FormLabel>
+                      Số ngày không đi thì reset streak
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type="number"
