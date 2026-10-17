@@ -57,6 +57,8 @@ export interface ScheduleMemberInfo {
   tier?: string;
   availablePoint?: number;
   streakCount?: number;
+  /** Số đang chạy từ BE. Ưu tiên hơn `streakCount` khi có. */
+  streak?: { count: number; cycle?: number };
 }
 
 interface ScheduleMemberSectionProps {
