@@ -126,8 +126,7 @@ const getConfirmDialogContent = (state: ConfirmDialogState | null) => {
     case "convertHls":
       return {
         title: "Tạo HLS cho bài hát?",
-        description:
-          `Worker local sẽ tải "${state.title}" từ YouTube, encode 1080p/720p và upload lên R2.`,
+        description: `Worker local sẽ tải "${state.title}" từ YouTube, encode 1080p/720p và upload lên R2.`,
         confirmLabel: "Bắt đầu tạo HLS",
         destructive: false,
       };
@@ -192,19 +191,12 @@ const SongsCollectionPage = () => {
     }
   }, [isFetching]);
 
-  const {
-    mutate: normalizeSongs,
-    isPending: isNormalizing,
-  } = useNormalizeSongs();
+  const { mutate: normalizeSongs, isPending: isNormalizing } =
+    useNormalizeSongs();
 
-  const {
-    mutate: deleteSong,
-    isPending: isDeleting,
-  } = useDeleteSong();
-  const {
-    mutateAsync: createSongHls,
-    isPending: isCreatingSongHls,
-  } = useCreateSongHls();
+  const { mutate: deleteSong, isPending: isDeleting } = useDeleteSong();
+  const { mutateAsync: createSongHls, isPending: isCreatingSongHls } =
+    useCreateSongHls();
   const [hlsJobs, setHlsJobs] = useState<Record<string, MediaJob>>({});
   const [syncingMediaId, setSyncingMediaId] = useState<string | null>(null);
   const hlsEventSourcesRef = useRef<Record<string, EventSource>>({});
@@ -258,7 +250,11 @@ const SongsCollectionPage = () => {
     };
 
     const scheduleFallback = (videoId: string, job: MediaJob) => {
-      if (activeIds.has(videoId) === false || hlsFallbackTimersRef.current[videoId]) return;
+      if (
+        activeIds.has(videoId) === false ||
+        hlsFallbackTimersRef.current[videoId]
+      )
+        return;
       const delay = hlsFallbackDelayRef.current[videoId] ?? 5_000;
       hlsFallbackTimersRef.current[videoId] = window.setTimeout(async () => {
         delete hlsFallbackTimersRef.current[videoId];
@@ -277,7 +273,11 @@ const SongsCollectionPage = () => {
     };
 
     activeJobs.forEach(([videoId, job]) => {
-      if (hlsEventSourcesRef.current[videoId] || hlsFallbackTimersRef.current[videoId]) return;
+      if (
+        hlsEventSourcesRef.current[videoId] ||
+        hlsFallbackTimersRef.current[videoId]
+      )
+        return;
 
       if (hlsSseDisabledRef.current.has(videoId)) {
         scheduleFallback(videoId, job);
@@ -317,19 +317,22 @@ const SongsCollectionPage = () => {
     });
   }, [hlsJobs]);
 
-  useEffect(() => () => {
-    Object.values(hlsEventSourcesRef.current).forEach((source) => source.close());
-    Object.values(hlsFallbackTimersRef.current).forEach((timer) => window.clearTimeout(timer));
-  }, []);
+  useEffect(
+    () => () => {
+      Object.values(hlsEventSourcesRef.current).forEach((source) =>
+        source.close(),
+      );
+      Object.values(hlsFallbackTimersRef.current).forEach((timer) =>
+        window.clearTimeout(timer),
+      );
+    },
+    [],
+  );
 
-  const {
-    mutateAsync: startSongPruneAsync,
-    isPending: isStartingSongPrune,
-  } = useStartSongPruneAsync();
-  const {
-    mutateAsync: cancelSongPrune,
-    isPending: isCancellingSongPrune,
-  } = useCancelSongPrune();
+  const { mutateAsync: startSongPruneAsync, isPending: isStartingSongPrune } =
+    useStartSongPruneAsync();
+  const { mutateAsync: cancelSongPrune, isPending: isCancellingSongPrune } =
+    useCancelSongPrune();
   const { toast } = useToast();
   const {
     downloads: mediaDownloads,
@@ -361,7 +364,9 @@ const SongsCollectionPage = () => {
   const [confirmDialogState, setConfirmDialogState] =
     useState<ConfirmDialogState | null>(null);
   const [confirmDialogLoading, setConfirmDialogLoading] = useState(false);
-  const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(new Set());
+  const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const lastPruneNotifiedJobIdRef = useRef<string | null>(null);
 
@@ -379,7 +384,10 @@ const SongsCollectionPage = () => {
   };
 
   // Extract songs and pagination from response
-  const songs = useMemo(() => responseData?.result?.songs || [], [responseData]);
+  const songs = useMemo(
+    () => responseData?.result?.songs || [],
+    [responseData],
+  );
   const activeHlsJobs = useMemo(
     () =>
       Object.entries(hlsJobs)
@@ -412,34 +420,52 @@ const SongsCollectionPage = () => {
   useEffect(() => {
     const pending = songs.filter((song) => {
       const job = hlsJobs[song.video_id];
-      const recentlyUploaded = job?.updatedAt && Date.now() - new Date(job.updatedAt).getTime() < 60_000;
-      return job?.status === "ready" &&
-        (job.beSyncStatus === "syncing" || job.beSyncStatus === "synced" ||
+      const recentlyUploaded =
+        job?.updatedAt &&
+        Date.now() - new Date(job.updatedAt).getTime() < 60_000;
+      return (
+        job?.status === "ready" &&
+        (job.beSyncStatus === "syncing" ||
+          job.beSyncStatus === "synced" ||
           (job.beSyncStatus === "pending" && Boolean(recentlyUploaded))) &&
-        getBeSyncView(job, song).label !== "Đã đồng bộ BE";
+        getBeSyncView(job, song).label !== "Đã đồng bộ BE"
+      );
     });
     if (!pending.length) return;
     let cancelled = false;
     const timer = window.setInterval(() => {
-      void Promise.all(pending.map(async (song) => {
-        const job = hlsJobs[song.video_id];
-        if (!job) return;
-        try {
-          const updated = await mediaWorkerApis.getMedia(job.id);
-          if (!cancelled) setHlsJobs((current) => current[song.video_id]?.id === job.id
-            ? { ...current, [song.video_id]: updated } : current);
-          if (!cancelled && updated.beSyncStatus === "synced") {
-            await queryClient.invalidateQueries({ queryKey: ["songs-collection"] });
+      void Promise.all(
+        pending.map(async (song) => {
+          const job = hlsJobs[song.video_id];
+          if (!job) return;
+          try {
+            const updated = await mediaWorkerApis.getMedia(job.id);
+            if (!cancelled)
+              setHlsJobs((current) =>
+                current[song.video_id]?.id === job.id
+                  ? { ...current, [song.video_id]: updated }
+                  : current,
+              );
+            if (!cancelled && updated.beSyncStatus === "synced") {
+              await queryClient.invalidateQueries({
+                queryKey: ["songs-collection"],
+              });
+            }
+          } catch {
+            // The next poll retries; never infer BE success from a failed worker read.
           }
-        } catch {
-          // The next poll retries; never infer BE success from a failed worker read.
-        }
-      }));
+        }),
+      );
     }, 5_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [hlsJobs, songs, queryClient]);
 
-  const selectedSongs = songs.filter((song) => selectedSongIds.has(song.video_id));
+  const selectedSongs = songs.filter((song) =>
+    selectedSongIds.has(song.video_id),
+  );
 
   const toggleSongSelection = (videoId: string, checked: boolean) => {
     setSelectedSongIds((current) => {
@@ -660,7 +686,7 @@ const SongsCollectionPage = () => {
 
   const youtubePruneRunning = youtubePruneJobRunning;
   const youtubePruneDone = isSongPruneTerminal(youtubePruneJob);
-  
+
   // Use pagination info from API
   const total = pagination?.total || 0;
   const totalPages = pagination?.totalPages || 0;
@@ -710,7 +736,11 @@ const SongsCollectionPage = () => {
 
   const requestConvertHls = (videoId: string, title: string) => {
     const existingJob = hlsJobs[videoId];
-    if (existingJob && existingJob.status !== "failed" && existingJob.status !== "ready") {
+    if (
+      existingJob &&
+      existingJob.status !== "failed" &&
+      existingJob.status !== "ready"
+    ) {
       return;
     }
     openConfirmDialog({ type: "convertHls", videoId, title });
@@ -721,20 +751,37 @@ const SongsCollectionPage = () => {
     setSyncingMediaId(mediaId);
     try {
       const updated = await mediaWorkerApis.retryBeSync(mediaId);
-      setHlsJobs((current) => current[videoId]?.id === mediaId
-        ? { ...current, [videoId]: updated } : current);
+      setHlsJobs((current) =>
+        current[videoId]?.id === mediaId
+          ? { ...current, [videoId]: updated }
+          : current,
+      );
       await queryClient.invalidateQueries({ queryKey: ["songs-collection"] });
       toast({
-        title: updated.beSyncStatus === "synced" ? "BE đã nhận kết quả" : "Chưa đồng bộ được BE",
-        ...(updated.beSyncStatus !== "synced" ? { variant: "destructive" as const } : {}),
+        title:
+          updated.beSyncStatus === "synced"
+            ? "BE đã nhận kết quả"
+            : "Chưa đồng bộ được BE",
+        ...(updated.beSyncStatus !== "synced"
+          ? { variant: "destructive" as const }
+          : {}),
       });
     } catch {
       try {
         const latest = await mediaWorkerApis.getMedia(mediaId);
-        setHlsJobs((current) => current[videoId]?.id === mediaId
-          ? { ...current, [videoId]: latest } : current);
-      } catch { /* Worker may be offline; keep the previous state. */ }
-      toast({ title: "Chưa đồng bộ được BE", description: "Kiểm tra lỗi ở dòng video rồi thử lại.", variant: "destructive" });
+        setHlsJobs((current) =>
+          current[videoId]?.id === mediaId
+            ? { ...current, [videoId]: latest }
+            : current,
+        );
+      } catch {
+        /* Worker may be offline; keep the previous state. */
+      }
+      toast({
+        title: "Chưa đồng bộ được BE",
+        description: "Kiểm tra lỗi ở dòng video rồi thử lại.",
+        variant: "destructive",
+      });
     } finally {
       setSyncingMediaId(null);
     }
@@ -824,11 +871,10 @@ const SongsCollectionPage = () => {
           <DialogHeader className="p-6 pb-2 space-y-1 shrink-0">
             <DialogTitle>Dọn thư viện YouTube</DialogTitle>
             <DialogDescription>
-              Job chạy nền (
-              <span className="font-mono text-xs">async=1</span>
+              Job chạy nền (<span className="font-mono text-xs">async=1</span>
               ). Tiến độ realtime qua socket; poll{" "}
-              <span className="font-mono text-xs">GET .../status</span> mỗi 3 giây
-              khi đang chạy.
+              <span className="font-mono text-xs">GET .../status</span> mỗi 3
+              giây khi đang chạy.
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-4 space-y-4 overflow-y-auto flex-1 min-h-0 text-sm">
@@ -893,7 +939,9 @@ const SongsCollectionPage = () => {
                   size="sm"
                   className="w-full text-destructive border-destructive/40 hover:bg-destructive/10"
                   onClick={() => openConfirmDialog({ type: "cancelPrune" })}
-                  disabled={isCancellingSongPrune || youtubePruneCancelRequested}
+                  disabled={
+                    isCancellingSongPrune || youtubePruneCancelRequested
+                  }
                 >
                   {isCancellingSongPrune ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -916,12 +964,15 @@ const SongsCollectionPage = () => {
                   }
                 />
                 <div className="space-y-1">
-                  <Label htmlFor="youtube-prune-dry-run" className="cursor-pointer">
+                  <Label
+                    htmlFor="youtube-prune-dry-run"
+                    className="cursor-pointer"
+                  >
                     Chạy thử (dry_run)
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Gửi <span className="font-mono">dry_run=1</span> — quét nhưng không
-                    xóa DB.
+                    Gửi <span className="font-mono">dry_run=1</span> — quét
+                    nhưng không xóa DB.
                   </p>
                 </div>
               </div>
@@ -948,7 +999,9 @@ const SongsCollectionPage = () => {
                         : "Thất bại"}
                   </p>
                   {youtubePruneJob.error ? (
-                    <p className="mt-1 text-destructive">{youtubePruneJob.error}</p>
+                    <p className="mt-1 text-destructive">
+                      {youtubePruneJob.error}
+                    </p>
                   ) : null}
                 </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border bg-muted/40 p-3">
@@ -960,7 +1013,9 @@ const SongsCollectionPage = () => {
                   <span className="font-medium tabular-nums">
                     {youtubePruneJob.skipped_unknown}
                   </span>
-                  <span className="text-muted-foreground">unavailable_on_youtube</span>
+                  <span className="text-muted-foreground">
+                    unavailable_on_youtube
+                  </span>
                   <span className="font-medium tabular-nums">
                     {youtubePruneJob.unavailable_on_youtube}
                   </span>
@@ -975,7 +1030,9 @@ const SongsCollectionPage = () => {
                   {youtubePruneJob.source ? (
                     <>
                       <span className="text-muted-foreground">source</span>
-                      <span className="font-medium">{youtubePruneJob.source}</span>
+                      <span className="font-medium">
+                        {youtubePruneJob.source}
+                      </span>
                     </>
                   ) : null}
                 </div>
@@ -986,11 +1043,10 @@ const SongsCollectionPage = () => {
             !youtubePruneDone &&
             !youtubePruneStatusLoading ? (
               <p className="text-muted-foreground">
-                Nhấn &quot;Bắt đầu quét&quot; để chạy job nền. Nếu cron 4h sáng đang
-                chạy, mở lại dialog sẽ thấy tiến độ.
+                Nhấn &quot;Bắt đầu quét&quot; để chạy job nền. Nếu cron 4h sáng
+                đang chạy, mở lại dialog sẽ thấy tiến độ.
               </p>
             ) : null}
-
           </div>
           <DialogFooter className="p-6 pt-2 border-t bg-background shrink-0 flex-row flex-wrap gap-2 sm:justify-between">
             <div className="flex flex-wrap gap-2">
@@ -1018,7 +1074,9 @@ const SongsCollectionPage = () => {
                   variant="outline"
                   className="text-destructive border-destructive/40 hover:bg-destructive/10"
                   onClick={() => openConfirmDialog({ type: "cancelPrune" })}
-                  disabled={isCancellingSongPrune || youtubePruneCancelRequested}
+                  disabled={
+                    isCancellingSongPrune || youtubePruneCancelRequested
+                  }
                 >
                   {isCancellingSongPrune ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -1050,10 +1108,11 @@ const SongsCollectionPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>{confirmDialogContent.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmDialogState?.type === "startPrune" && youtubePruneDryRun ? (
+              {confirmDialogState?.type === "startPrune" &&
+              youtubePruneDryRun ? (
                 <>
-                  <span className="font-medium text-foreground">Dry run</span> — quét
-                  nhưng không xóa DB.{" "}
+                  <span className="font-medium text-foreground">Dry run</span> —
+                  quét nhưng không xóa DB.{" "}
                 </>
               ) : null}
               {confirmDialogContent.description}
@@ -1065,7 +1124,9 @@ const SongsCollectionPage = () => {
             </AlertDialogCancel>
             <Button
               type="button"
-              variant={confirmDialogContent.destructive ? "destructive" : "default"}
+              variant={
+                confirmDialogContent.destructive ? "destructive" : "default"
+              }
               disabled={confirmDialogLoading}
               onClick={() => void handleConfirmDialogAction()}
             >
@@ -1114,14 +1175,18 @@ const SongsCollectionPage = () => {
                             {job.title || videoId}
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{videoId}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {videoId}
+                        </TableCell>
                         <TableCell>{getHlsStatusLabel(job.status)}</TableCell>
                         <TableCell className="min-w-[180px] text-xs text-muted-foreground">
-                          {job.status === "uploading" && job.totalObjectCount ? (
+                          {job.status === "uploading" &&
+                          job.totalObjectCount ? (
                             <div className="space-y-1">
                               <div className="flex justify-between gap-2">
                                 <span>
-                                  {job.uploadedObjectCount ?? 0}/{job.totalObjectCount} objects
+                                  {job.uploadedObjectCount ?? 0}/
+                                  {job.totalObjectCount} objects
                                 </span>
                                 <span>{job.uploadProgress ?? 0}%</span>
                               </div>
@@ -1143,9 +1208,15 @@ const SongsCollectionPage = () => {
                     {activeMediaDownloads.map(([videoId, entry]) => (
                       <TableRow key={`media-${videoId}`}>
                         <TableCell>{videoId}</TableCell>
-                        <TableCell className="font-mono text-sm">{videoId}</TableCell>
-                        <TableCell>{getMediaStatusLabel(entry.status)}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">—</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {videoId}
+                        </TableCell>
+                        <TableCell>
+                          {getMediaStatusLabel(entry.status)}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          —
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1156,290 +1227,381 @@ const SongsCollectionPage = () => {
         </TabsContent>
 
         <TabsContent value="library" className="space-y-4">
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              ref={searchInputRef}
-              placeholder="Tìm kiếm theo tên bài hát, tác giả hoặc video ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  ref={searchInputRef}
+                  placeholder="Tìm kiếm theo tên bài hát, tác giả hoặc video ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Danh sách bài hát đã lưu</CardTitle>
-            <Button
-              type="button"
-              onClick={() => setCategoryDialogOpen(true)}
-              disabled={!selectedSongs.length}
-            >
-              Thêm vào danh mục
-              {selectedSongs.length ? ` (${selectedSongs.length})` : ""}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={songs.length > 0 && songs.every((song) => selectedSongIds.has(song.video_id))}
-                    onCheckedChange={(checked) => toggleVisibleSongs(checked === true)}
-                    aria-label="Chọn tất cả bài hát trên trang"
-                  />
-                </TableHead>
-                <TableHead>Thumbnail</TableHead>
-                <TableHead>Tiêu đề</TableHead>
-                <TableHead>Tác giả</TableHead>
-                <TableHead>Video ID</TableHead>
-                <TableHead>Thời lượng</TableHead>
-                <TableHead>Ngày thêm</TableHead>
-                <TableHead>Cập nhật</TableHead>
-                <TableHead className="w-[160px]">Hành động</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {songs.map((song) => (
-                <TableRow key={song._id || song.video_id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedSongIds.has(song.video_id)}
-                      onCheckedChange={(checked) => toggleSongSelection(song.video_id, checked === true)}
-                      aria-label={`Chọn ${song.title}`}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {song.thumbnail ? (
-                      <img
-                        src={song.thumbnail}
-                        alt={song.title}
-                        className="w-16 h-16 rounded-md object-cover"
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle>Danh sách bài hát đã lưu</CardTitle>
+                <Button
+                  type="button"
+                  onClick={() => setCategoryDialogOpen(true)}
+                  disabled={!selectedSongs.length}
+                >
+                  Thêm vào danh mục
+                  {selectedSongs.length ? ` (${selectedSongs.length})` : ""}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={
+                          songs.length > 0 &&
+                          songs.every((song) =>
+                            selectedSongIds.has(song.video_id),
+                          )
+                        }
+                        onCheckedChange={(checked) =>
+                          toggleVisibleSongs(checked === true)
+                        }
+                        aria-label="Chọn tất cả bài hát trên trang"
                       />
-                    ) : (
-                      <div
-                        className="w-16 h-16 rounded-md flex items-center justify-center text-[10px] font-semibold leading-tight text-center px-0.5 bg-red-500 text-white border border-red-600 shadow-sm"
-                        title="Bản ghi không có thumbnail"
-                      >
-                        Thiếu ảnh
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="max-w-[280px]">
-                    <div className="font-medium line-clamp-2">{song.title}</div>
-                    {song.media_status === "ready" && song.hls_url ? (
-                      <span className="mt-1 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
-                        Đã tải HLS
-                      </span>
-                    ) : null}
-                    {song.url && (
-                      <a
-                        href={song.url}
-                        className="text-xs text-blue-600 hover:underline"
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Mở liên kết
-                      </a>
-                    )}
-                  </TableCell>
-                  <TableCell>{song.author}</TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {song.video_id}
-                  </TableCell>
-                  <TableCell>{formatDuration(song.duration)}</TableCell>
-                  <TableCell>
-                    {song.created_at
-                      ? formatDate(String(song.created_at))
-                      : "-"}
-                  </TableCell>
-                  <TableCell>
-                    {song.updated_at
-                      ? formatDate(String(song.updated_at))
-                      : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => void startDownload(song.video_id)}
-                          disabled={isMediaDownloadBusy(song.video_id)}
-                          title="Tải và encode video qua media service"
-                        >
-                          {isMediaDownloadStarting(song.video_id) ||
-                          isMediaDownloadBusy(song.video_id) ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => requestConvertHls(song.video_id, song.title)}
-                          disabled={
-                            isCreatingSongHls ||
-                            ["pending", "downloading", "encoding", "uploading"].includes(
-                              hlsJobs[song.video_id]?.status ?? "",
-                            )
+                    </TableHead>
+                    <TableHead>Thumbnail</TableHead>
+                    <TableHead>Tiêu đề</TableHead>
+                    <TableHead>Tác giả</TableHead>
+                    <TableHead>Video ID</TableHead>
+                    <TableHead>Thời lượng</TableHead>
+                    <TableHead>Ngày thêm</TableHead>
+                    <TableHead>Cập nhật</TableHead>
+                    <TableHead className="w-[160px]">Hành động</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {songs.map((song) => (
+                    <TableRow key={song._id || song.video_id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedSongIds.has(song.video_id)}
+                          onCheckedChange={(checked) =>
+                            toggleSongSelection(song.video_id, checked === true)
                           }
-                          title="Tạo HLS và upload R2"
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        >
-                          {hlsJobs[song.video_id]?.status === "pending" ||
-                          hlsJobs[song.video_id]?.status === "downloading" ||
-                          hlsJobs[song.video_id]?.status === "encoding" ||
-                          hlsJobs[song.video_id]?.status === "uploading" ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Film className="w-4 h-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => requestDeleteSong(song.video_id, song.title)}
-                          disabled={isDeleting}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      {(() => {
-                        const hlsJob = hlsJobs[song.video_id];
-                        const download = getMediaDownload(song.video_id);
-                        if (hlsJob) {
-                          return (
-                            <div className="text-xs text-muted-foreground space-y-0.5">
-                              <p className={hlsJob.status === "failed" ? "text-destructive" : ""}>
-                                {getHlsStatusLabel(hlsJob.status)}
-                              </p>
-                              {hlsJob.status === "ready" ? (() => {
-                                const sync = getBeSyncView(hlsJob, song);
-                                return (
-                                  <div className="space-y-1">
-                                    <p className={sync.error ? "text-destructive" : ""}>{sync.label}</p>
-                                    {hlsJob.beSyncUpdatedAt ? (
-                                      <p>Cập nhật: {formatDate(hlsJob.beSyncUpdatedAt)}</p>
-                                    ) : null}
-                                    {sync.error ? <p className="text-destructive break-words">{sync.error}</p> : null}
-                                    {sync.canRetry ? (
-                                      <Button type="button" size="sm" variant="outline"
-                                        disabled={syncingMediaId !== null}
-                                        onClick={() => void retryBeSync(song.video_id, hlsJob.id)}>
-                                        {syncingMediaId === hlsJob.id ? "Đang gửi..." : "Thử đồng bộ lại BE"}
-                                      </Button>
-                                    ) : null}
-                                  </div>
-                                );
-                              })() : null}
-                              {hlsJob.status === "uploading" &&
-                              hlsJob.totalObjectCount ? (
-                                <>
-                                  <div className="flex justify-between gap-2">
-                                    <span>
-                                      {hlsJob.uploadedObjectCount ?? 0}/
-                                      {hlsJob.totalObjectCount} objects
-                                    </span>
-                                    <span>{hlsJob.uploadProgress ?? 0}%</span>
-                                  </div>
-                                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                                    <div
-                                      className="h-full rounded-full bg-blue-600 transition-[width] duration-300"
-                                      style={{
-                                        width: `${Math.min(100, Math.max(0, hlsJob.uploadProgress ?? 0))}%`,
-                                      }}
-                                    />
-                                  </div>
-                                  <p>
-                                    {formatBytes(hlsJob.uploadedBytes)} / {formatBytes(hlsJob.totalBytes)}
-                                  </p>
-                                </>
-                              ) : null}
-                              {hlsJob.currentObjectKey ? (
-                                <p className="truncate" title={hlsJob.currentObjectKey}>
-                                  {hlsJob.currentObjectKey.split("/").slice(-2).join("/")}
-                                </p>
-                              ) : null}
-                              {hlsJob.status === "ready" && song.media_status === "ready" && song.hls_url ? (
-                                <a
-                                  href={song.hls_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-blue-600 hover:underline break-all line-clamp-2"
-                                >
-                                  HLS
-                                </a>
-                              ) : null}
-                              {hlsJob.status === "failed" && (hlsJob.errorMessage || hlsJob.error) ? (
-                                <p className="text-destructive line-clamp-2">
-                                  {hlsJob.errorMessage || hlsJob.error}
-                                </p>
-                              ) : null}
-                            </div>
-                          );
-                        }
-                        if (!download) {
-                          return null;
-                        }
-                        return (
-                          <div className="text-xs text-muted-foreground space-y-0.5">
-                            <p>{getMediaStatusLabel(download.status)}</p>
-                            {download.status === "ready" && song.media_status === "ready" && song.hls_url ? (
-                              <a
-                                href={song.hls_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-600 hover:underline break-all line-clamp-2"
-                              >
-                                HLS
-                              </a>
-                            ) : null}
-                            {download.status === "failed" && download.error ? (
-                              <p className="text-destructive line-clamp-2">
-                                {download.error}
-                              </p>
-                            ) : null}
+                          aria-label={`Chọn ${song.title}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {song.thumbnail ? (
+                          <img
+                            src={song.thumbnail}
+                            alt={song.title}
+                            className="w-16 h-16 rounded-md object-cover"
+                          />
+                        ) : (
+                          <div
+                            className="w-16 h-16 rounded-md flex items-center justify-center text-[10px] font-semibold leading-tight text-center px-0.5 bg-red-500 text-white border border-red-600 shadow-sm"
+                            title="Bản ghi không có thumbnail"
+                          >
+                            Thiếu ảnh
                           </div>
-                        );
-                      })()}
-                      </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                        )}
+                      </TableCell>
+                      <TableCell className="max-w-[280px]">
+                        <div className="font-medium line-clamp-2">
+                          {song.title}
+                        </div>
+                        {song.media_status === "ready" && song.hls_url ? (
+                          <span className="mt-1 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                            Đã tải HLS
+                          </span>
+                        ) : null}
+                        {song.url && (
+                          <a
+                            href={song.url}
+                            className="text-xs text-blue-600 hover:underline"
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Mở liên kết
+                          </a>
+                        )}
+                      </TableCell>
+                      <TableCell>{song.author}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {song.video_id}
+                      </TableCell>
+                      <TableCell>{formatDuration(song.duration)}</TableCell>
+                      <TableCell>
+                        {song.created_at
+                          ? formatDate(String(song.created_at))
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {song.updated_at
+                          ? formatDate(String(song.updated_at))
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void startDownload(song.video_id)}
+                              disabled={isMediaDownloadBusy(song.video_id)}
+                              title="Tải và encode video qua media service"
+                            >
+                              {isMediaDownloadStarting(song.video_id) ||
+                              isMediaDownloadBusy(song.video_id) ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                requestConvertHls(song.video_id, song.title)
+                              }
+                              disabled={
+                                isCreatingSongHls ||
+                                [
+                                  "pending",
+                                  "downloading",
+                                  "encoding",
+                                  "uploading",
+                                ].includes(hlsJobs[song.video_id]?.status ?? "")
+                              }
+                              title="Tạo HLS và upload R2"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              {hlsJobs[song.video_id]?.status === "pending" ||
+                              hlsJobs[song.video_id]?.status ===
+                                "downloading" ||
+                              hlsJobs[song.video_id]?.status === "encoding" ||
+                              hlsJobs[song.video_id]?.status === "uploading" ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Film className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                requestDeleteSong(song.video_id, song.title)
+                              }
+                              disabled={isDeleting}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          {(() => {
+                            const hlsJob = hlsJobs[song.video_id];
+                            const download = getMediaDownload(song.video_id);
+                            if (hlsJob) {
+                              return (
+                                <div className="text-xs text-muted-foreground space-y-0.5">
+                                  <p
+                                    className={
+                                      hlsJob.status === "failed"
+                                        ? "text-destructive"
+                                        : ""
+                                    }
+                                  >
+                                    {getHlsStatusLabel(hlsJob.status)}
+                                  </p>
+                                  {hlsJob.status === "ready"
+                                    ? (() => {
+                                        const sync = getBeSyncView(
+                                          hlsJob,
+                                          song,
+                                        );
+                                        return (
+                                          <div className="space-y-1">
+                                            <p
+                                              className={
+                                                sync.error
+                                                  ? "text-destructive"
+                                                  : ""
+                                              }
+                                            >
+                                              {sync.label}
+                                            </p>
+                                            {hlsJob.beSyncUpdatedAt ? (
+                                              <p>
+                                                Cập nhật:{" "}
+                                                {formatDate(
+                                                  hlsJob.beSyncUpdatedAt,
+                                                )}
+                                              </p>
+                                            ) : null}
+                                            {sync.error ? (
+                                              <p className="text-destructive break-words">
+                                                {sync.error}
+                                              </p>
+                                            ) : null}
+                                            {sync.canRetry ? (
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={
+                                                  syncingMediaId !== null
+                                                }
+                                                onClick={() =>
+                                                  void retryBeSync(
+                                                    song.video_id,
+                                                    hlsJob.id,
+                                                  )
+                                                }
+                                              >
+                                                {syncingMediaId === hlsJob.id
+                                                  ? "Đang gửi..."
+                                                  : "Thử đồng bộ lại BE"}
+                                              </Button>
+                                            ) : null}
+                                          </div>
+                                        );
+                                      })()
+                                    : null}
+                                  {hlsJob.status === "uploading" &&
+                                  hlsJob.totalObjectCount ? (
+                                    <>
+                                      <div className="flex justify-between gap-2">
+                                        <span>
+                                          {hlsJob.uploadedObjectCount ?? 0}/
+                                          {hlsJob.totalObjectCount} objects
+                                        </span>
+                                        <span>
+                                          {hlsJob.uploadProgress ?? 0}%
+                                        </span>
+                                      </div>
+                                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                                        <div
+                                          className="h-full rounded-full bg-blue-600 transition-[width] duration-300"
+                                          style={{
+                                            width: `${Math.min(100, Math.max(0, hlsJob.uploadProgress ?? 0))}%`,
+                                          }}
+                                        />
+                                      </div>
+                                      <p>
+                                        {formatBytes(hlsJob.uploadedBytes)} /{" "}
+                                        {formatBytes(hlsJob.totalBytes)}
+                                      </p>
+                                    </>
+                                  ) : null}
+                                  {hlsJob.currentObjectKey ? (
+                                    <p
+                                      className="truncate"
+                                      title={hlsJob.currentObjectKey}
+                                    >
+                                      {hlsJob.currentObjectKey
+                                        .split("/")
+                                        .slice(-2)
+                                        .join("/")}
+                                    </p>
+                                  ) : null}
+                                  {hlsJob.status === "ready" &&
+                                  song.media_status === "ready" &&
+                                  song.hls_url ? (
+                                    <a
+                                      href={song.hls_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-blue-600 hover:underline break-all line-clamp-2"
+                                    >
+                                      HLS
+                                    </a>
+                                  ) : null}
+                                  {hlsJob.status === "failed" &&
+                                  (hlsJob.errorMessage || hlsJob.error) ? (
+                                    <p className="text-destructive line-clamp-2">
+                                      {hlsJob.errorMessage || hlsJob.error}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              );
+                            }
+                            if (!download) {
+                              return null;
+                            }
+                            return (
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                <p>{getMediaStatusLabel(download.status)}</p>
+                                {download.status === "ready" &&
+                                song.media_status === "ready" &&
+                                song.hls_url ? (
+                                  <a
+                                    href={song.hls_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-600 hover:underline break-all line-clamp-2"
+                                  >
+                                    HLS
+                                  </a>
+                                ) : null}
+                                {download.status === "failed" &&
+                                download.error ? (
+                                  <p className="text-destructive line-clamp-2">
+                                    {download.error}
+                                  </p>
+                                ) : null}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                        15.48
+                        src/pages/RoomSchedule/components/ScheduleMemberSection.tsx(237,26):
+                        error TS2339: Property 'streak' does not exist on type
+                        'ScheduleMemberInfo'. 15.48
+                        src/pages/RoomSchedule/components/ScheduleMemberSection.tsx(252,19):
+                        error TS2339: Property 'streak' does not exist on type
+                        'ScheduleMemberInfo'. 15.48
+                        src/pages/RoomSchedule/components/ScheduleMemberSection.tsx(551,28):
+                        error TS2339: Property 'streak' does not exist on type
+                        'ScheduleMemberInfo'. 15.48
+                        src/pages/RoomSchedule/components/ScheduleMemberSection.tsx(552,28):
+                        error TS2339: Property 'streak' does not exist on type
+                        'ScheduleMemberInfo'. 15.48
+                        src/pages/RoomSchedule/components/ScheduleMemberSection.tsx(762,84):
+                        error TS2339: Property 'streak' does not exist on type
+                        'ScheduleMemberInfo'.{" "}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
 
-          {songs.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              {debouncedSearchTerm
-                ? "Không tìm thấy bài hát phù hợp"
-                : "Chưa có bài hát nào trong collection"}
-            </div>
-          )}
+              {songs.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  {debouncedSearchTerm
+                    ? "Không tìm thấy bài hát phù hợp"
+                    : "Chưa có bài hát nào trong collection"}
+                </div>
+              )}
 
-          {songs.length > 0 && (
-            <PaginationContainer
-              currentPage={currentPage}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              total={total}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              pageSizeOptions={[10, 20, 50, 100, 1000]}
-            />
-          )}
-        </CardContent>
-      </Card>
+              {songs.length > 0 && (
+                <PaginationContainer
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  total={total}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                  pageSizeOptions={[10, 20, 50, 100, 1000]}
+                />
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
       <AddSongsToCategoryDialog
