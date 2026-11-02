@@ -8,6 +8,8 @@ import React, {
   useState,
 } from "react";
 import { useSocket } from "@/hooks/useSocket";
+import { useRoomConnectionWarnings } from "@/hooks/use-room-connection-warnings";
+import { RoomConnectionWarnings } from "@/components/modules/RoomConnectionWarnings";
 import { refreshScheduleBillAndOrder } from "@/utils/billCheckout";
 import { Gift as GiftType } from "@/@types/Gift";
 import { IBookingSocketData } from "@/@types/Booking";
@@ -174,6 +176,7 @@ interface RoomEventsProviderProps {
 export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
   children,
 }) => {
+  const { state: connectionWarnings, onSocketReady } = useRoomConnectionWarnings();
   const {
     onConnect,
     offConnect,
@@ -211,7 +214,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     offOrderBatchStatusChanged,
     onOrderSupportRequested,
     offOrderSupportRequested,
-  } = useSocket();
+  } = useSocket({ onSocketReady });
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -1249,6 +1252,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
   return (
     <RoomEventsContext.Provider value={value}>
       {children}
+      <RoomConnectionWarnings state={connectionWarnings} />
     </RoomEventsContext.Provider>
   );
 };

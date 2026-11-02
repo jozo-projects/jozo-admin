@@ -44,6 +44,7 @@ export const useUpdateMembershipConfig = () => {
           response.data.message || "Đã lưu cấu hình membership thành công",
       });
       queryClient.invalidateQueries({ queryKey: ["membership-config"] });
+      queryClient.invalidateQueries({ queryKey: ["member-birthday"] });
     },
     onError: () => {
       toast({

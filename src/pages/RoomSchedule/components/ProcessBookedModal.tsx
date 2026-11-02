@@ -1,4 +1,6 @@
 import { IRoom, IRoomSchedule } from "@/@types/Room";
+import { useScheduleBirthday } from "@/hooks/use-schedule-birthday";
+import { ScheduleBirthdayBenefits } from "@/components/modules/ScheduleBirthdayBenefits";
 import roomsScheduleApis, { IChangeRoomRequest } from "@/apis/roomSchedule.api";
 import { Button } from "@/components/ui/button";
 import {
@@ -146,6 +148,9 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
     isOpen,
     refetchSchedules,
   });
+
+  const birthdayMemberId = member.hasSavedValidPhone && !member.isPhoneDirty && !member.isLoadingMemberInfo && !member.isMemberInfoError ? member.memberInfo?.userId || "" : "";
+  const birthday = useScheduleBirthday(schedule._id, birthdayMemberId, isOpen && !!birthdayMemberId, schedule.startTime);
 
   const { data: photoDisplayData, refetch: refetchPhotoDisplay } = useQuery({
     queryKey: ["schedulePhotoDisplay", schedule._id],
@@ -681,10 +686,12 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
   };
 
   const handleUpdate = (newStatus: RoomStatus) => {
+    if (newStatus === RoomStatus.InUse && birthday.blocked) return;
     const updateData: Partial<IRoomSchedule> = { status: newStatus };
 
     // Nếu chuyển sang "In use", sử dụng thời gian đã điều chỉnh hoặc thời gian hiện tại
     if (newStatus === RoomStatus.InUse) {
+      if (birthdayMemberId) updateData.birthdayDraft = birthday.scheduleDraft;
       if (adjustedStartTime) {
         // Sử dụng thời gian đã điều chỉnh
         const datePart =
@@ -830,6 +837,7 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
                 isServingGift={member.isMutatingGift}
               />
 
+              {birthdayMemberId && <ScheduleBirthdayBenefits birthday={birthday} at={schedule.startTime} />}
               <ScheduleRoomTypeSection
                 schedule={schedule}
                 physicalRoomType={currentRoom?.roomType}
@@ -1185,6 +1193,7 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
               onClick={() => {
                 handleUpdate(RoomStatus.InUse);
               }}
+              disabled={birthday.blocked}
               loading={isPending}
               className="h-9"
             >

@@ -1,4 +1,7 @@
 import { IRoom } from "@/@types/Room";
+import { useBirthdayCheckout } from "@/hooks/use-member-birthday";
+import { BirthdayBenefits } from "@/components/modules/BirthdayBenefits";
+import { BirthdayBillDialog } from "@/components/modules/BirthdayBillDialog";
 import fnbOrderApis from "@/apis/fnbOrder.apis";
 import roomsScheduleApis, {
   ICreateRoomScheduleRequest,
@@ -198,6 +201,11 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
   });
 
   const schedule = scheduleData?.data?.result;
+  const birthdayMemberId = lookupPhone && !isLoadingMemberLookup && !isMemberLookupError ? memberLookupUser?.userId || "" : "";
+  const birthdayAtDate = dayjs(`${startDateValue}T${startTimeValue}`);
+  const birthdayAt = statusValue === RoomStatus.Booked && birthdayAtDate.isValid() ? birthdayAtDate.toISOString() : undefined;
+  const birthday = useBirthdayCheckout(`${scheduleId || "new"}:${lookupPhone}:${birthdayMemberId}`, birthdayMemberId, isOpen && !!birthdayMemberId, schedule?.birthdayDraft, birthdayAt);
+  const [birthdayBillId, setBirthdayBillId] = useState<string | null>(null);
   const canEditScheduleRoomType =
     !!scheduleId && !!schedule && isScheduleRoomTypeEditable(schedule);
 
@@ -399,6 +407,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
     values.peopleCount > PEOPLE_COUNT_LARGE_THRESHOLD;
 
   const executeCreate = async (values: FormValues) => {
+    if (birthday.blocked) return;
     if (!room) {
       throw new Error("Room information is required to create schedule.");
     }
@@ -418,6 +427,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
       status: values.status,
       note: values.note,
       customerPhone: values.customerPhone?.trim() || undefined,
+      ...(birthday.checked ? { birthdayDraft: birthday.scheduleDraft } : {}),
       giftEnabled: values.giftEnabled,
       promotionId: values.promotionId || undefined,
       roomType: bookingRoomType,
@@ -441,6 +451,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const onSubmit = async (values: FormValues) => {
+    if (birthday.blocked) return;
     try {
       if (scheduleId) {
         const { startTimeISO, endTimeISO } = buildScheduleTimes(values);
@@ -449,7 +460,8 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
           endTime: endTimeISO,
           status: values.status,
           note: values.note,
-          customerPhone: values.customerPhone?.trim() || undefined,
+          customerPhone: values.customerPhone?.trim() || "",
+          birthdayDraft: birthday.scheduleDraft,
           giftEnabled: values.giftEnabled,
           promotionId: values.promotionId || null,
         };
@@ -496,6 +508,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
   return (
     <>
+      <BirthdayBillDialog billId={birthdayBillId} onClose={() => setBirthdayBillId(null)} />
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent
           className="flex h-[100dvh] max-h-[100dvh] flex-col gap-0 overflow-hidden p-0 sm:h-auto sm:max-h-[90vh] sm:max-w-[560px]"
@@ -738,6 +751,10 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
                   />
                 )}
 
+                {birthdayMemberId && <div className="space-y-2">
+                  {birthdayAt && <p className="text-xs text-muted-foreground">Dự kiến theo ngày sử dụng {birthdayAtDate.format("DD/MM/YYYY")}; chưa giữ lượt hoặc giữ tồn kho.</p>}
+                  <BirthdayBenefits offer={birthday.data} checked={birthday.checked} selection={birthday.selection} busy={birthday.isFetching || isCreating || isUpdating} error={birthday.isError} onCheckedChange={birthday.setChecked} onSelectionChange={birthday.setSelection} onRetry={() => void birthday.refetch()} onOpenBill={setBirthdayBillId} />
+                </div>}
                 {canEditScheduleRoomType && (
                   <FormField
                     control={control}
@@ -902,6 +919,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
                 </Button>
                 <Button
                   type="submit"
+                  disabled={birthday.blocked}
                   loading={isCreating || isUpdating}
                   className="h-9 w-full sm:w-auto sm:min-w-[120px]"
                 >

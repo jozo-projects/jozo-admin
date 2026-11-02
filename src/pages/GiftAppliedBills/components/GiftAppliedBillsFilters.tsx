@@ -132,6 +132,7 @@ const GiftAppliedBillsFilters = ({
             <SelectItem value="membership">Membership</SelectItem>
             <SelectItem value="gift">Quà tặng</SelectItem>
             <SelectItem value="streak">Streak</SelectItem>
+            <SelectItem value="birthday">Sinh nhật</SelectItem>
           </SelectContent>
         </Select>
       </div>

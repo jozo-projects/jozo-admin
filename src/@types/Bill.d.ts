@@ -1,4 +1,5 @@
 import type { ITierDiscount } from "./Membership";
+import type { BirthdaySelection, BirthdaySnapshot } from "@/utils/memberBirthday";
 
 export type BillPaymentMethod = "cash" | "bank_transfer";
 
@@ -78,6 +79,8 @@ export interface IRevenueResult {
 }
 
 export interface IBill {
+  birthday?: BirthdaySnapshot;
+  birthdaySelection?: BirthdaySelection;
   _id: string;
   source?: "karaoke" | "retail" | string;
   roomId: string;

@@ -144,6 +144,7 @@ const GiftAppliedBillsTable = ({
                     <div className="text-xs text-muted-foreground">
                       {item.appliedReason}
                     </div>
+                    {item.birthday && <div className="mt-1 text-xs">Sinh nhật {item.birthday.year} · giảm {item.birthday.discountPercentage}%<br />{item.birthday.items.map(gift => `${gift.name} ×${gift.quantity} (0đ)`).join(", ")}</div>}
                     {item.appliedSource === "streak" &&
                       item.streakGifts?.map((streak) => (
                         <div
@@ -160,7 +161,7 @@ const GiftAppliedBillsTable = ({
                   </TableCell>
                   <TableCell className="whitespace-nowrap">
                     {formatMoney(
-                      item.giftDiscountAmount + item.membershipDiscountAmount,
+                      (item.giftDiscountAmount || 0) + (item.membershipDiscountAmount || 0) + (item.birthday?.discountAmount || 0),
                     )}
                   </TableCell>
                   <TableCell className="whitespace-nowrap">

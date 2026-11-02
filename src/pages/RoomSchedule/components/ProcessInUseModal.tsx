@@ -1,4 +1,9 @@
 import { OrderDetail } from "@/@types/FnbOrder";
+import { memberBirthdayKeys } from "@/hooks/use-member-birthday";
+import { useScheduleBirthday } from "@/hooks/use-schedule-birthday";
+import { ScheduleBirthdayBenefits } from "@/components/modules/ScheduleBirthdayBenefits";
+import { BirthdaySnapshotDetails } from "@/components/modules/BirthdaySnapshotDetails";
+import type { BirthdaySnapshot } from "@/utils/memberBirthday";
 import { getOrderItemQuantity } from "@/utils/mergeOrderDetailItems";
 import { BillGift } from "@/@types/Gift";
 import { IRoom, IRoomSchedule } from "@/@types/Room";
@@ -88,6 +93,7 @@ import { CalendarDays, Clock, Gift, Minus, Plus, Printer } from "lucide-react";
 
 // Define bill interfaces
 interface BillItem {
+  isBirthdayGift?: boolean;
   description: string;
   price: number;
   quantity: number;
@@ -100,6 +106,7 @@ interface BillItem {
 }
 
 interface BillData {
+  birthday?: BirthdaySnapshot;
   _id?: string;
   totalAmount?: number;
   roomTotal?: number;
@@ -230,6 +237,9 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     member.hasSavedValidPhone && !member.isPhoneDirty
       ? member.savedPhone.trim()
       : "";
+  const birthdayMemberId = billPhone && !member.isLoadingMemberInfo && !member.isMemberInfoError
+    ? member.memberInfo?.userId || "" : "";
+  const birthday = useScheduleBirthday(schedule._id, birthdayMemberId, isOpen && !!birthdayMemberId);
 
   const billQueryKey = [
     "bill",
@@ -239,6 +249,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     customStartTime,
     customStartDate,
     customEndDate,
+    birthday.previewSelection,
     billPhone,
   ] as const;
   const latestBillQueryKey = useRef(billQueryKey);
@@ -697,9 +708,10 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         billDateTimePayload.actualStartTime,
         undefined,
         billPhone || undefined,
+        birthday.previewSelection,
       );
     },
-    enabled: isOpen && !!customStartTime && !!customEndTime,
+    enabled: isOpen && !!customStartTime && !!customEndTime && !birthday.blocked,
   });
 
   // Set note value when bill data changes
@@ -791,7 +803,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     [member.servedGifts, gift],
   );
   const paidItems = useMemo(
-    () => toPaidBillItems(items, giftLines),
+    () => toPaidBillItems(items.filter(item => !item.isBirthdayGift), giftLines),
     [items, giftLines],
   );
   const giftRemainingQuota = useMemo(
@@ -879,10 +891,14 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         queryFn: () => billAPis.getBillByScheduleId(
           schedule._id, selectedPromotion || undefined, actualEndTime,
           actualStartTime, undefined, customerPhone || undefined,
+          birthday.previewSelection,
         ),
         staleTime: 0,
       });
       const canonicalBill = canonicalResponse.data.result as BillData | undefined;
+      if (birthday.checked && !canonicalBill?.birthday) {
+        throw new Error("Bản xem trước chưa xác nhận ưu đãi sinh nhật");
+      }
       const checkoutState = queryClient.getQueryState(checkoutKey);
       if (!canCheckoutBill({
         hasBill: !!canonicalBill?.items && Number.isFinite(canonicalBill?.totalAmount),
@@ -907,10 +923,13 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         endTime: actualEndTime,
         note: noteValue || note,
         promotionId: selectedPromotion || undefined,
+        ...birthday.payload,
       };
 
       // Bước 1: lưu bill trước.
       await saveBillAsync(billToSave);
+      await queryClient.invalidateQueries({ queryKey: memberBirthdayKeys.all });
+      await queryClient.invalidateQueries({ queryKey: ["gift-applied-bills"] });
 
       // Invalidate membership/streak queries để refresh member info
       if (customerPhone) {
@@ -939,8 +958,10 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       await updateScheduleAsync(updateData);
     } catch (error) {
       // onError của mutation đã hiển thị toast tương ứng.
+      void queryClient.invalidateQueries({ queryKey: memberBirthdayKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ["bill", schedule._id] });
       console.error("Không thể hoàn tất phiên sau khi lưu bill:", error);
-      toast({ title: "Không thể hoàn tất phiên", description: "Vui lòng tải lại hóa đơn và thử lại.", variant: "destructive" });
+      toast({ title: "Không thể hoàn tất phiên", description: birthday.checked ? "Ưu đãi hoặc tồn kho có thể đã thay đổi. Kiểm tra lượt đã dùng và hóa đơn đã lưu trước khi thử lại; lưu bill có thể đã thành công nhưng đóng phiên chưa hoàn tất." : "Vui lòng tải lại hóa đơn và thử lại.", variant: "destructive" });
     } finally {
       checkoutInProgress.current = false;
       setIsPreparingCheckout(false);
@@ -1199,6 +1220,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
         promotionId: selectedPromotion || undefined,
         phone: billPhone || undefined,
         customerPhone: billPhone || undefined,
+        ...birthday.payload,
       }),
     onSuccess: () => {
       toast({
@@ -1208,6 +1230,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     },
     onError: (error) => {
       console.error("Lỗi khi tạo hóa đơn:", error);
+      void queryClient.invalidateQueries({ queryKey: memberBirthdayKeys.all });
       toast({
         title: "Error",
         description: "Có lỗi xảy ra khi tạo hóa đơn",
@@ -1229,7 +1252,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     },
   });
 
-  const isCheckoutBlocked = isPreparingCheckout || isPending || isSavingBill ||
+  const isCheckoutBlocked = birthday.blocked || (birthday.checked && !billResult.birthday) || isPreparingCheckout || isPending || isSavingBill ||
     member.isSavingPhone || member.isMutatingGift || !canCheckoutBill({
       hasBill: !!billData?.data.result && !!billResult.items && Number.isFinite(totalAmount),
       isError: isBillError,
@@ -1240,6 +1263,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
 
   return (
     <>
+
       <Dialog
         open={isOpen}
         onOpenChange={(open) => {
@@ -2135,6 +2159,9 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
               </TabsContent>
             </Tabs>
 
+            {billResult.birthday && <BirthdaySnapshotDetails birthday={billResult.birthday} />}
+            {birthdayMemberId && <ScheduleBirthdayBenefits birthday={birthday} />}
+
             <div className="mt-6 flex flex-col gap-2 border-t pt-4 sm:flex-row sm:flex-wrap sm:items-center">
               <Button
                 variant="outline"
@@ -2170,6 +2197,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => printBill()}
+                disabled={isCheckoutBlocked}
                 className="h-9 w-full sm:w-auto"
               >
                 <Printer className="mr-2 h-4 w-4" />
@@ -2202,7 +2230,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       </Dialog>
 
       <AlertDialog open={isConfirmEndOpen} onOpenChange={setIsConfirmEndOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>Kết thúc phiên?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2210,6 +2238,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
               tạo hóa đơn và không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {birthdayMemberId && <ScheduleBirthdayBenefits birthday={birthday} />}
+          {birthday.checked && billResult.birthday && <BirthdaySnapshotDetails birthday={billResult.birthday} />}
           <AlertDialogFooter>
             <AlertDialogCancel>Hủy</AlertDialogCancel>
             <AlertDialogAction
