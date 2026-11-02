@@ -1,4 +1,6 @@
 import { useEffect } from "react";
+import { birthdayPolicySchema } from "@/utils/memberBirthday";
+import { useStreakGiftItems } from "@/hooks/use-membership";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm } from "react-hook-form";
@@ -135,6 +137,7 @@ const tierBenefitGroupSchema = z
   });
 
 const formSchema = z.object({
+  birthday: birthdayPolicySchema,
   currencyUnit: z.coerce.number().positive("Đơn vị tiền phải lớn hơn 0"),
   pointPerCurrency: z.coerce
     .number()
@@ -170,6 +173,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 const defaultValues: FormValues = {
+  birthday: { enabled: false, discountPercentage: 10, itemCount: 1, itemIds: [] },
   currencyUnit: 0,
   pointPerCurrency: 1,
   tierThresholds: [{ name: "silver", threshold: 0 }],
@@ -197,6 +201,7 @@ const mapConfigToFormValues = (config?: IMembershipConfig): FormValues => {
 
   return {
     currencyUnit: config?.currencyUnit ?? defaultValues.currencyUnit,
+    birthday: config?.birthday ?? defaultValues.birthday,
     pointPerCurrency:
       config?.pointPerCurrency ?? defaultValues.pointPerCurrency,
     tierThresholds:
@@ -273,6 +278,7 @@ const buildPayload = (
 
   return {
     _id: id,
+    birthday: values.birthday,
     currencyUnit: values.currencyUnit,
     pointPerCurrency: values.pointPerCurrency,
     tierThresholds,
@@ -343,6 +349,7 @@ const MembershipConfigPage = () => {
     isFetching,
   } = useMembershipConfig();
   const { mutate: updateConfig, isPending } = useUpdateMembershipConfig();
+  const birthdayItems = useStreakGiftItems("drink");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -490,6 +497,24 @@ const MembershipConfigPage = () => {
           onSubmit={form.handleSubmit(handleSubmit)}
           className="space-y-6"
         >
+          <Card>
+            <CardHeader><CardTitle>Ưu đãi sinh nhật</CardTitle><CardDescription>Một lần mỗi năm trong tháng sinh nhật. Giảm trên tổng bill còn lại và thêm món tặng 0đ. Không cần đặt trước; ảnh TV / trang trí cần đặt trước.</CardDescription></CardHeader>
+            <CardContent className="space-y-4">
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" {...form.register("birthday.enabled")} disabled={isPending} />Bật ưu đãi sinh nhật</label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField control={form.control} name="birthday.discountPercentage" render={({ field }) => <FormItem><FormLabel>Giảm giá (%)</FormLabel><FormControl><Input type="number" min={0} max={100} step="any" disabled={isPending} {...field} /></FormControl><FormMessage /></FormItem>} />
+                <FormField control={form.control} name="birthday.itemCount" render={({ field }) => <FormItem><FormLabel>Số đồ uống tặng</FormLabel><FormControl><Input type="number" min={1} max={100} step={1} disabled={isPending} {...field} /></FormControl><FormMessage /></FormItem>} />
+              </div>
+              <FormField control={form.control} name="birthday.itemIds" render={({ field }) => <FormItem><FormLabel>Đồ uống được chọn (SKU, không chọn nhóm biến thể)</FormLabel>
+                {birthdayItems.isFetching && <p className="text-sm">Đang tải đồ uống...</p>}
+                {birthdayItems.isError && <p role="alert">Không tải được đồ uống.</p>}
+                <Button type="button" variant="outline" size="sm" disabled={birthdayItems.isFetching} onClick={() => void birthdayItems.refetch()}>Tải lại danh sách</Button>
+                <div className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">{birthdayItems.data?.selectableItems.map(item => <label key={item.itemId} className="flex items-center gap-2 text-sm"><input type="checkbox" disabled={isPending} checked={field.value.includes(item.itemId)} onChange={e => field.onChange(e.target.checked ? [...field.value, item.itemId] : field.value.filter(id => id !== item.itemId))} />{item.name}</label>)}</div>
+                {field.value.filter(id => !birthdayItems.data?.selectableItems.some(item => item.itemId === id)).map(id => <p key={id} className="text-sm text-destructive">Món đang chọn chưa khả dụng: {id} <button type="button" disabled={isPending} className="underline" onClick={() => field.onChange(field.value.filter(value => value !== id))}>Bỏ chọn</button></p>)}
+                <FormMessage />
+              </FormItem>} />
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Thiết lập chung</CardTitle>

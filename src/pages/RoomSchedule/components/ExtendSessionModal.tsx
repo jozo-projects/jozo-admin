@@ -21,6 +21,8 @@ interface ExtendSessionModalProps {
   onClose: () => void;
   schedule: IRoomSchedule;
   refetchSchedules?: () => void;
+  birthdayDraft?: import("@/utils/memberBirthday").ScheduleBirthdayDraft | null;
+  birthdayBlocked?: boolean;
 }
 
 const ExtendSessionModal: React.FC<ExtendSessionModalProps> = ({
@@ -28,6 +30,8 @@ const ExtendSessionModal: React.FC<ExtendSessionModalProps> = ({
   onClose,
   schedule,
   refetchSchedules,
+  birthdayDraft,
+  birthdayBlocked = false,
 }) => {
   // Các khoảng thời gian gia hạn tính theo phút
   const extensionOptions = [
@@ -58,6 +62,7 @@ const ExtendSessionModal: React.FC<ExtendSessionModalProps> = ({
       return roomsScheduleApis.updateSchedule(schedule._id, {
         endTime: newEndTime.toISOString(),
         status: RoomStatus.InUse,
+        ...(birthdayDraft !== undefined ? { birthdayDraft } : {}),
       });
     },
     onSuccess: () => {
@@ -71,6 +76,7 @@ const ExtendSessionModal: React.FC<ExtendSessionModalProps> = ({
   });
 
   const handleSubmit = () => {
+    if (birthdayBlocked) return;
     mutate(selectedExtension);
   };
 
@@ -104,7 +110,7 @@ const ExtendSessionModal: React.FC<ExtendSessionModalProps> = ({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isPending}
+            disabled={isPending || birthdayBlocked}
             loading={isPending}
           >
             Extend

@@ -220,7 +220,7 @@ type RevenueBill = IBill & {
   }>;
 };
 
-type BenefitSource = "all" | "membership" | "gift" | "streak";
+type BenefitSource = "all" | "membership" | "gift" | "streak" | "birthday";
 
 const getBillBenefit = (
   bill: RevenueBill,
@@ -229,6 +229,9 @@ const getBillBenefit = (
   label: string;
   reason: string;
 } | null => {
+  if (bill.birthday) {
+    return { source: "birthday", label: "Sinh nhật", reason: `Sinh nhật ${bill.birthday.year} — giảm ${bill.birthday.discountPercentage}% (${formatCurrency(bill.birthday.discountAmount)}đ), tặng ${bill.birthday.items.map(item => `${item.name} ×${item.quantity}`).join(", ")}` };
+  }
   if (bill.streakGifts?.length) {
     const gifts = bill.streakGifts
       .flatMap((gift) => gift.items?.map((item) => `${item.name} x${item.quantity}`) || [])
@@ -1158,6 +1161,7 @@ const RevenueStatisticsPage = () => {
                   <SelectItem value="membership">Membership</SelectItem>
                   <SelectItem value="gift">Quà tặng</SelectItem>
                   <SelectItem value="streak">Streak</SelectItem>
+                  <SelectItem value="birthday">Sinh nhật</SelectItem>
                 </SelectContent>
               </Select>
             </div>

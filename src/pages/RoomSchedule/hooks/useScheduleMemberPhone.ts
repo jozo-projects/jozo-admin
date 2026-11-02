@@ -127,6 +127,7 @@ export const useScheduleMemberPhone = ({
         customerPhone,
       } as Partial<ICreateRoomScheduleRequest>),
     onSuccess: async (_, { customerPhone, silent }) => {
+      await queryClient.invalidateQueries({ queryKey: ["roomSchedule", scheduleId] });
       setSavedPhone(customerPhone);
       setPhone(customerPhone);
       refetchSchedules?.();

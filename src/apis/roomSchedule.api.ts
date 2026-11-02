@@ -4,6 +4,7 @@ import http from "@/utils/http";
 
 // Create a new interface for creating room schedules
 interface ICreateRoomScheduleRequest {
+  birthdayDraft?: import("@/utils/memberBirthday").ScheduleBirthdayDraft | null;
   roomId: string;
   startTime: string;
   endTime: string | null;
@@ -49,7 +50,7 @@ const roomsScheduleApis = {
   createSchedule: (schedule: ICreateRoomScheduleRequest) =>
     http.post<HTTPResponse<string>>(SCHEDULE_CONTROLLER, schedule),
   getScheduleById: (id: string) =>
-    http.get<HTTPResponse<IRoomSchedule>>(`${SCHEDULE_CONTROLLER}/${id}`),
+    http.get<HTTPResponse<IRoomSchedule>>(`${SCHEDULE_CONTROLLER}/detail/${id}`),
   getPhotoDisplay: (id: string) =>
     http.get(`${SCHEDULE_CONTROLLER}/${id}/photo-display`),
   setPhotoDisplay: (id: string, state: "hidden" | "showing") =>

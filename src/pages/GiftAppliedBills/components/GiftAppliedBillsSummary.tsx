@@ -14,10 +14,11 @@ const GiftAppliedBillsSummaryCards = ({
 }: GiftAppliedBillsSummaryProps) => {
   const totalDiscount =
     (summary?.totalGiftDiscountAmount ?? 0) +
-    (summary?.totalMembershipDiscountAmount ?? 0);
+    (summary?.totalMembershipDiscountAmount ?? 0) + (summary?.totalBirthdayDiscountAmount ?? 0);
 
   return (
-    <StatGrid className="xl:grid-cols-5">
+    <StatGrid className="xl:grid-cols-6">
+      <StatCard label="Sinh nhật" value={summary?.birthdayBills ?? 0} icon={Gift} tone="info" />
       <StatCard
         label="Tổng bill"
         value={summary?.totalBills ?? 0}

@@ -1,7 +1,9 @@
-export type GiftAppliedSource = "all" | "membership" | "gift" | "streak";
+import type { BirthdaySnapshot } from "@/utils/memberBirthday";
+export type GiftAppliedSource = "all" | "membership" | "gift" | "streak" | "birthday";
 export type GiftAppliedKind = "all" | "fnb" | "discount";
 
 export type GiftAppliedBillItem = {
+  birthday?: BirthdaySnapshot;
   _id: string;
   invoiceCode: string;
   roomName: string;
@@ -31,6 +33,8 @@ export type GiftAppliedBillsSummary = {
   membershipBills: number;
   giftBills: number;
   streakBills: number;
+  birthdayBills?: number;
+  totalBirthdayDiscountAmount?: number;
   totalGiftDiscountAmount: number;
   totalMembershipDiscountAmount: number;
 };
@@ -50,6 +54,7 @@ export const SOURCE_META: Record<
   membership: { label: "Membership", variant: "default" },
   gift: { label: "Quà tặng", variant: "secondary" },
   streak: { label: "Streak", variant: "outline" },
+  birthday: { label: "Sinh nhật", variant: "secondary" },
 };
 
 export const DEFAULT_GIFT_APPLIED_FILTERS: GiftAppliedBillsFilters = {

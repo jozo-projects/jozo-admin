@@ -13,7 +13,12 @@ import {
 import type { SongPruneJob } from "@/apis/roomMusic.apis";
 import type { SupportRequest } from "@/@types/SupportRequest";
 
-export const useSocket = () => {
+interface UseSocketOptions {
+  /** Optional lifecycle extension for the single global RoomEventsProvider. */
+  onSocketReady?: (socket: Socket) => () => void;
+}
+
+export const useSocket = ({ onSocketReady }: UseSocketOptions = {}) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const socketRef = useRef<Socket | null>(null);
@@ -68,14 +73,17 @@ export const useSocket = () => {
       });
     });
 
-    // Cleanup on unmount
+    const cleanupExtension = onSocketReady?.(socketRef.current);
+
+    // Cleanup on unmount, logout, or authentication change.
     return () => {
+      cleanupExtension?.();
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
       }
     };
-  }, [toast, user]);
+  }, [toast, user, onSocketReady]);
 
   const onConnect = (callback: () => void) => {
     socketRef.current?.on("connect", callback);

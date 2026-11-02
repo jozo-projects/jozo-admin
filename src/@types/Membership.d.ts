@@ -1,5 +1,6 @@
 // Membership configuration types
 import type { User } from "./user";
+import type { BirthdayPolicy } from "@/utils/memberBirthday";
 
 type ObjectId = string;
 
@@ -12,6 +13,7 @@ export interface ITierDiscount {
 export type ITierBenefit = ITierDiscount;
 
 export interface IMembershipConfig {
+  birthday?: BirthdayPolicy;
   _id?: ObjectId;
   currencyUnit: number;
   pointPerCurrency: number;

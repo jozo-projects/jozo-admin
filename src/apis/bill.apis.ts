@@ -5,6 +5,7 @@ import {
   IRevenueResult,
 } from "@/@types/Bill";
 import http from "@/utils/http";
+import type { BirthdaySelection, BirthdaySnapshot } from "@/utils/memberBirthday";
 import dayjs, { toIsoStringWithZeroSubsecond } from "@/lib/dayjs";
 
 const billAPis = {
@@ -15,8 +16,10 @@ const billAPis = {
     actualStartTime?: string,
     applyFreeHourPromotion?: boolean,
     phone?: string,
+    birthdaySelection?: BirthdaySelection,
   ) => {
     const params = new URLSearchParams();
+    if (birthdaySelection) params.set("birthdaySelection", JSON.stringify(birthdaySelection));
 
     if (actualEndTime) {
       params.append(
@@ -87,6 +90,7 @@ const billAPis = {
       promotionId?: string;
       actualStartTime?: string;
       applyFreeHourPromotion?: boolean;
+      birthdaySelection?: BirthdaySelection;
       phone?: string;
       customerPhone?: string;
     },
@@ -109,6 +113,7 @@ const billAPis = {
   saveBill: async (bill: {
     scheduleId: string;
     roomId: string;
+    birthdaySelection?: BirthdaySelection;
     items: Array<{
       description: string;
       price: number;
@@ -160,7 +165,7 @@ const billAPis = {
     startDate?: string;
     endDate?: string;
     kind?: "all" | "fnb" | "discount";
-    source?: "all" | "membership" | "gift" | "streak";
+    source?: "all" | "membership" | "gift" | "streak" | "birthday";
     search?: string;
   }) =>
     http.get<
@@ -173,7 +178,8 @@ const billAPis = {
           customerPhone: string;
           memberTier?: string;
           appliedKind: "fnb" | "discount";
-          appliedSource: "membership" | "gift" | "streak";
+          appliedSource: "membership" | "gift" | "streak" | "birthday";
+          birthday?: BirthdaySnapshot;
           appliedReason: string;
           streakGifts?: Array<{ streakCount: number; items: Array<{ name: string; quantity: number }> }>;
           giftName: string;
@@ -191,6 +197,8 @@ const billAPis = {
           membershipBills: number;
           giftBills: number;
           streakBills: number;
+          birthdayBills?: number;
+          totalBirthdayDiscountAmount?: number;
           totalGiftDiscountAmount: number;
           totalMembershipDiscountAmount: number;
         };

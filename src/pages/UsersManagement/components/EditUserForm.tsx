@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { MemberBirthdayHistory } from "@/components/modules/MemberBirthdayHistory";
+import { BirthdaySnapshotDetails } from "@/components/modules/BirthdaySnapshotDetails";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -439,6 +441,7 @@ const EditUserForm = () => {
         </TabsContent>
 
         <TabsContent value="membership" className="space-y-6">
+          <MemberBirthdayHistory key={id} memberId={id || ""} onOpenBill={setOpenBillId} />
           <Card>
         <CardContent className="pt-6">
           {isLoadingMembership ? (
@@ -946,6 +949,7 @@ const EditUserForm = () => {
                 <BillMemberSummary
                   membership={openBill?.data?.result?.membership}
                 />
+                {openBill?.data?.result?.birthday && <BirthdaySnapshotDetails birthday={openBill.data.result.birthday} />}
               </div>
             )}
           </DialogContent>

@@ -17,6 +17,7 @@ import {
   UpdateStreakPayload,
 } from "@/@types/Membership";
 import http from "@/utils/http";
+import type { MemberBirthday, BirthdayHistory } from "@/utils/memberBirthday";
 
 const MEMBERSHIP_CONTROLLER = "/membership/config";
 const MEMBERSHIP_ME_CONTROLLER = "/membership/me";
@@ -31,6 +32,11 @@ export type GetPendingGiftsParams = {
 };
 
 const membershipApis = {
+  getMemberBirthday: (id: string, at?: string) => {
+    const url = `${MEMBERSHIP_MEMBER_CONTROLLER}/${encodeURIComponent(id)}/birthday`;
+    return at ? http.get<HTTPResponse<MemberBirthday>>(url, { params: { at } }) : http.get<HTTPResponse<MemberBirthday>>(url);
+  },
+  getMemberBirthdayHistory: (id: string, page = 1, limit = 20) => http.get<HTTPResponse<BirthdayHistory>>(`${MEMBERSHIP_MEMBER_CONTROLLER}/${encodeURIComponent(id)}/birthday/history?page=${page}&limit=${limit}`),
   getConfig: () =>
     http.get<HTTPResponse<IMembershipConfig>>(MEMBERSHIP_CONTROLLER),
   updateConfig: (payload: MembershipConfigPayload) =>

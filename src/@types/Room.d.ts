@@ -24,6 +24,7 @@ interface IRoom {
 }
 
 interface IRoomSchedule {
+  birthdayDraft?: import("@/utils/memberBirthday").ScheduleBirthdayDraft | null;
   _id: string;
   roomId: string;
   startTime: string;

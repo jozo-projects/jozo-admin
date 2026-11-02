@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useScheduleBirthday } from "@/hooks/use-schedule-birthday";
+import { ScheduleBirthdayBenefits } from "@/components/modules/ScheduleBirthdayBenefits";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,6 +51,8 @@ const ProcessLockedModal: React.FC<ProcessLockedModalProps> = ({
     refetchSchedules,
   });
 
+  const birthdayMemberId = member.hasSavedValidPhone && !member.isPhoneDirty && !member.isLoadingMemberInfo && !member.isMemberInfoError ? member.memberInfo?.userId || "" : "";
+  const birthday = useScheduleBirthday(schedule._id, birthdayMemberId, isOpen && !!birthdayMemberId);
   const { data: roomsData } = useQuery({
     queryKey: ["rooms"],
     queryFn: () => roomApis.getRooms(),
@@ -87,6 +91,8 @@ const ProcessLockedModal: React.FC<ProcessLockedModalProps> = ({
     const updateData: Partial<IRoomSchedule> = { status: newStatus };
 
     if (newStatus === RoomStatus.InUse) {
+      if (birthday.blocked) return;
+      if (birthdayMemberId) updateData.birthdayDraft = birthday.scheduleDraft;
       updateData.startTime = now.toISOString();
       updateData.endTime = now.add(2, "hour").toISOString();
     } else if (newStatus === RoomStatus.Cancelled) {
@@ -168,6 +174,7 @@ const ProcessLockedModal: React.FC<ProcessLockedModalProps> = ({
               isServingGift={member.isMutatingGift}
             />
 
+            {birthdayMemberId && <ScheduleBirthdayBenefits birthday={birthday} />}
             <ScheduleRoomTypeSection
               className="mt-4"
               schedule={schedule}
@@ -186,6 +193,7 @@ const ProcessLockedModal: React.FC<ProcessLockedModalProps> = ({
               </Button>
               <Button
                 onClick={() => setIsExtendSessionModalOpen(true)}
+                disabled={birthday.blocked}
                 loading={isPending}
                 className="h-11 justify-start bg-emerald-600 hover:bg-emerald-700"
               >
@@ -222,6 +230,8 @@ const ProcessLockedModal: React.FC<ProcessLockedModalProps> = ({
         isOpen={isExtendSessionModalOpen}
         onClose={handleCloseExtendSessionModal}
         schedule={schedule}
+        birthdayDraft={birthdayMemberId ? birthday.scheduleDraft : undefined}
+        birthdayBlocked={birthday.blocked}
         refetchSchedules={refetchSchedules}
       />
     </>
