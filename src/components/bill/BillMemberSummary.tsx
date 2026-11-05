@@ -1,3 +1,12 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { MemberUsageHistory } from "@/components/modules/MemberUsageHistory";
 import { IBillMembership } from "@/@types/Bill";
 import { formatRunningStreak } from "@/pages/RoomSchedule/utils/streakCycle";
 
@@ -6,7 +15,8 @@ const BillMemberSummary = ({
 }: {
   membership?: IBillMembership | null;
 }) => {
-  if (!membership) return null;
+  const [historyOpen, setHistoryOpen] = useState(false);
+  if (!membership || membership.found === false) return null;
 
   const name = membership.full_name?.trim() || membership.name?.trim();
   const phone = membership.phone_number || membership.phone;
@@ -16,7 +26,34 @@ const BillMemberSummary = ({
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-3 border-t p-3 sm:grid-cols-4">
       <div className="col-span-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:col-span-4">
-        Thành viên
+        <div className="flex items-center justify-between gap-2">
+          <span>Thành viên</span>
+          {membership.userId && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setHistoryOpen(true)}
+            >
+              Lịch sử sử dụng
+            </Button>
+          )}
+        </div>
+        {membership.userId && (
+          <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>
+                  Lịch sử sử dụng · {name || phone || "Thành viên"}
+                </DialogTitle>
+              </DialogHeader>
+              <MemberUsageHistory
+                key={membership.userId}
+                memberId={membership.userId}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
       <div className="flex min-w-0 flex-col">
         <span className="text-[11px] text-muted-foreground">Tên</span>
@@ -28,7 +65,9 @@ const BillMemberSummary = ({
       </div>
       <div className="flex min-w-0 flex-col">
         <span className="text-[11px] text-muted-foreground">Hạng</span>
-        <span className="break-words font-medium">{membership.tier || "—"}</span>
+        <span className="break-words font-medium">
+          {membership.tier || "—"}
+        </span>
       </div>
       <div className="flex min-w-0 flex-col">
         <span className="text-[11px] text-muted-foreground">Điểm</span>

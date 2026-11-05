@@ -59,6 +59,11 @@ const billAPis = {
         IBill & {
           roomName: string;
           roomType: string;
+          pointsEarned?: number | null;
+          giftDiscountAmount?: number;
+          gift?: { name?: string };
+          activePromotion?: { name?: string };
+          note?: string;
           customerName: string;
           formattedStartTime: string;
           formattedEndTime: string;
@@ -72,6 +77,9 @@ const billAPis = {
             discountName?: string;
             discountPercentage?: number;
             promotionId?: string;
+            netAmount?: number;
+            grossAmount?: number;
+            isStreakGift?: boolean;
           }[];
           freeHourPromotion?: {
             freeMinutesApplied?: number;
@@ -154,9 +162,9 @@ const billAPis = {
       },
     }),
   /** GET /bill/revenue — FE tự tính startDate/endDate (ISO), gửi lên một endpoint duy nhất */
-  getBillRevenue: async (startDate: string, endDate: string) =>
+  getBillRevenue: async (startDate: string, endDate: string, rangeMode?: "exact") =>
     http.get<HTTPResponse<IRevenueResult>>(
-      `/bill/revenue?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+      `/bill/revenue?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}${rangeMode ? `&rangeMode=${rangeMode}` : ""}`,
     ),
 
   getGiftAppliedBills: async (params: {

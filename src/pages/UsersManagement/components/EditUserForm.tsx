@@ -3,19 +3,16 @@ import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+<<<<<<< Updated upstream
 import { MemberBirthdayHistory } from "@/components/modules/MemberBirthdayHistory";
 import { BirthdaySnapshotDetails } from "@/components/modules/BirthdaySnapshotDetails";
+=======
+import { MemberUsageHistory } from "@/components/modules/MemberUsageHistory";
+>>>>>>> Stashed changes
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Award,
-  CalendarIcon,
-  Gift,
-  Mail,
-  Phone,
-  UserCog,
-} from "lucide-react";
+import { Award, CalendarIcon, Gift, Mail, Phone, UserCog } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UpdateUserRequest, User } from "@/@types/user";
@@ -32,7 +29,7 @@ import {
 } from "@/hooks/use-membership";
 import { useQuery } from "@tanstack/react-query";
 import billAPis from "@/apis/bill.apis";
-import BillMemberSummary from "@/components/bill/BillMemberSummary";
+import { MemberHistoryBillDetail } from "@/components/bill/MemberHistoryBillDetail";
 import {
   claimedRewardKey,
   formatRunningStreak,
@@ -47,12 +44,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/utils";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -144,7 +136,7 @@ const EditUserForm = () => {
   const { data: streakInfoData, isLoading: isLoadingStreakInfo } =
     useMemberStreakInfo(id);
   const { data: membershipConfig } = useMembershipConfig();
-  const { data: openBill, isLoading: isLoadingOpenBill } = useQuery({
+  const { data: openBill, isLoading: isLoadingOpenBill, isError: isOpenBillError, refetch: refetchOpenBill } = useQuery({
     queryKey: ["bill-details", openBillId],
     queryFn: () => billAPis.getBillById(openBillId!),
     enabled: Boolean(openBillId),
@@ -254,7 +246,9 @@ const EditUserForm = () => {
     const parseRate = (raw?: string): number | null => {
       const t = raw?.trim();
       if (!t) return null;
-      const n = Number(t.replace(/\s/g, "").replace(/\./g, "").replace(/,/g, ""));
+      const n = Number(
+        t.replace(/\s/g, "").replace(/\./g, "").replace(/,/g, ""),
+      );
       if (!Number.isFinite(n) || n < 0) return null;
       return n;
     };
@@ -385,7 +379,9 @@ const EditUserForm = () => {
           <div className="grid gap-4 sm:grid-cols-3">
             <Card>
               <CardContent className="pt-5">
-                <div className="text-sm text-muted-foreground">Điểm hiện có</div>
+                <div className="text-sm text-muted-foreground">
+                  Điểm hiện có
+                </div>
                 <div className="mt-1 text-2xl font-semibold">
                   {formatNumber(membershipPoints)}
                 </div>
@@ -393,7 +389,9 @@ const EditUserForm = () => {
             </Card>
             <Card>
               <CardContent className="pt-5">
-                <div className="text-sm text-muted-foreground">Hạng hiện tại</div>
+                <div className="text-sm text-muted-foreground">
+                  Hạng hiện tại
+                </div>
                 <div className="mt-1 flex items-center gap-2 text-2xl font-semibold">
                   <Award className="h-5 w-5 text-primary" />
                   {membershipTier}
@@ -402,7 +400,9 @@ const EditUserForm = () => {
             </Card>
             <Card>
               <CardContent className="pt-5">
-                <div className="text-sm text-muted-foreground">Streak hiện tại</div>
+                <div className="text-sm text-muted-foreground">
+                  Streak hiện tại
+                </div>
                 <div className="mt-1 text-2xl font-semibold">
                   {streakInfoData?.streak
                     ? formatRunningStreak(
@@ -426,7 +426,8 @@ const EditUserForm = () => {
                 <div>
                   <h3 className="font-semibold">Cần chú ý</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Xem nhanh mốc quà đã nhận và quà đang chờ phát trong tab Membership & quà.
+                    Xem nhanh mốc quà đã nhận và quà đang chờ phát trong tab
+                    Membership & quà.
                   </p>
                 </div>
                 <Button
@@ -441,141 +442,549 @@ const EditUserForm = () => {
         </TabsContent>
 
         <TabsContent value="membership" className="space-y-6">
+<<<<<<< Updated upstream
           <MemberBirthdayHistory key={id} memberId={id || ""} onOpenBill={setOpenBillId} />
+=======
+          <MemberUsageHistory
+            key={`usage-${id}`}
+            memberId={id || ""}
+            onOpenBill={setOpenBillId}
+          />
+>>>>>>> Stashed changes
           <Card>
-        <CardContent className="pt-6">
-          {isLoadingMembership ? (
-            <div className="text-muted-foreground">
-              Đang tải thông tin membership...
-            </div>
-          ) : membershipDetail ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1 rounded-lg border p-4">
-                <div className="text-sm text-muted-foreground">Điểm</div>
-                <div className="text-2xl font-semibold">
-                  {formatNumber(membershipPoints)}
+            <CardContent className="pt-6">
+              {isLoadingMembership ? (
+                <div className="text-muted-foreground">
+                  Đang tải thông tin membership...
                 </div>
-              </div>
-              <div className="space-y-1 rounded-lg border p-4">
-                <div className="text-sm text-muted-foreground">
-                  Loyalty / Hạng hiện tại
-                </div>
-                <div className="text-2xl font-semibold">{membershipTier}</div>
-              </div>
-              <div className="space-y-1 rounded-lg border p-4 sm:col-span-2">
-                <div className="text-sm text-muted-foreground">
-                  Hạng kế tiếp
-                </div>
-                <div className="text-lg font-medium leading-tight">
-                  {nextTierLabel}
-                </div>
-              </div>
-              <div className="sm:col-span-2 border-t pt-4 space-y-4">
-                <div>
-                  <div className="text-base font-semibold">Cập nhật Streak</div>
-                  <p className="text-sm text-muted-foreground">
-                    Thiết lập số lượng streak hiện tại cho thành viên này.
-                  </p>
-                </div>
-                <form
-                  onSubmit={streakForm.handleSubmit(onSubmitStreak)}
-                  className="grid gap-4 sm:grid-cols-2"
-                >
-                  <div className="space-y-2">
-                    <Label htmlFor="streak-count">Streak *</Label>
-                    <Input
-                      id="streak-count"
-                      type="number"
-                      step="1"
-                      min="0"
-                      {...streakForm.register("count")}
-                      placeholder="Nhập số streak"
-                    />
-                    {streakForm.formState.errors.count && (
-                      <p className="text-sm text-red-500">
-                        {streakForm.formState.errors.count.message}
-                      </p>
-                    )}
+              ) : membershipDetail ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1 rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Điểm</div>
+                    <div className="text-2xl font-semibold">
+                      {formatNumber(membershipPoints)}
+                    </div>
                   </div>
-                  <div className="sm:col-span-2 flex gap-2">
-                    <Button
-                      type="submit"
-                      className="flex-1"
-                      disabled={isUpdatingMemberStreak}
+                  <div className="space-y-1 rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">
+                      Loyalty / Hạng hiện tại
+                    </div>
+                    <div className="text-2xl font-semibold">
+                      {membershipTier}
+                    </div>
+                  </div>
+                  <div className="space-y-1 rounded-lg border p-4 sm:col-span-2">
+                    <div className="text-sm text-muted-foreground">
+                      Hạng kế tiếp
+                    </div>
+                    <div className="text-lg font-medium leading-tight">
+                      {nextTierLabel}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2 border-t pt-4 space-y-4">
+                    <div>
+                      <div className="text-base font-semibold">
+                        Cập nhật Streak
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Thiết lập số lượng streak hiện tại cho thành viên này.
+                      </p>
+                    </div>
+                    <form
+                      onSubmit={streakForm.handleSubmit(onSubmitStreak)}
+                      className="grid gap-4 sm:grid-cols-2"
                     >
-                      {isUpdatingMemberStreak
-                        ? "Đang cập nhật..."
-                        : "Cập nhật Streak"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={onResetStreak}
-                      disabled={isUpdatingMemberStreak}
+                      <div className="space-y-2">
+                        <Label htmlFor="streak-count">Streak *</Label>
+                        <Input
+                          id="streak-count"
+                          type="number"
+                          step="1"
+                          min="0"
+                          {...streakForm.register("count")}
+                          placeholder="Nhập số streak"
+                        />
+                        {streakForm.formState.errors.count && (
+                          <p className="text-sm text-red-500">
+                            {streakForm.formState.errors.count.message}
+                          </p>
+                        )}
+                      </div>
+                      <div className="sm:col-span-2 flex gap-2">
+                        <Button
+                          type="submit"
+                          className="flex-1"
+                          disabled={isUpdatingMemberStreak}
+                        >
+                          {isUpdatingMemberStreak
+                            ? "Đang cập nhật..."
+                            : "Cập nhật Streak"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          onClick={onResetStreak}
+                          disabled={isUpdatingMemberStreak}
+                        >
+                          Reset Streak
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
+                  <div className="sm:col-span-2 border-t pt-4 space-y-4">
+                    <div>
+                      <div className="text-base font-semibold">
+                        Cập nhật điểm thành viên
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Nhập tổng điểm mới của thành viên. Nhập 0 nếu muốn đưa
+                        điểm về 0.
+                      </p>
+                    </div>
+                    <form
+                      onSubmit={pointsForm.handleSubmit(onSubmitPoints)}
+                      className="grid gap-4 sm:grid-cols-2"
                     >
-                      Reset Streak
-                    </Button>
+                      <div className="space-y-2">
+                        <Label htmlFor="points">Điểm *</Label>
+                        <Input
+                          id="points"
+                          type="number"
+                          step="1"
+                          {...pointsForm.register("points")}
+                          placeholder="Nhập tổng điểm mới"
+                        />
+                        {pointsForm.formState.errors.points && (
+                          <p className="text-sm text-red-500">
+                            {pointsForm.formState.errors.points.message}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="reason">Lý do</Label>
+                        <Input
+                          id="reason"
+                          {...pointsForm.register("reason")}
+                          placeholder="Nhập lý do (tùy chọn)"
+                        />
+                        {pointsForm.formState.errors.reason && (
+                          <p className="text-sm text-red-500">
+                            {pointsForm.formState.errors.reason.message}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        type="submit"
+                        className="sm:col-span-2"
+                        disabled={isUpdatingMemberPoints}
+                      >
+                        {isUpdatingMemberPoints
+                          ? "Đang cập nhật..."
+                          : "Cập nhật điểm"}
+                      </Button>
+                    </form>
                   </div>
-                </form>
-              </div>
-              <div className="sm:col-span-2 border-t pt-4 space-y-4">
-                <div>
-                  <div className="text-base font-semibold">
-                    Cập nhật điểm thành viên
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Nhập tổng điểm mới của thành viên. Nhập 0 nếu muốn đưa điểm về 0.
-                  </p>
                 </div>
-                <form
-                  onSubmit={pointsForm.handleSubmit(onSubmitPoints)}
-                  className="grid gap-4 sm:grid-cols-2"
-                >
+              ) : (
+                <div className="text-muted-foreground">
+                  Không có thông tin membership.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="space-y-5 pt-6">
+              <h3 className="font-semibold">Quà tặng</h3>
+              {isLoadingGifts || isLoadingStreakInfo ? (
+                <p className="text-sm text-muted-foreground">Đang tải...</p>
+              ) : (
+                <>
+                  {runningStreak && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium">
+                          {formatRunningStreak(
+                            runningStreak.count,
+                            runningStreak.cycle,
+                          )}
+                        </p>
+                        <Badge
+                          variant={
+                            runningStreak.isActive ? "success" : "secondary"
+                          }
+                        >
+                          {runningStreak.isActive ? "Đang chạy" : "Đã dừng"}
+                        </Badge>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full bg-primary"
+                          style={{
+                            width: `${
+                              streakProgressRatio(
+                                runningStreak.count,
+                                membershipConfig?.streak?.rewards,
+                              ) * 100
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <div className="grid gap-1 text-sm text-muted-foreground sm:grid-cols-2">
+                        <p>
+                          Ghé gần nhất{" "}
+                          {new Date(runningStreak.lastVisitAt).toLocaleString(
+                            "vi-VN",
+                          )}
+                        </p>
+                        <p>
+                          Hết hạn{" "}
+                          {new Date(runningStreak.expiredAt).toLocaleString(
+                            "vi-VN",
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label htmlFor="points">Điểm *</Label>
-                    <Input
-                      id="points"
-                      type="number"
-                      step="1"
-                      {...pointsForm.register("points")}
-                      placeholder="Nhập tổng điểm mới"
-                    />
-                    {pointsForm.formState.errors.points && (
-                      <p className="text-sm text-red-500">
-                        {pointsForm.formState.errors.points.message}
+                    <p className="text-sm font-medium">Chưa phát</p>
+                    {pendingGiftsData?.availableGifts?.length ? (
+                      <div className="divide-y rounded-md border">
+                        {pendingGiftsData.availableGifts.map((gift) => (
+                          <div
+                            key={gift.streakCount}
+                            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                          >
+                            <span>Lần {gift.streakCount}</span>
+                            <span className="text-muted-foreground">
+                              {gift.itemCount} món
+                              {gift.bonusPoints
+                                ? ` · +${gift.bonusPoints} điểm`
+                                : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Không có quà chờ phát
                       </p>
                     )}
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="reason">Lý do</Label>
-                    <Input
-                      id="reason"
-                      {...pointsForm.register("reason")}
-                      placeholder="Nhập lý do (tùy chọn)"
-                    />
-                    {pointsForm.formState.errors.reason && (
-                      <p className="text-sm text-red-500">
-                        {pointsForm.formState.errors.reason.message}
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Đã nhận</p>
+                    {claimedHistory.length > 0 ? (
+                      <div className="divide-y rounded-md border">
+                        {claimedHistory.map((reward) => {
+                          const billLabel = reward.invoiceCode || reward.billId;
+                          return (
+                            <div
+                              key={claimedRewardKey(reward)}
+                              className="flex items-start justify-between gap-3 px-3 py-2 text-sm"
+                            >
+                              <div className="min-w-0">
+                                <p>
+                                  Vòng {rewardCycle(reward)}, lần{" "}
+                                  {reward.streakCount}
+                                </p>
+                                <p className="text-muted-foreground">
+                                  {reward.items
+                                    ?.map(
+                                      (item) =>
+                                        `${item.name} ×${item.quantity}`,
+                                    )
+                                    .join(", ")}
+                                </p>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                {billLabel && reward.billId ? (
+                                  <button
+                                    type="button"
+                                    className="font-medium text-primary underline"
+                                    onClick={() =>
+                                      setOpenBillId(reward.billId!)
+                                    }
+                                  >
+                                    {billLabel}
+                                  </button>
+                                ) : null}
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(reward.claimedAt).toLocaleString(
+                                    "vi-VN",
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Chưa nhận quà
                       </p>
                     )}
                   </div>
+
+                  {pendingGiftsData?.streakRewards?.length ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Các mốc</p>
+                      <div className="divide-y rounded-md border">
+                        {pendingGiftsData.streakRewards.map((reward) => (
+                          <div
+                            key={reward.streakCount}
+                            className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                          >
+                            <span>Lần {reward.streakCount}</span>
+                            <span className="text-muted-foreground">
+                              {reward.itemCount
+                                ? `${reward.itemCount} món`
+                                : "Không có món"}
+                              {reward.bonusPoints
+                                ? ` · +${reward.bonusPoints} điểm`
+                                : ""}
+                              {reward.claimed
+                                ? " · Đã nhận"
+                                : reward.isReached
+                                  ? " · Đã đạt"
+                                  : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="profile">
+          <Card>
+            <CardContent className="pt-6">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-6"
+              >
+                {/* Tên */}
+                <div className="space-y-2">
+                  <Label htmlFor="name">Tên *</Label>
+                  <Input
+                    id="name"
+                    {...form.register("name")}
+                    placeholder="Nhập tên đầy đủ"
+                  />
+                  {form.formState.errors.name && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.name.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    {...form.register("email")}
+                    placeholder="Nhập email (tùy chọn)"
+                  />
+                  {form.formState.errors.email && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.email.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Số điện thoại */}
+                <div className="space-y-2">
+                  <Label htmlFor="phone_number">Số điện thoại *</Label>
+                  <Input
+                    id="phone_number"
+                    {...form.register("phone_number")}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={11}
+                    onChange={(e) => {
+                      const normalized = normalizePhone(e.target.value);
+                      form.setValue("phone_number", normalized, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }}
+                    placeholder="Nhập số điện thoại"
+                  />
+                  {form.formState.errors.phone_number && (
+                    <p className="text-sm text-red-500">
+                      {form.formState.errors.phone_number.message}
+                    </p>
+                  )}
+                </div>
+
+                {/* Ngày sinh */}
+                <Controller
+                  control={form.control}
+                  name="date_of_birth"
+                  render={({ field }) => (
+                    <div className="space-y-2">
+                      <Label>Ngày sinh *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !field.value && "text-muted-foreground",
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value
+                              ? format(field.value, "dd/MM/yyyy")
+                              : "Chọn ngày"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={(date) => date && field.onChange(date)}
+                            captionLayout="dropdown-buttons"
+                            fromYear={1950}
+                            toYear={new Date().getFullYear()}
+                            disabled={{ after: new Date() }}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {form.formState.errors.date_of_birth && (
+                        <p className="text-sm text-red-500">
+                          {form.formState.errors.date_of_birth.message}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                />
+
+                <div className="border-t pt-6 space-y-4">
+                  <div>
+                    <div className="text-base font-semibold">
+                      Thử việc &amp; lương
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Để trống và lưu để xóa cấu hình. Ngày/giờ lưu dạng ISO
+                      trên server.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="probationStartLocal">
+                        Bắt đầu thử việc
+                      </Label>
+                      <Input
+                        id="probationStartLocal"
+                        type="datetime-local"
+                        {...form.register("probationStartLocal")}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="probationEndLocal">
+                        Kết thúc thử việc
+                      </Label>
+                      <Input
+                        id="probationEndLocal"
+                        type="datetime-local"
+                        {...form.register("probationEndLocal")}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="probationHourlyRateStr">
+                        Lương giờ (thử việc)
+                      </Label>
+                      <Input
+                        id="probationHourlyRateStr"
+                        inputMode="numeric"
+                        {...form.register("probationHourlyRateStr")}
+                        placeholder="VNĐ/giờ, để trống để xóa"
+                      />
+                      {form.formState.errors.probationHourlyRateStr && (
+                        <p className="text-sm text-red-500">
+                          {form.formState.errors.probationHourlyRateStr.message}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="probationHolidayMultiplierStr">
+                        Hệ số ngày lễ (0–20)
+                      </Label>
+                      <Input
+                        id="probationHolidayMultiplierStr"
+                        inputMode="decimal"
+                        {...form.register("probationHolidayMultiplierStr")}
+                        placeholder="Để trống để xóa"
+                      />
+                      {form.formState.errors.probationHolidayMultiplierStr && (
+                        <p className="text-sm text-red-500">
+                          {
+                            form.formState.errors.probationHolidayMultiplierStr
+                              .message
+                          }
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-4 pt-4">
                   <Button
                     type="submit"
-                    className="sm:col-span-2"
-                    disabled={isUpdatingMemberPoints}
+                    disabled={isUpdatingUser}
+                    className="flex-1"
                   >
-                    {isUpdatingMemberPoints
-                      ? "Đang cập nhật..."
-                      : "Cập nhật điểm"}
+                    {isUpdatingUser ? "Đang xử lý..." : "Cập nhật"}
                   </Button>
-                </form>
-              </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      router.navigate({ to: PATHS.USERS_MANAGEMENT })
+                    }
+                    className="flex-1"
+                  >
+                    Hủy
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      <Dialog
+        open={Boolean(openBillId)}
+        onOpenChange={(open) => {
+          if (!open) setOpenBillId(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              Chi tiết hóa đơn{openBill?.data?.result?.invoiceCode ? ` · ${openBill.data.result.invoiceCode}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {isLoadingOpenBill ? (
+            <p className="text-sm text-muted-foreground">Đang tải hóa đơn...</p>
+          ) : isOpenBillError || !openBill?.data?.result ? (
+            <div role="alert" className="space-y-2 text-sm">
+              <p>Không thể tải chi tiết hóa đơn.</p>
+              <Button type="button" variant="outline" onClick={() => void refetchOpenBill()}>Thử lại</Button>
             </div>
           ) : (
-            <div className="text-muted-foreground">
-              Không có thông tin membership.
-            </div>
+            <MemberHistoryBillDetail bill={openBill.data.result} />
           )}
+<<<<<<< Updated upstream
         </CardContent>
       </Card>
       <Card className="max-w-2xl mx-auto">
@@ -955,6 +1364,11 @@ const EditUserForm = () => {
           </DialogContent>
         </Dialog>
       </div>
+=======
+        </DialogContent>
+      </Dialog>
+    </div>
+>>>>>>> Stashed changes
   );
 };
 

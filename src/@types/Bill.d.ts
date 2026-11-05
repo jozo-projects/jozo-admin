@@ -24,6 +24,8 @@ export interface IBillPaymentMethodHistory {
 
 /** Membership snapshot BE trả kèm bill sau khi áp discount */
 export interface IBillMembership {
+  found?: boolean;
+  userId?: string;
   name?: string;
   full_name?: string;
   tier?: string;

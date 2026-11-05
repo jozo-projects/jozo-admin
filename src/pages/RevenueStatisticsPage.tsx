@@ -2,7 +2,17 @@ import billAPis from "@/apis/bill.apis";
 import BillMemberSummary from "@/components/bill/BillMemberSummary";
 import { PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import {
+  RevenuePeriodSelector,
+} from "@/components/modules/RevenuePeriodSelector";
+import {
+  currentBusinessDate,
+  customBusinessRange,
+  fixedRevenueRange,
+  VN_TZ,
+  type RevenuePeriod,
+  type RevenueRange,
+} from "@/utils/revenuePeriod";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Table,
@@ -12,12 +22,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import dayjs from "@/lib/dayjs";
-import type { Dayjs } from "dayjs";
 import { TrendingUp, History, Pencil } from "lucide-react";
 import {
-  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -42,11 +49,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -119,53 +121,10 @@ interface DateInfo {
   month?: string;
 }
 
-const VN_TZ = "Asia/Ho_Chi_Minh";
-
-/** Chuẩn hóa ngày chọn trên lịch về nửa đêm theo giờ VN */
-const calendarDateStartVn = (selectedDate: Date): Dayjs => {
-  const ymd = dayjs(selectedDate).format("YYYY-MM-DD");
-  return dayjs.tz(ymd, VN_TZ).startOf("day");
-};
-
-/** Tuần T2–CN (cùng logic nhiều màn lịch trong app); FE gửi start/end ISO cho GET /bill/revenue */
-const startOfWeekMondayVn = (dayVn: Dayjs): Dayjs => {
-  const d = dayVn.startOf("day");
-  const dow = d.day();
-  if (dow === 0) return d.subtract(6, "day");
-  return d.subtract(dow - 1, "day");
-};
-
-/**
- * Kỳ doanh thu tháng (6 → 5): từ 00:00 ngày 6 tháng M đến cuối ngày 5 tháng M+1 (giờ VN).
- * Ví dụ kỳ chứa 15/05: 06/05 → 05/06.
- */
-const revenueMonthPeriod6To5Containing = (
-  dayVn: Dayjs,
-): { periodStart: Dayjs; defaultEndDay: Dayjs } => {
-  const d = dayVn.startOf("day");
-  const periodStart =
-    d.date() >= 6
-      ? d.date(6).startOf("day")
-      : d.subtract(1, "month").date(6).startOf("day");
-  const defaultEndDay = periodStart.add(1, "month").date(5).startOf("day");
-  return { periodStart, defaultEndDay };
-};
-
-/** Date giữa trưa local để Calendar không lệch ngày khi parse */
-const localDateFromYmd = (ymd: string): Date => {
-  const [y, m, day] = ymd.split("-").map(Number);
-  return new Date(y, m - 1, day, 12, 0, 0, 0);
-};
-
-const localDateFromDayjsVnDay = (d: Dayjs): Date =>
-  localDateFromYmd(d.format("YYYY-MM-DD"));
-
 const mapBillRevenueToState = (result: IRevenueResult) => {
-  const startVn = dayjs.utc(result.startDate).tz(VN_TZ);
-  const endVn = dayjs.utc(result.endDate).tz(VN_TZ);
-  const byCategory = result.byCategory
-    ? normalizeRevenueBreakdown(result.byCategory)
-    : sumBillRevenueBreakdowns(result.bills);
+  const startVn = dayjs(result.startDate).tz(VN_TZ);
+  const endVn = dayjs(result.endDate).tz(VN_TZ);
+  const byCategory = normalizeRevenueBreakdown(result.byCategory);
   return {
     totalRevenue: result.totalRevenue,
     serviceRoomRevenue: result.serviceRoomRevenue ?? byCategory.SERVICE_ROOM,
@@ -195,11 +154,6 @@ type RevenueSummary = {
   dateInfo: DateInfo;
 };
 
-type RevenueData = {
-  loading: boolean;
-  error: string | null;
-  data: RevenueSummary | null;
-};
 
 type RevenueBill = IBill & {
   source?: "karaoke" | "retail" | string;
@@ -364,11 +318,9 @@ const BillRevenueBreakdownText = ({ bill }: { bill: RevenueBill }) => {
 };
 
 const RevenueSummaryCards = ({
-  periodCards,
   stats,
   isStaff,
 }: {
-  periodCards: ReactNode;
   stats: Pick<
     RevenueSummary,
     | "totalRevenue"
@@ -381,10 +333,9 @@ const RevenueSummaryCards = ({
 }) => (
   <div
     className={`grid grid-cols-2 gap-3 sm:gap-4 ${
-      isStaff ? "md:grid-cols-2" : "md:grid-cols-3 lg:grid-cols-5"
+      isStaff ? "max-w-xs grid-cols-1" : "lg:grid-cols-4"
     }`}
   >
-    {periodCards}
     {!isStaff && (
       <>
         <StatCard label="Tổng doanh thu" accent>
@@ -463,6 +414,7 @@ const BillsTableSection = ({
                     >
                       {bill.invoiceCode || "N/A"}
                     </button>
+                    {bill.membership?.found && <Badge variant="outline" className="ml-2" title={[bill.membership.name, bill.membership.phone].filter(Boolean).join(" · ")}>Thành viên</Badge>}
                   </TableCell>
                   <TableCell>
                     {formatBillDate(bill.createdAt.toString())}
@@ -547,6 +499,7 @@ const BillsTableSection = ({
                   onClick={() => bill._id && onBillClick(bill._id)}
                 >
                   {bill.invoiceCode || "N/A"}
+                  {bill.membership?.found && <Badge variant="outline" className="ml-2">Thành viên</Badge>}
                 </button>
                 {!isStaff && (
                   <div className="text-right">
@@ -624,12 +577,11 @@ const BillsTableSection = ({
 );
 
 const RevenueStatisticsPage = () => {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  /** Chỉ dùng tab tuần / tháng: ngày kết thúc kỳ (mặc định CN cùng tuần hoặc ngày 5 tháng sau của kỳ 6→5) */
-  const [selectedEndDate, setSelectedEndDate] = useState<Date>(() =>
-    localDateFromYmd(dayjs().format("YYYY-MM-DD")),
+  const [selectedDate, setSelectedDate] = useState(currentBusinessDate);
+  const [activeTab, setActiveTab] = useState<RevenuePeriod>("daily");
+  const [customRange, setCustomRange] = useState<RevenueRange>(() =>
+    customBusinessRange(selectedDate, selectedDate),
   );
-  const [activeTab, setActiveTab] = useState<string>("daily");
   const [selectedBill, setSelectedBill] = useState<string | null>(null);
   const [billDetailOpen, setBillDetailOpen] = useState<boolean>(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
@@ -655,44 +607,12 @@ const RevenueStatisticsPage = () => {
     }
   }, [isStaff, activeTab]);
 
-  const weekStartKey = useMemo(
-    () =>
-      startOfWeekMondayVn(calendarDateStartVn(selectedDate)).format(
-        "YYYY-MM-DD",
-      ),
-    [selectedDate],
-  );
-
-  const monthPeriodStartKey = useMemo(
-    () =>
-      revenueMonthPeriod6To5Containing(
-        calendarDateStartVn(selectedDate),
-      ).periodStart.format("YYYY-MM-DD"),
-    [selectedDate],
-  );
-
-  // Đồng bộ ngày kết thúc mặc định khi đổi tab hoặc khi đổi tuần / kỳ tháng (6→5), không reset khi chỉ đổi ngày trong cùng tuần hoặc cùng kỳ
-  useEffect(() => {
-    if (activeTab !== "weekly") return;
-    const mon = dayjs.tz(weekStartKey, VN_TZ).startOf("day");
-    setSelectedEndDate(localDateFromDayjsVnDay(mon.add(6, "day")));
-  }, [activeTab, weekStartKey]);
-
-  useEffect(() => {
-    if (activeTab !== "monthly") return;
-    const periodStart = dayjs.tz(monthPeriodStartKey, VN_TZ).startOf("day");
-    const defaultEndDay = periodStart.add(1, "month").date(5).startOf("day");
-    setSelectedEndDate(localDateFromDayjsVnDay(defaultEndDay));
-  }, [activeTab, monthPeriodStartKey]);
-
-  const weekStartVn = useMemo(
-    () => dayjs.tz(weekStartKey, VN_TZ).startOf("day"),
-    [weekStartKey],
-  );
-
-  const monthPeriod6To5 = useMemo(
-    () => revenueMonthPeriod6To5Containing(calendarDateStartVn(selectedDate)),
-    [selectedDate],
+  const effectivePeriod = isStaff ? "daily" : activeTab;
+  const range = useMemo(
+    () => effectivePeriod === "custom"
+      ? customRange
+      : fixedRevenueRange(effectivePeriod, selectedDate),
+    [effectivePeriod, customRange, selectedDate],
   );
 
   const { data: roomsData } = useQuery({
@@ -729,132 +649,19 @@ const RevenueStatisticsPage = () => {
     setBillDetailOpen(true);
   };
 
-  const [dailyRevenue, setDailyRevenue] = useState<RevenueData>({
-    loading: false,
-    error: null,
-    data: null,
-  });
-
-  const [weeklyRevenue, setWeeklyRevenue] = useState<RevenueData>({
-    loading: false,
-    error: null,
-    data: null,
-  });
-
-  const [monthlyRevenue, setMonthlyRevenue] = useState<RevenueData>({
-    loading: false,
-    error: null,
-    data: null,
-  });
-
-  const fetchDailyRevenue = useCallback(async () => {
-    setDailyRevenue((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      const d = calendarDateStartVn(selectedDate);
-      const startIso = d.startOf("day").toISOString();
-      const endIso = d.endOf("day").toISOString();
-      const response = await billAPis.getBillRevenue(startIso, endIso);
-
-      if (response?.data?.result) {
-        setDailyRevenue({
-          loading: false,
-          error: null,
-          data: mapBillRevenueToState(response.data.result),
-        });
+  const revenueQuery = useQuery({
+    queryKey: ["billRevenue", range.start, range.end, isStaff],
+    queryFn: async () => {
+      const response = await billAPis.getBillRevenue(range.start, range.end, "exact");
+      if (!response.data.result) {
+        throw new Error("Không có dữ liệu doanh thu trả về");
       }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Có lỗi xảy ra khi tải dữ liệu doanh thu ngày";
-      setDailyRevenue({
-        loading: false,
-        error: errorMessage,
-        data: null,
-      });
-    }
-  }, [selectedDate]);
-
-  const fetchWeeklyRevenue = useCallback(async () => {
-    setWeeklyRevenue((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      const mon = weekStartVn;
-      const endDay = calendarDateStartVn(selectedEndDate);
-      const startIso = mon.startOf("day").toISOString();
-      const endCandidate = endDay.endOf("day");
-      const endIso = (endCandidate.isBefore(mon, "day") ? mon : endDay)
-        .endOf("day")
-        .toISOString();
-      const response = await billAPis.getBillRevenue(startIso, endIso);
-
-      if (response?.data?.result) {
-        setWeeklyRevenue({
-          loading: false,
-          error: null,
-          data: mapBillRevenueToState(response.data.result),
-        });
-      }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Có lỗi xảy ra khi tải dữ liệu doanh thu tuần";
-      setWeeklyRevenue({
-        loading: false,
-        error: errorMessage,
-        data: null,
-      });
-    }
-  }, [selectedEndDate, weekStartVn]);
-
-  const fetchMonthlyRevenue = useCallback(async () => {
-    setMonthlyRevenue((prev) => ({ ...prev, loading: true, error: null }));
-    try {
-      const { periodStart } = monthPeriod6To5;
-      const endDay = calendarDateStartVn(selectedEndDate);
-      const startIso = periodStart.startOf("day").toISOString();
-      const endIso = (
-        endDay.isBefore(periodStart, "day") ? periodStart : endDay
-      )
-        .endOf("day")
-        .toISOString();
-      const response = await billAPis.getBillRevenue(startIso, endIso);
-
-      if (response?.data?.result) {
-        setMonthlyRevenue({
-          loading: false,
-          error: null,
-          data: mapBillRevenueToState(response.data.result),
-        });
-      }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Có lỗi xảy ra khi tải dữ liệu doanh thu tháng";
-      setMonthlyRevenue({
-        loading: false,
-        error: errorMessage,
-        data: null,
-      });
-    }
-  }, [monthPeriod6To5, selectedEndDate]);
-
-  useEffect(() => {
-    if (activeTab === "daily") {
-      fetchDailyRevenue();
-    } else if (activeTab === "weekly" && !isStaff) {
-      fetchWeeklyRevenue();
-    } else if (activeTab === "monthly" && !isStaff) {
-      fetchMonthlyRevenue();
-    }
-  }, [
-    activeTab,
-    fetchDailyRevenue,
-    fetchMonthlyRevenue,
-    fetchWeeklyRevenue,
-    isStaff,
-  ]);
+      return mapBillRevenueToState(response.data.result);
+    },
+  });
+  const fetchRevenue = () => {
+    void revenueQuery.refetch();
+  };
 
   const updatePaymentMethodMutation = useMutation({
     mutationFn: ({
@@ -871,9 +678,7 @@ const RevenueStatisticsPage = () => {
         title: "Thành công",
         description: "Đã cập nhật phương thức thanh toán.",
       });
-      if (activeTab === "daily") fetchDailyRevenue();
-      else if (activeTab === "weekly") fetchWeeklyRevenue();
-      else fetchMonthlyRevenue();
+      fetchRevenue();
     },
     onError: (error: unknown) => {
       toast({
@@ -925,13 +730,12 @@ const RevenueStatisticsPage = () => {
     });
   };
 
-  const handleTabChange = (value: string) => {
-    // Nếu là staff, chỉ cho phép tab "daily"
-    if (isStaff && value !== "daily") {
-      return;
+  const handleTabChange = (value: RevenuePeriod) => {
+    if (isStaff && value !== "daily") return;
+    if (value === "custom" && activeTab !== "custom") {
+      setCustomRange(customBusinessRange(selectedDate, selectedDate));
     }
     setActiveTab(value);
-    // Reset filter khi chuyển tab
     setSelectedPaymentMethod("all");
   };
 
@@ -1030,107 +834,20 @@ const RevenueStatisticsPage = () => {
     <div className="flex w-full flex-col gap-6">
       <PageHeader
         title="Thống kê doanh thu"
-        description="Theo ngày; theo tuần (T2–CN, chọn thêm ngày kết thúc); theo kỳ tháng 6→5 (ngày 6 tháng này đến ngày 5 tháng sau, có thể chỉnh ngày kết thúc)"
         icon={TrendingUp}
       />
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full justify-start sm:w-auto sm:min-w-[9rem]"
-            >
-              {activeTab === "daily" && (
-                <>
-                  Ngày: {calendarDateStartVn(selectedDate).format("DD/MM/YYYY")}
-                </>
-              )}
-              {activeTab === "weekly" && (
-                <>Tuần từ (T2): {weekStartVn.format("DD/MM/YYYY")}</>
-              )}
-              {activeTab === "monthly" && (
-                <>
-                  Kỳ từ (ngày 6):{" "}
-                  {monthPeriod6To5.periodStart.format("DD/MM/YYYY")}
-                </>
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-
-        {!isStaff && (activeTab === "weekly" || activeTab === "monthly") && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full justify-start sm:w-auto sm:min-w-[9rem]"
-              >
-                Đến: {calendarDateStartVn(selectedEndDate).format("DD/MM/YYYY")}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={selectedEndDate}
-                onSelect={(date) => date && setSelectedEndDate(date)}
-                initialFocus
-                disabled={(date) => {
-                  const cell = calendarDateStartVn(date);
-                  if (activeTab === "weekly") {
-                    return cell.isBefore(weekStartVn, "day");
-                  }
-                  return cell.isBefore(monthPeriod6To5.periodStart, "day");
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-        )}
-
-        <Button
-          className="w-full sm:w-auto"
-          onClick={() => {
-            if (activeTab === "daily") fetchDailyRevenue();
-            else if (activeTab === "weekly") fetchWeeklyRevenue();
-            else if (activeTab === "monthly") fetchMonthlyRevenue();
-          }}
-        >
-          Làm mới
-        </Button>
-      </div>
-
-      <Tabs
-        value={activeTab}
-        onValueChange={handleTabChange}
-        className="w-full"
-      >
-        <div className="mb-5 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList
-            className={
-              isStaff ? "w-full sm:w-auto" : "grid w-full grid-cols-3 sm:w-auto"
-            }
-          >
-            <TabsTrigger value="daily">Ngày</TabsTrigger>
-            {!isStaff && (
-              <>
-                <TabsTrigger value="weekly">Tuần</TabsTrigger>
-                <TabsTrigger value="monthly">Tháng</TabsTrigger>
-              </>
-            )}
-          </TabsList>
-
-          {(dailyRevenue.data?.bills ||
-            weeklyRevenue.data?.bills ||
-            monthlyRevenue.data?.bills) && (
-            <div className="flex flex-col gap-2 sm:flex-row">
+      <RevenuePeriodSelector
+        period={effectivePeriod}
+        date={selectedDate}
+        range={range}
+        isStaff={isStaff}
+        onPeriod={handleTabChange}
+        onDate={setSelectedDate}
+        onCustom={setCustomRange}
+      />
+      <div className="space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Select
                 value={selectedPaymentMethod}
                 onValueChange={setSelectedPaymentMethod}
@@ -1164,148 +881,35 @@ const RevenueStatisticsPage = () => {
                   <SelectItem value="birthday">Sinh nhật</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          )}
         </div>
-
-        <TabsContent value="daily">
-          {dailyRevenue.loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Spinner />
+        {revenueQuery.isPending ? (
+          <div className="flex h-64 items-center justify-center"><Spinner /></div>
+        ) : revenueQuery.isError ? (
+          <div role="alert" className="p-4 text-center text-destructive">
+            {revenueQuery.error.message}
+            <Button variant="outline" onClick={fetchRevenue} className="ml-3">Thử lại</Button>
+          </div>
+        ) : revenueQuery.data ? (() => {
+          const { filteredBills, ...stats } = calculateFilteredStats(revenueQuery.data);
+          return (
+            <div className="space-y-4 sm:space-y-6">
+              <RevenueSummaryCards
+                isStaff={isStaff}
+                stats={stats}
+              />
+              <BillsTableSection
+                bills={filteredBills}
+                roomsData={roomsData}
+                isStaff={isStaff}
+                isAdmin={isAdmin}
+                onBillClick={handleBillClick}
+                onPaymentMethodEdit={handlePaymentMethodEdit}
+                onPaymentMethodHistory={handlePaymentMethodHistory}
+              />
             </div>
-          ) : dailyRevenue.error ? (
-            <div className="text-red-500 p-4 text-center">
-              {dailyRevenue.error}
-            </div>
-          ) : dailyRevenue.data ? (
-            (() => {
-              const { filteredBills, ...stats } =
-                calculateFilteredStats(dailyRevenue.data);
-              return (
-                <div className="space-y-4 sm:space-y-6">
-                  <RevenueSummaryCards
-                    isStaff={isStaff}
-                    stats={stats}
-                    periodCards={
-                      <StatCard label="Ngày">
-                        {dailyRevenue.data.dateInfo.formattedDate}
-                      </StatCard>
-                    }
-                  />
-
-                  <BillsTableSection
-                    bills={filteredBills}
-                    roomsData={roomsData}
-                    isStaff={isStaff}
-                    isAdmin={isAdmin}
-                    onBillClick={handleBillClick}
-                    onPaymentMethodEdit={handlePaymentMethodEdit}
-                    onPaymentMethodHistory={handlePaymentMethodHistory}
-                  />
-                </div>
-              );
-            })()
-          ) : (
-            <div className="text-center p-8">
-              Dữ liệu sẽ tự động tải theo ngày đã chọn
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="weekly">
-          {weeklyRevenue.loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Spinner />
-            </div>
-          ) : weeklyRevenue.error ? (
-            <div className="text-red-500 p-4 text-center">
-              {weeklyRevenue.error}
-            </div>
-          ) : weeklyRevenue.data ? (
-            (() => {
-              const { filteredBills, ...stats } =
-                calculateFilteredStats(weeklyRevenue.data);
-              return (
-                <div className="space-y-4 sm:space-y-6">
-                  <RevenueSummaryCards
-                    isStaff={isStaff}
-                    stats={stats}
-                    periodCards={
-                      <StatCard label="Khoảng thời gian">
-                        {weeklyRevenue.data.dateInfo.dateRange}
-                      </StatCard>
-                    }
-                  />
-
-                  <BillsTableSection
-                    bills={filteredBills}
-                    roomsData={roomsData}
-                    isStaff={isStaff}
-                    isAdmin={isAdmin}
-                    onBillClick={handleBillClick}
-                    onPaymentMethodEdit={handlePaymentMethodEdit}
-                    onPaymentMethodHistory={handlePaymentMethodHistory}
-                  />
-                </div>
-              );
-            })()
-          ) : (
-            <div className="text-center p-8">
-              Dữ liệu sẽ tự động tải theo khoảng thời gian đã chọn
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="monthly">
-          {monthlyRevenue.loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Spinner />
-            </div>
-          ) : monthlyRevenue.error ? (
-            <div className="text-red-500 p-4 text-center">
-              {monthlyRevenue.error}
-            </div>
-          ) : monthlyRevenue.data ? (
-            (() => {
-              const { filteredBills, ...stats } =
-                calculateFilteredStats(monthlyRevenue.data);
-              return (
-                <div className="space-y-4 sm:space-y-6">
-                  <RevenueSummaryCards
-                    isStaff={isStaff}
-                    stats={stats}
-                    periodCards={
-                      <>
-                        <StatCard label="Kỳ / nhãn">
-                          {monthlyRevenue.data.dateInfo.timeRange ??
-                            `${monthlyRevenue.data.dateInfo.month} ${monthlyRevenue.data.dateInfo.year}`}
-                        </StatCard>
-                        <StatCard label="Khoảng thời gian">
-                          {monthlyRevenue.data.dateInfo.dateRange}
-                        </StatCard>
-                      </>
-                    }
-                  />
-
-                  <BillsTableSection
-                    bills={filteredBills}
-                    roomsData={roomsData}
-                    isStaff={isStaff}
-                    isAdmin={isAdmin}
-                    onBillClick={handleBillClick}
-                    onPaymentMethodEdit={handlePaymentMethodEdit}
-                    onPaymentMethodHistory={handlePaymentMethodHistory}
-                  />
-                </div>
-              );
-            })()
-          ) : (
-            <div className="text-center p-8">
-              Dữ liệu sẽ tự động tải theo kỳ tháng đã chọn
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+          );
+        })() : null}
+      </div>
 
       {/* Modal chi tiết hóa đơn */}
       <Dialog

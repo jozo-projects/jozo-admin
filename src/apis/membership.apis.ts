@@ -31,12 +31,46 @@ export type GetPendingGiftsParams = {
   category?: "drink" | "snack" | string;
 };
 
+export interface MemberUsageHistory {
+  items: Array<{
+    billId: string;
+    scheduleId: string;
+    invoiceCode?: string;
+    roomName: string;
+    startTime?: string;
+    endTime?: string;
+    createdAt: string;
+    totalAmount: number;
+    paymentMethod?: string;
+    pointsEarned?: number | null;
+  }>;
+  page: number;
+  limit: number;
+  totalCount: number;
+  totalAmount: number;
+}
+
 const membershipApis = {
   getMemberBirthday: (id: string, at?: string) => {
     const url = `${MEMBERSHIP_MEMBER_CONTROLLER}/${encodeURIComponent(id)}/birthday`;
-    return at ? http.get<HTTPResponse<MemberBirthday>>(url, { params: { at } }) : http.get<HTTPResponse<MemberBirthday>>(url);
+    return at
+      ? http.get<HTTPResponse<MemberBirthday>>(url, { params: { at } })
+      : http.get<HTTPResponse<MemberBirthday>>(url);
   },
-  getMemberBirthdayHistory: (id: string, page = 1, limit = 20) => http.get<HTTPResponse<BirthdayHistory>>(`${MEMBERSHIP_MEMBER_CONTROLLER}/${encodeURIComponent(id)}/birthday/history?page=${page}&limit=${limit}`),
+  getMemberBirthdayHistory: (id: string, page = 1, limit = 20) =>
+    http.get<HTTPResponse<BirthdayHistory>>(
+      `${MEMBERSHIP_MEMBER_CONTROLLER}/${encodeURIComponent(id)}/birthday/history?page=${page}&limit=${limit}`,
+    ),
+  getMemberUsageHistory: (
+    id: string,
+    page = 1,
+    limit = 10,
+    filters: { startDate?: string; endDate?: string; search?: string } = {},
+  ) =>
+    http.get<HTTPResponse<MemberUsageHistory>>(
+      `${MEMBERSHIP_MEMBER_CONTROLLER}/${encodeURIComponent(id)}/history`,
+      { params: { page, limit, ...filters } },
+    ),
   getConfig: () =>
     http.get<HTTPResponse<IMembershipConfig>>(MEMBERSHIP_CONTROLLER),
   updateConfig: (payload: MembershipConfigPayload) =>
@@ -82,7 +116,10 @@ const membershipApis = {
     );
   },
   claimGift: (payload: IClaimGiftPayload) =>
-    http.post<HTTPResponse<IClaimGiftResult>>(`/membership/claim-gift`, payload),
+    http.post<HTTPResponse<IClaimGiftResult>>(
+      `/membership/claim-gift`,
+      payload,
+    ),
   /** Alias lịch sử — cùng shape pending-gifts */
   getStreakGifts: (phone: string, scheduleId?: string) => {
     const query = new URLSearchParams({ phone });
@@ -104,10 +141,16 @@ const membershipApis = {
   },
   /** Thêm món vào quà streak đã claim trên schedule */
   addStreakGiftItems: (payload: IAddStreakGiftItemsPayload) =>
-    http.post<HTTPResponse<IStreakGiftQuotaResult>>(STREAK_GIFTS_ITEMS, payload),
+    http.post<HTTPResponse<IStreakGiftQuotaResult>>(
+      STREAK_GIFTS_ITEMS,
+      payload,
+    ),
   /** Sửa số lượng món (quantity: 0 = xoá) */
   updateStreakGiftItem: (payload: IUpdateStreakGiftItemPayload) =>
-    http.patch<HTTPResponse<IStreakGiftQuotaResult>>(STREAK_GIFTS_ITEMS, payload),
+    http.patch<HTTPResponse<IStreakGiftQuotaResult>>(
+      STREAK_GIFTS_ITEMS,
+      payload,
+    ),
   /** Xoá món khỏi quà streak */
   removeStreakGiftItem: (payload: IRemoveStreakGiftItemPayload) =>
     http.delete<HTTPResponse<IStreakGiftQuotaResult>>(STREAK_GIFTS_ITEMS, {
