@@ -1132,7 +1132,7 @@ const RoomTimelineTable: React.FC = () => {
           ) : (
             /* Desktop View - Container cho phép scroll ngang, thêm onScroll để bắt sự kiện scroll */
             <div
-              className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white"
+              className="jozo-timeline w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white/85 text-slate-900 backdrop-blur-sm dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-100"
               ref={timelineContainerRef}
               onScroll={handleScroll}
             >
@@ -1142,10 +1142,10 @@ const RoomTimelineTable: React.FC = () => {
               >
                 {/* Timeline Header */}
                 <div
-                  className="flex border-b bg-gray-200 w-full"
+                  className="flex border-b bg-gray-200 w-full dark:border-slate-600 dark:bg-slate-800"
                   style={{ position: "sticky", top: 0, zIndex: 20 }}
                 >
-                  <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200">
+                  <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200 dark:border-slate-600 dark:bg-slate-800">
                     Phòng
                   </div>
                   <div
@@ -1164,7 +1164,7 @@ const RoomTimelineTable: React.FC = () => {
                         <div
                           key={`header-marker-${hour}`}
                           className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
-                            hour >= 24 ? "text-amber-700" : "text-gray-600"
+                            hour >= 24 ? "text-amber-700 dark:text-amber-300" : "text-gray-600 dark:text-slate-300"
                           }`}
                           style={{ left, width: hour >= 24 ? 40 : 28 }}
                         >
@@ -1235,8 +1235,8 @@ const RoomTimelineTable: React.FC = () => {
                   return (
                     <div
                       key={room._id}
-                      className={`flex border-b hover:bg-gray-50 w-full transition-colors duration-200 ${
-                        isMaintenance ? "bg-red-50/60 hover:bg-red-50" : ""
+                      className={`flex border-b hover:bg-gray-50 w-full transition-colors duration-200 dark:border-slate-700 dark:hover:bg-slate-700/50 ${
+                        isMaintenance ? "bg-red-50/60 hover:bg-red-50 dark:bg-red-950/40 dark:hover:bg-red-950/60" : ""
                       }`}
                       // onDragOver={handleDragOver}
                       // onDragLeave={handleDragLeave}
@@ -1244,14 +1244,14 @@ const RoomTimelineTable: React.FC = () => {
                     >
                       <div
                         className={`w-[240px] p-2 border-r flex items-center justify-between sticky left-0 z-10 ${
-                          isMaintenance ? "bg-red-50/60" : "bg-white"
+                          isMaintenance ? "bg-red-50 dark:bg-red-950" : "bg-white dark:bg-slate-800"
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <button
                             onClick={() => handleRoomClick(room._id)}
                             className={`inline-flex items-center gap-1.5 hover:underline truncate ${
-                              isMaintenance ? "text-red-600" : "text-blue-600"
+                              isMaintenance ? "text-red-600 dark:text-red-300" : "text-blue-600 dark:text-sky-300"
                             } ${
                               isBlinking
                                 ? "animate-[blink_1s_ease-in-out_infinite]"
@@ -1261,7 +1261,7 @@ const RoomTimelineTable: React.FC = () => {
                             {getRoomTypeLeadIcon(room.roomType)}
                             {room.roomName}
                           </button>
-                          <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded shrink-0">
+                          <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded shrink-0 dark:bg-slate-700 dark:text-slate-200">
                             {getRoomTypeLabel(room.roomType)}
                           </span>
                           {isMaintenance && (
@@ -1774,7 +1774,7 @@ const RoomTimelineTable: React.FC = () => {
             </div>
           ) : (
             <div
-              className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white"
+              className="jozo-timeline w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white/85 text-slate-900 backdrop-blur-sm dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-100"
               ref={timelineContainerRef}
               onScroll={handleScroll}
             >
@@ -1783,10 +1783,10 @@ const RoomTimelineTable: React.FC = () => {
                 style={{ width: `${timelineTotalWidth}px` }}
               >
                 <div
-                  className="flex border-b bg-gray-200 w-full"
+                  className="flex border-b bg-gray-200 w-full dark:border-slate-600 dark:bg-slate-800"
                   style={{ position: "sticky", top: 0, zIndex: 20 }}
                 >
-                  <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200">
+                  <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200 dark:border-slate-600 dark:bg-slate-800">
                     Bàn coffee
                   </div>
                   <div
@@ -1805,7 +1805,7 @@ const RoomTimelineTable: React.FC = () => {
                         <div
                           key={`coffee-header-marker-${hour}`}
                           className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
-                            hour >= 24 ? "text-amber-700" : "text-gray-600"
+                            hour >= 24 ? "text-amber-700 dark:text-amber-300" : "text-gray-600 dark:text-slate-300"
                           }`}
                           style={{ left, width: hour >= 24 ? 40 : 28 }}
                         >
@@ -1843,12 +1843,12 @@ const RoomTimelineTable: React.FC = () => {
                   return (
                     <div
                       key={table._id}
-                      className="flex border-b hover:bg-gray-50 w-full transition-colors duration-200"
+                      className="flex border-b hover:bg-gray-50 w-full transition-colors duration-200 dark:border-slate-700 dark:hover:bg-slate-700/50"
                     >
-                      <div className="w-[240px] p-2 border-r flex items-center justify-between sticky left-0 z-10 bg-white">
+                      <div className="w-[240px] p-2 border-r flex items-center justify-between sticky left-0 z-10 bg-white dark:border-slate-700 dark:bg-slate-800">
                         <div className="min-w-0">
                           <button
-                            className="truncate text-left font-medium text-blue-600 hover:underline"
+                            className="truncate text-left font-medium text-blue-600 hover:underline dark:text-sky-300"
                             onClick={() => handleCoffeeEmptySlotClick(table)}
                           >
                             {table.name}

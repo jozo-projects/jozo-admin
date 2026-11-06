@@ -1,0 +1,19 @@
+.day-sky { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.day-sky__scene { position: sticky; top: 0; height: 100vh; overflow: hidden; background: linear-gradient(160deg, #f4c9a8 0%, #f9dfc7 42%, #fff6e9 100%); }
+.day-sky--night .day-sky__scene { background: linear-gradient(160deg, #161d37 0%, #222a45 48%, #171d31 100%); }
+.dark .day-sky__scene { background: linear-gradient(160deg, #403b45 0%, #25232b 42%, transparent 78%); }
+.dark .day-sky--night .day-sky__scene { background: linear-gradient(160deg, #292d4a 0%, #222330 42%, transparent 78%); }
+.day-sky__orbit { position: absolute; transition: left 30s linear, top 30s linear; animation: sky-arrive 1.6s cubic-bezier(.2,.7,.2,1) both; }
+.day-sky--preview .day-sky__orbit { transition-duration: 200ms; }
+.day-sky__sun, .day-sky__moon { width: 48px; height: 48px; border-radius: 50%; transform: translate(-50%, -50%); }
+.day-sky__sun { background: radial-gradient(circle at 35% 30%, #ffdd72, #f9a12f 75%, #ed8428); box-shadow: 0 0 0 2px #df842e66, 0 0 0 10px #f9ae5038, 0 0 50px 14px #f9a23d80; }
+.day-sky__moon { background: radial-gradient(circle at 75% 25%, transparent 52%, #fff4d5 54%); filter: drop-shadow(0 0 14px #fff2c599); }
+.day-sky__horizon { position: absolute; bottom: -25vh; left: -10%; width: 120%; height: 38vh; border-radius: 50% 50% 0 0; background: #dcae9a10; }
+.day-sky__stars { position: absolute; inset: 0; animation: stars-appear 2s ease both; }
+.day-sky__stars i { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #a7a1c8; box-shadow: 0 0 6px #fff; animation: star-twinkle 3s ease-in-out infinite alternate; }
+.dark .day-sky__stars i { background: #fff5db; }
+.dark .jozo-timeline { --timeline-quarter-line: rgb(71 85 105 / 35%); --timeline-hour-line: rgb(148 163 184 / 45%); }
+@keyframes sky-arrive { from { opacity: 0; transform: translate(-25px, 25px); } to { opacity: 1; transform: translate(0, 0); } }
+@keyframes stars-appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes star-twinkle { from { opacity: .3; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .day-sky *, .day-sky *::after { animation: none !important; transition: none !important; } }

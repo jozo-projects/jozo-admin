@@ -131,8 +131,8 @@ export const getTimelineGridBackground = (zoom: TimelineZoom) => {
   const quarter = pxPerHour / 4;
   return {
     backgroundImage: [
-      `repeating-linear-gradient(to right, transparent 0, transparent ${quarter - 1}px, rgb(243 244 246) ${quarter - 1}px, rgb(243 244 246) ${quarter}px)`,
-      `repeating-linear-gradient(to right, transparent 0, transparent ${pxPerHour - 1}px, rgb(209 213 219) ${pxPerHour - 1}px, rgb(209 213 219) ${pxPerHour}px)`,
+      `repeating-linear-gradient(to right, transparent 0, transparent ${quarter - 1}px, var(--timeline-quarter-line, rgb(243 244 246)) ${quarter - 1}px, var(--timeline-quarter-line, rgb(243 244 246)) ${quarter}px)`,
+      `repeating-linear-gradient(to right, transparent 0, transparent ${pxPerHour - 1}px, var(--timeline-hour-line, rgb(209 213 219)) ${pxPerHour - 1}px, var(--timeline-hour-line, rgb(209 213 219)) ${pxPerHour}px)`,
     ].join(", "),
     backgroundSize: `${pxPerHour}px 100%, ${pxPerHour}px 100%`,
   } as const;
