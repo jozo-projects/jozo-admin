@@ -86,7 +86,7 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className={cn("rounded-md border", className)}>
+    <div className={cn("rounded-lg border bg-card text-card-foreground", className)}>
       <div
         style={{
           overflow: "auto",
@@ -96,7 +96,7 @@ export function DataTable<TData, TValue>({
         }}
       >
         <Table className={cn({ "sticky top-0": sticky })}>
-          <TableHeader>
+          <TableHeader className="bg-muted/60">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -151,7 +151,7 @@ export function DataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center"
+                  className="h-24 text-center text-muted-foreground"
                 >
                   {emptyMessage}
                 </TableCell>

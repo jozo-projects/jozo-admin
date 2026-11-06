@@ -98,6 +98,7 @@ function PromotionPage() {
           <Button
             variant="ghost"
             size="icon"
+            aria-label={`Delete ${row.original.name}`}
             onClick={() => setSelectedPromotion(row.original)}
           >
             <TrashIcon size={16} />

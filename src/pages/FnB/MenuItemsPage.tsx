@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import UpsertMenuItemModal from "@/components/modules/FnB/UpsertMenuItemModal";
 import CleanupMenuItemsModal from "@/components/modules/FnB/CleanupMenuItemsModal";
 import { DeleteModal } from "@/components/shared/DeleteModal";
@@ -155,14 +155,17 @@ const MenuItemsPage = () => {
 
   if (isLoading) {
     return (
+      <>
+      <PageHeader title="Quản lý số tồn kho FNB" icon={Utensils} />
       <div className="flex h-64 items-center justify-center">
         <div className="text-lg">Đang tải...</div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Quản lý số tồn kho FNB"
         description="Quản lý các món ăn, đồ uống và variants"
@@ -249,7 +252,7 @@ const MenuItemsPage = () => {
         onCleanup={cleanupMenuItems}
         isLoading={isCleaningUp}
       />
-    </div>
+    </Page>
   );
 };
 

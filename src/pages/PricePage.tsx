@@ -65,7 +65,7 @@ function PricePage() {
         const timeSlots = row.original.time_slots; // Mảng time_slots
 
         return (
-          <table className="w-full text-sm border-collapse">
+          <table className="w-full min-w-[300px] border-collapse text-sm">
             <thead>
               <tr className="border-b">
                 <th className="p-1 text-left">Time</th>
@@ -121,6 +121,7 @@ function PricePage() {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Delete pricing"
             onClick={() => setSelectedPricing(row.original)}
           >
             <TrashIcon size={16} />
@@ -133,7 +134,7 @@ function PricePage() {
   );
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Pricing"
         description="Quản lý bảng giá phòng theo loại và khung giờ"

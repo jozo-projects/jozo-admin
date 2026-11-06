@@ -123,8 +123,8 @@ const ProcessLockedModal: React.FC<ProcessLockedModalProps> = ({
           if (!open) onClose();
         }}
       >
-        <DialogContent className="max-w-lg gap-0 p-0 sm:max-w-xl">
-          <div className="px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6">
+        <DialogContent className="gap-0 overflow-y-auto overscroll-y-contain p-0 sm:max-w-xl">
+          <div className="px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6">
             <DialogHeader className="pr-8">
               <DialogTitle className="flex items-center gap-2 text-lg">
                 <Lock className="w-5 h-5 text-amber-600" />

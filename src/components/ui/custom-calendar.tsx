@@ -190,12 +190,12 @@ export function CustomCalendar({
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={handlePrevMonth}>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="icon" onClick={handlePrevMonth} aria-label="Previous month">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleNextMonth}>
+          <Button variant="outline" size="icon" onClick={handleNextMonth} aria-label="Next month">
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button variant="outline" onClick={handleToday}>
@@ -215,9 +215,10 @@ export function CustomCalendar({
         </Button>
       </div>
 
-      <div className="grid grid-cols-7 gap-px bg-gray-200">
+      <div className="overflow-x-auto rounded-lg border">
+      <div className="grid min-w-[640px] grid-cols-7 gap-px bg-border">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-          <div key={day} className="bg-white p-2 text-center font-medium">
+          <div key={day} className="bg-muted p-2 text-center font-medium text-muted-foreground">
             {day}
           </div>
         ))}
@@ -231,24 +232,25 @@ export function CustomCalendar({
             return (
               <div
                 key={`${weekIndex}-${dayIndex}`}
-                className={`min-h-[120px] bg-white p-2 relative ${
-                  !day.isCurrentMonth ? "text-gray-400" : ""
-                } ${isToday ? "bg-blue-50" : ""} ${
-                  isSelected ? "ring-2 ring-blue-500" : ""
+                className={`relative min-h-[120px] bg-card p-2 ${
+                  !day.isCurrentMonth ? "text-muted-foreground" : ""
+                } ${isToday ? "bg-primary/5" : ""} ${
+                  isSelected ? "ring-2 ring-inset ring-primary" : ""
                 }`}
                 onClick={() => handleDateClick(day.date)}
               >
                 <div className="font-medium">{day.date.date()}</div>
                 {event && (
                   <div className="mt-1">
-                    <div className="group flex items-center justify-between text-xs p-2 bg-red-100 rounded-md border-l-4 border-red-500">
+                    <div className="group flex items-center justify-between rounded-md border-l-4 border-destructive bg-destructive/10 p-2 text-xs">
                       <span className="truncate font-medium" title={event.name}>
                         {event.name}
                       </span>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-4 w-4 opacity-0 group-hover:opacity-100"
+                        className="h-7 w-7 shrink-0"
+                        aria-label={`Delete ${event.name}`}
                         onClick={(e) => handleDeleteClick(event, e)}
                       >
                         <Trash2 className="h-3 w-3" />
@@ -261,7 +263,7 @@ export function CustomCalendar({
                         </p>
                       )}
                     {event.description && (
-                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                         {event.description}
                       </p>
                     )}
@@ -271,6 +273,7 @@ export function CustomCalendar({
             );
           }),
         )}
+      </div>
       </div>
 
       <Dialog

@@ -89,12 +89,12 @@ export default function MusicCategoryDetailPage() {
   };
 
   if (categoryQuery.isLoading) {
-    return <Card className="mt-6"><CardContent className="py-16 text-center text-muted-foreground">Đang tải danh mục...</CardContent></Card>;
+    return <><PageHeader title="Chi tiết danh mục nhạc" icon={ListMusic} showBackButton backUrl="/music-categories" /><Card className="mt-6"><CardContent className="py-16 text-center text-muted-foreground">Đang tải danh mục...</CardContent></Card></>;
   }
   if (categoryQuery.isError || (!category && categoryQuery.isSuccess)) {
-    return <Card className="mt-6"><CardContent className="flex flex-col items-center gap-3 py-16"><p className="text-destructive">Không tìm thấy hoặc không thể tải danh mục.</p><Button variant="outline" onClick={() => void categoryQuery.refetch()}><RefreshCcw className="mr-2 h-4 w-4" />Thử lại</Button></CardContent></Card>;
+    return <><PageHeader title="Chi tiết danh mục nhạc" icon={ListMusic} showBackButton backUrl="/music-categories" /><Card className="mt-6"><CardContent className="flex flex-col items-center gap-3 py-16"><p className="text-destructive">Không tìm thấy hoặc không thể tải danh mục.</p><Button variant="outline" onClick={() => void categoryQuery.refetch()}><RefreshCcw className="mr-2 h-4 w-4" />Thử lại</Button></CardContent></Card></>;
   }
-  if (!category) return null;
+  if (!category) return <PageHeader title="Chi tiết danh mục nhạc" icon={ListMusic} showBackButton backUrl="/music-categories" />;
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -108,7 +108,7 @@ export default function MusicCategoryDetailPage() {
       />
       <Card><CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center">
         <img src={category.imageUrl} alt={category.name} className="h-24 w-36 rounded-lg border object-cover" />
-        <div className="min-w-0 flex-1"><p className="font-semibold">{category.name}</p><p className="text-sm text-muted-foreground">/{category.slug}</p></div>
+        <div className="min-w-0 flex-1"><p className="text-sm text-muted-foreground">/{category.slug}</p></div>
         <div className="flex items-center gap-2"><Switch checked={category.isActive} disabled={toggleMutation.isPending} onCheckedChange={(isActive) => toggleMutation.mutate({ id: categoryId, isActive })} /><span className="text-sm">{category.isActive ? "Đang bật" : "Đang tắt"}</span></div>
       </CardContent></Card>
       <Card><CardContent className="space-y-4 pt-6">

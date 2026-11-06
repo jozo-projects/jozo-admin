@@ -488,8 +488,8 @@ const CoffeeInUseModal: React.FC<CoffeeInUseModalProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-[95vw] max-h-[94vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="overflow-y-auto overscroll-y-contain sm:w-[95vw] sm:max-h-[94vh] sm:max-w-5xl">
+          <DialogHeader className="pr-8">
             <DialogTitle>In-use coffee session</DialogTitle>
             <DialogDescription>
               Bàn{" "}
@@ -937,7 +937,7 @@ const CoffeeInUseModal: React.FC<CoffeeInUseModalProps> = ({
             </div>
           </div>
 
-          <DialogFooter className="sticky bottom-0 -mx-6 flex flex-wrap justify-between gap-2 border-t bg-background px-6 py-4">
+          <DialogFooter className="sticky bottom-0 -mx-4 flex flex-wrap justify-between gap-2 border-t bg-background px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6">
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"

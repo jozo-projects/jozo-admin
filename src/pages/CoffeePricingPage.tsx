@@ -3,7 +3,7 @@ import {
   ICoffeePricingConfig,
 } from "@/@types/CoffeePricing";
 import coffeePricingApis from "@/apis/coffeePricing.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -116,7 +116,7 @@ function CoffeePricingPage() {
   const isBusy = isLoading || isFetching || isSaving;
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-6">
+    <Page className="max-w-3xl">
       <PageHeader
         title="Pricing"
         description="Configure board game pricing for coffee lounge customers."
@@ -203,7 +203,7 @@ function CoffeePricingPage() {
           </Form>
         </CardContent>
       </Card>
-    </div>
+    </Page>
   );
 }
 

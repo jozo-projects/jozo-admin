@@ -6,6 +6,7 @@ import { Page, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useToast } from "@/hooks/use-toast";
 
 const money = (value: number) => `${value.toLocaleString("vi-VN")}đ`;
@@ -158,17 +159,17 @@ export default function RetailSalesPage() {
         icon={ShoppingCart}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6">
         <Card>
           <CardHeader className="space-y-4">
             <CardTitle>Sản phẩm</CardTitle>
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Tìm món..."
               />
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {(["all", "drink", "snack"] as const).map((value) => (
                   <Button
                     key={value}
@@ -186,26 +187,27 @@ export default function RetailSalesPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {productsQuery.isLoading ? <p>Đang tải sản phẩm...</p> : null}
+            {productsQuery.isLoading ? <p className="text-sm text-muted-foreground">Đang tải sản phẩm...</p> : null}
+            {productsQuery.isError ? <p role="alert" className="text-sm text-destructive">Không tải được sản phẩm. Vui lòng thử lại.</p> : null}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {products.map((product) => (
                 <button
                   key={product.itemId}
                   type="button"
-                  className="rounded-lg border p-4 text-left transition hover:border-primary"
+                  className="rounded-lg border bg-card p-4 text-left transition-colors hover:border-primary hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => addProduct(product)}
                 >
                   <div className="font-medium">{product.name}</div>
                   <div className="mt-1 text-sm text-muted-foreground">
                     Còn {product.quantity}
                   </div>
-                  <div className="mt-3 font-semibold">
+                  <div className="mt-3 font-semibold text-primary">
                     {money(product.price)}
                   </div>
                 </button>
               ))}
             </div>
-            {!productsQuery.isLoading && !products.length ? (
+            {!productsQuery.isLoading && !productsQuery.isError && !products.length ? (
               <p className="text-sm text-muted-foreground">
                 Không có sản phẩm phù hợp.
               </p>
@@ -216,7 +218,7 @@ export default function RetailSalesPage() {
         <Card className="h-fit">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" /> Giỏ hàng
+              <ShoppingCart className="h-5 w-5 text-primary" /> Giỏ hàng
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -239,6 +241,7 @@ export default function RetailSalesPage() {
                     size="icon"
                     variant="outline"
                     onClick={() => changeQuantity(line, -1)}
+                    aria-label={`Giảm số lượng ${line.name}`}
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -247,6 +250,7 @@ export default function RetailSalesPage() {
                     size="icon"
                     variant="outline"
                     onClick={() => changeQuantity(line, 1)}
+                    aria-label={`Tăng số lượng ${line.name}`}
                     disabled={line.cartQuantity >= line.quantity}
                   >
                     <Plus className="h-4 w-4" />
@@ -254,12 +258,12 @@ export default function RetailSalesPage() {
                 </div>
               </div>
             ))}
-            <div className="flex items-center justify-between text-lg font-semibold">
+            <div className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-lg font-semibold">
               <span>Tổng</span>
               <span>{money(total)}</span>
             </div>
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3"
+            <NativeSelect
+              aria-label="Phương thức thanh toán"
               value={paymentMethod}
               onChange={(event) => {
                 setPaymentMethod(event.target.value as typeof paymentMethod);
@@ -268,7 +272,7 @@ export default function RetailSalesPage() {
             >
               <option value="cash">Tiền mặt</option>
               <option value="bank_transfer">Chuyển khoản</option>
-            </select>
+            </NativeSelect>
             <Button
               className="w-full"
               variant="outline"

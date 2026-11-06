@@ -17,7 +17,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import GiftDetailsModal from "@/components/modules/RoomSchedule/GiftDetailsModal";
 import OrderDetailsModal from "@/components/modules/RoomSchedule/OrderDetailsModal";
 import ScheduleModal from "@/components/modules/RoomSchedule/ScheduleModal";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -281,6 +281,7 @@ const RoomTimelineTable: React.FC = () => {
     data: roomsData,
     isLoading: loadingRooms,
     error: roomError,
+    refetch: refetchRooms,
   } = useQuery({
     queryKey: ["rooms"],
     queryFn: roomApis.getRooms,
@@ -1050,7 +1051,7 @@ const RoomTimelineTable: React.FC = () => {
     )?.roomName ?? `Phòng ${selectedSupportRequest?.roomId ?? ""}`;
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-6">
+    <Page>
       <PageHeader
         title="Room Schedules Timeline"
         description="Track room schedules and manage bookings"
@@ -1098,7 +1099,10 @@ const RoomTimelineTable: React.FC = () => {
           ) : error || roomError ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive space-y-3">
               <p>{error?.message || roomError?.message}</p>
-              <Button variant="outline" size="sm" onClick={() => refetch()}>
+              <Button variant="outline" size="sm" onClick={() => {
+                refetch();
+                void refetchRooms();
+              }}>
                 Thử lại
               </Button>
             </div>
@@ -2253,7 +2257,7 @@ const RoomTimelineTable: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </Page>
   );
 };
 

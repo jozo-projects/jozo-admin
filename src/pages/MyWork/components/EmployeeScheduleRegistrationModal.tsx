@@ -277,7 +277,7 @@ const EmployeeScheduleRegistrationModal: React.FC<
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent>
+      <DialogContent className="overflow-y-auto overscroll-y-contain pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:pt-6 sm:pb-6">
         <DialogHeader>
           <DialogTitle>Register work schedule</DialogTitle>
         </DialogHeader>

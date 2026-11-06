@@ -1274,7 +1274,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
           className="max-w-full max-h-[100dvh] overflow-x-hidden overflow-y-auto overscroll-y-contain gap-0 p-0 sm:max-h-[94vh] sm:max-w-5xl sm:w-[95vw]"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          <div className="px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-2 sm:pt-6 sm:pb-6">
+          <div className="px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6">
             <DialogHeader className="pb-3 pr-10 space-y-1">
               <DialogTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
                 <span>Thông tin phòng đang sử dụng</span>

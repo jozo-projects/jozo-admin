@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Gift } from "lucide-react";
@@ -54,7 +54,7 @@ const GiftAppliedBillsPage = () => {
   );
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Bill ưu đãi member"
         description="Biết rõ bill nào được giảm/tặng và lý do áp dụng."
@@ -93,7 +93,7 @@ const GiftAppliedBillsPage = () => {
           />
         </CardContent>
       </Card>
-    </div>
+    </Page>
   );
 };
 

@@ -98,8 +98,8 @@ const DateSchedulesModal: React.FC<DateSchedulesModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="overflow-y-auto overscroll-y-contain pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-2xl sm:pt-6 sm:pb-6">
+        <DialogHeader className="pr-8">
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5" />
             Schedule for{" "}

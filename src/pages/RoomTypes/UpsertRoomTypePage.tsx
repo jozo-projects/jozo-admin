@@ -1,5 +1,5 @@
 import roomTypeApis from "@/apis/roomType.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Building2 } from "lucide-react";
 import {
@@ -179,7 +179,7 @@ function UpsertRoomTypePage() {
   };
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-6">
+    <Page className="max-w-3xl">
       <PageHeader
         title={title}
         description={
@@ -191,7 +191,7 @@ function UpsertRoomTypePage() {
       />
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 rounded-xl border bg-card p-4 shadow-sm sm:p-6">
           <FormField
             control={form.control}
             name="name"
@@ -218,7 +218,7 @@ function UpsertRoomTypePage() {
                 </FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -311,7 +311,7 @@ function UpsertRoomTypePage() {
 
           <Button
             type="submit"
-            className="mt-6"
+            className="w-full sm:w-auto"
             disabled={isCreating || isUpdating}
           >
             {isCreating || isUpdating
@@ -322,7 +322,7 @@ function UpsertRoomTypePage() {
           </Button>
         </form>
       </Form>
-    </div>
+    </Page>
   );
 }
 

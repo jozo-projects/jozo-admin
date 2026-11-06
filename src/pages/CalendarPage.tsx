@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,7 +68,7 @@ function CalendarPage() {
   };
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Holiday Calendar"
         description="Manage public holidays and special dates"
@@ -76,7 +76,7 @@ function CalendarPage() {
       />
       <Spin spinning={isLoading}>
         <Card>
-          <CardContent>
+          <CardContent className="p-3 sm:p-6">
             <CustomCalendar
               events={events}
               onEventAdd={handleAddEvent}
@@ -85,7 +85,7 @@ function CalendarPage() {
           </CardContent>
         </Card>
       </Spin>
-    </div>
+    </Page>
   );
 }
 

@@ -1,6 +1,6 @@
 import { IRoom } from "@/@types/Room";
 import roomApis from "@/apis/room.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { DoorOpen } from "lucide-react";
 import {
@@ -127,7 +127,7 @@ function UpsertRoomPage() {
   };
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-6">
+    <Page className="max-w-3xl">
       <PageHeader
         title={title}
         description={id ? "Chỉnh sửa thông tin phòng" : "Tạo phòng mới"}
@@ -137,7 +137,7 @@ function UpsertRoomPage() {
       />
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 rounded-xl border bg-card p-4 shadow-sm sm:p-6">
           {/* Room ID */}
           <FormField
             control={form.control}
@@ -253,8 +253,8 @@ function UpsertRoomPage() {
           />
 
           {/* Nút Submit */}
-          <div className="flex justify-end mt-4">
-            <Button type="submit" disabled={isCreating || isUpdating}>
+          <div className="mt-2 flex justify-end border-t pt-5">
+            <Button className="w-full sm:w-auto" type="submit" disabled={isCreating || isUpdating}>
               {isCreating || isUpdating
                 ? "Loading..."
                 : id
@@ -264,7 +264,7 @@ function UpsertRoomPage() {
           </div>
         </form>
       </Form>
-    </div>
+    </Page>
   );
 }
 

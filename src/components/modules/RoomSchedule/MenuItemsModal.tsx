@@ -568,7 +568,7 @@ const MenuItemsModal: React.FC<MenuItemsModalProps> = ({
       return (
         <Card key={item._id} className="mb-4 hover:shadow-md transition-shadow">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <img
                   src={item.image}
@@ -606,7 +606,7 @@ const MenuItemsModal: React.FC<MenuItemsModalProps> = ({
                   return (
                     <div
                       key={key}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                      className="flex flex-wrap items-center justify-between gap-3 p-3 border rounded-lg hover:bg-gray-50"
                     >
                       <div className="flex items-center gap-2">
                         <img
@@ -693,7 +693,7 @@ const MenuItemsModal: React.FC<MenuItemsModalProps> = ({
     return (
       <Card key={item._id} className="mb-4 hover:shadow-md transition-shadow">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <img
                 src={item.image}
@@ -722,7 +722,7 @@ const MenuItemsModal: React.FC<MenuItemsModalProps> = ({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-3">
             <div className="text-sm text-gray-600">
               <p>Tồn kho: {item.inventory?.quantity || 0}</p>
             </div>
@@ -791,18 +791,18 @@ const MenuItemsModal: React.FC<MenuItemsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] sm:max-w-7xl max-h-[94vh] sm:max-h-[92vh] overflow-hidden flex flex-col gap-4 p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="text-2xl">
+      <DialogContent className="flex flex-col gap-4 overflow-hidden p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:w-[95vw] sm:max-w-7xl sm:max-h-[92vh] sm:p-6">
+        <DialogHeader className="pr-8">
+          <DialogTitle className="text-xl sm:text-2xl">
             Danh Sách Đồ Ăn & Đồ Uống
           </DialogTitle>
           <DialogDescription>
             Chọn món ăn hoặc đồ uống để thêm vào phòng
             {roomId && scheduleId && (
-              <div className="mt-2 text-sm text-gray-600">
-                <p>Room ID: {room?.roomName || "Không có phòng"}</p>
-                <p>Schedule ID: {scheduleId}</p>
-              </div>
+              <span className="mt-2 block break-all text-sm text-gray-600">
+                <span className="block">Room ID: {room?.roomName || "Không có phòng"}</span>
+                <span className="block">Schedule ID: {scheduleId}</span>
+              </span>
             )}
           </DialogDescription>
         </DialogHeader>
@@ -827,7 +827,7 @@ const MenuItemsModal: React.FC<MenuItemsModalProps> = ({
                   value={selectedCategory}
                   onValueChange={setSelectedCategory}
                 >
-                  <TabsList className="grid w-full grid-cols-4">
+                  <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
                     {categories.slice(0, 4).map((category) => (
                       <TabsTrigger
                         key={category}
@@ -864,7 +864,7 @@ const MenuItemsModal: React.FC<MenuItemsModalProps> = ({
           </div>
         </div>
 
-        <DialogFooter className="sticky bottom-0 bg-white z-10 border-t pt-4">
+        <DialogFooter className="border-t bg-background pt-4 pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:pb-0">
           <Button variant="outline" onClick={onClose}>
             Đóng
           </Button>

@@ -259,7 +259,7 @@ const MyEarningsDetailPage = () => {
   }, []);
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="My Work Statistics"
         description="Review your shifts, working hours, deductions, and take-home pay"
@@ -307,9 +307,9 @@ const MyEarningsDetailPage = () => {
       </StatGrid>
 
       {!isMobile && (
-        <Card className="border-amber-200 bg-amber-50/70">
+        <Card className="border-warning/40 bg-warning/10">
           <CardContent className="pt-6">
-            <p className="text-sm font-medium text-amber-800">
+            <p className="text-sm font-medium text-warning">
               Note: If your take-home total looks wrong, contact an admin right
               away so we can review it.
             </p>
@@ -332,7 +332,7 @@ const MyEarningsDetailPage = () => {
                 value={selectedMonth.format("YYYY-MM")}
                 onValueChange={(value) => setSelectedMonth(dayjs(value))}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger aria-label="Select month" className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
                 <SelectContent>
@@ -418,9 +418,9 @@ const MyEarningsDetailPage = () => {
                         key={`${item.date.format("YYYY-MM-DD")}-${index}`}
                         className={
                           isNotRegistered
-                            ? "bg-gray-50"
+                            ? "bg-muted/40"
                             : isAbsent
-                              ? "bg-red-50"
+                              ? "bg-destructive/5"
                               : ""
                         }
                       >

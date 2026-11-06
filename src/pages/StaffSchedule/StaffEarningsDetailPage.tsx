@@ -343,6 +343,7 @@ const StaffEarningsDetailPage = () => {
   if (!userId) {
     return (
       <div>
+        <PageHeader title="Chi Tiết Thu Nhập" icon={User} showBackButton backUrl={PATHS.STAFF_SCHEDULE} />
         <div className="text-center">
           <p className="text-red-500">Không tìm thấy thông tin nhân viên</p>
           <Button
@@ -358,7 +359,7 @@ const StaffEarningsDetailPage = () => {
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title={`Chi Tiết Thu Nhập - ${staffName}`}
         description="Thống kê chi tiết các ca làm việc và lương thực nhận"

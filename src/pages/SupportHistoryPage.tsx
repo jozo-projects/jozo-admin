@@ -1,4 +1,5 @@
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
+import { NativeSelect } from "@/components/ui/native-select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -83,7 +84,7 @@ function SupportHistoryPage() {
   }, [supportDate, supportHistory, supportRoom, supportSort, supportStatus]);
 
   return (
-    <div className="flex h-full w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Lịch sử hỗ trợ"
         description="Tra cứu các yêu cầu hỗ trợ theo ngày, phòng và trạng thái."
@@ -91,7 +92,7 @@ function SupportHistoryPage() {
       />
 
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="mb-5 grid gap-3 rounded-lg border bg-muted/20 p-4 md:grid-cols-4">
             <label className="space-y-1 text-sm">
               <span className="font-medium">Ngày</span>
@@ -129,10 +130,9 @@ function SupportHistoryPage() {
             </label>
             <label className="space-y-1 text-sm">
               <span className="font-medium">Phòng</span>
-              <select
+              <NativeSelect
                 value={supportRoom}
                 onChange={(event) => setSupportRoom(event.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="all">Tất cả phòng</option>
                 {supportRooms.map((roomId) => (
@@ -140,16 +140,15 @@ function SupportHistoryPage() {
                     Phòng {roomId}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <label className="space-y-1 text-sm">
               <span className="font-medium">Trạng thái</span>
-              <select
+              <NativeSelect
                 value={supportStatus}
                 onChange={(event) =>
                   setSupportStatus(event.target.value as SupportStatusFilter)
                 }
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="all">Tất cả trạng thái</option>
                 {Object.entries(SUPPORT_STATUS_LABELS).map(([status, label]) => (
@@ -157,19 +156,18 @@ function SupportHistoryPage() {
                     {label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <label className="space-y-1 text-sm">
               <span className="font-medium">Sắp xếp</span>
-              <select
+              <NativeSelect
                 value={supportSort}
                 onChange={(event) => setSupportSort(event.target.value)}
-                className="h-9 w-full rounded-md border bg-background px-3 text-sm"
               >
                 <option value="newest">Mới nhất trước</option>
                 <option value="oldest">Cũ nhất trước</option>
                 <option value="room">Theo phòng</option>
-              </select>
+              </NativeSelect>
             </label>
           </div>
 
@@ -267,7 +265,7 @@ function SupportHistoryPage() {
         roomName={`Phòng ${selectedRequest?.roomId ?? ""}`}
         onClose={() => setSelectedRequest(null)}
       />
-    </div>
+    </Page>
   );
 }
 

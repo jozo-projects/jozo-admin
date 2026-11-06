@@ -306,15 +306,18 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                 isMaintenance ? "border-red-200 bg-red-50/40" : ""
               }`}
             >
-              <CollapsibleTrigger className="w-full touch-manipulation">
-                <div className="flex items-center justify-between p-3 sm:p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="relative flex flex-wrap items-center justify-between gap-2 p-3 transition-colors hover:bg-muted/50 sm:p-4">
+                  <CollapsibleTrigger
+                    aria-label={`Mở hoặc thu gọn lịch ${room.roomName}`}
+                    className="absolute inset-0 w-full touch-manipulation rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  />
+                  <div className="pointer-events-none relative flex items-center gap-2 flex-1 min-w-0">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onRoomClick(room._id);
                       }}
-                      className={`hover:underline active:opacity-70 text-left font-medium text-sm sm:text-base touch-manipulation min-h-[44px] inline-flex items-center gap-1.5 ${
+                      className={`pointer-events-auto hover:underline active:opacity-70 text-left font-medium text-sm sm:text-base touch-manipulation min-h-[44px] inline-flex items-center gap-1.5 ${
                         isMaintenance ? "text-red-600" : "text-blue-600"
                       } ${
                         isBlinking
@@ -325,14 +328,14 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                       {getRoomTypeLeadIcon(room.roomType)}
                       {room.roomName}
                     </button>
-                    <span className="text-xs sm:text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
+                    <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground sm:text-sm">
                       {getRoomTypeLabel(room.roomType)}
                     </span>
                     {isMaintenance && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span
-                            className="inline-flex items-center shrink-0"
+                            className="pointer-events-auto inline-flex items-center shrink-0"
                             aria-label="Đang bảo trì"
                           >
                             <XCircle className="h-4 w-4 text-red-500" />
@@ -344,16 +347,18 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                       </Tooltip>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  <div className="pointer-events-none relative ml-2 flex max-w-full flex-wrap items-center gap-2">
                     {hasNotification && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
+                            type="button"
+                            aria-label={`Yêu cầu hỗ trợ của ${room.roomName}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               onResolveRequest(room._id);
                             }}
-                            className="flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-70"
+                            className="pointer-events-auto flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-70"
                           >
                             <BellIcon className="h-5 w-5 sm:h-6 sm:w-6 text-red-500 animate-bounce" />
                           </button>
@@ -378,7 +383,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                                   notification.orderData.orderId,
                                 );
                               }}
-                              className={`flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-70 ${
+                              className={`pointer-events-auto flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-70 ${
                                 isOrderBlinking ? "animate-pulse" : ""
                               }`}
                               aria-label={`Đơn FNB ${orderIndex + 1} của ${room.roomName}`}
@@ -397,7 +402,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                     {scheduleGiftInfo && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Gift className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 flex-shrink-0" />
+                          <Gift className="pointer-events-auto h-5 w-5 sm:h-6 sm:w-6 text-purple-500 flex-shrink-0" />
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Quà tặng: {scheduleGiftInfo.name}</p>
@@ -408,11 +413,13 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
+                            type="button"
+                            aria-label={`Quà tặng của ${room.roomName}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               onGiftClick(room._id);
                             }}
-                            className={`flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-70 ${
+                            className={`pointer-events-auto flex-shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center active:opacity-70 ${
                               isGiftBlinking ? "animate-pulse" : ""
                             }`}
                           >
@@ -430,12 +437,11 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         <span>Đang dùng: {inUseDuration}</span>
                       </div>
                     )}
-                    <span className="text-xs sm:text-sm text-gray-400 whitespace-nowrap">
+                    <span className="px-2 text-xs text-muted-foreground sm:text-sm">
                       {roomSchedules.length} lịch
                     </span>
                   </div>
                 </div>
-              </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="px-3 sm:px-4 pb-4 overflow-x-hidden">
                   {/* Timeline dọc */}

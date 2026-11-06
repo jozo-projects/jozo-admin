@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsAdmin } from "@/hooks/usePermission";
@@ -174,7 +174,7 @@ const FnbShiftCountPage = () => {
   );
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Kiểm kê số lượng tồn"
         description="Nhập mở ca / kết ca theo 3 ca trong ngày và đối chiếu với hệ thống bán hàng"
@@ -260,7 +260,7 @@ const FnbShiftCountPage = () => {
           </TabsContent>
         )}
       </Tabs>
-    </div>
+    </Page>
   );
 };
 

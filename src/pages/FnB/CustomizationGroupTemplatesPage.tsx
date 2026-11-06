@@ -3,7 +3,7 @@ import {
   IFnBCustomizationGroupTemplate,
 } from "@/@types/FnBCustomization";
 import customizationGroupTemplateApis from "@/apis/customizationGroupTemplate.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { DeleteModal } from "@/components/shared/DeleteModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -218,7 +218,7 @@ function CustomizationGroupTemplatesPage() {
   const templates = data?.data?.result || [];
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Customization Group Templates"
         description="Quản lý nhóm tuỳ chọn dùng chung cho menu item"
@@ -315,7 +315,7 @@ function CustomizationGroupTemplatesPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>templateKey *</Label>
                 <Input {...form.register("templateKey")} placeholder="vd: sugar-level" />
@@ -338,7 +338,7 @@ function CustomizationGroupTemplatesPage() {
 
             <div className="rounded-md border p-4 space-y-4">
               <h3 className="text-lg font-medium">Group</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>groupKey *</Label>
                   <Input {...form.register("group.groupKey")} placeholder="vd: sugar" />
@@ -348,7 +348,7 @@ function CustomizationGroupTemplatesPage() {
                   <Input {...form.register("group.label")} placeholder="vd: Mức đường" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>minSelect</Label>
                   <Input
@@ -376,22 +376,22 @@ function CustomizationGroupTemplatesPage() {
                   </Button>
                 </div>
                 {(form.watch("group.options") || []).map((_, optionIndex) => (
-                  <div key={optionIndex} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-4 space-y-2">
+                  <div key={optionIndex} className="grid gap-2 rounded-md border p-3 sm:grid-cols-12 sm:items-end sm:border-0 sm:p-0">
+                    <div className="space-y-2 sm:col-span-4">
                       <Label>optionKey</Label>
                       <Input
                         {...form.register(`group.options.${optionIndex}.optionKey`)}
                         placeholder="vd: no-sugar"
                       />
                     </div>
-                    <div className="col-span-4 space-y-2">
+                    <div className="space-y-2 sm:col-span-4">
                       <Label>Tên option</Label>
                       <Input
                         {...form.register(`group.options.${optionIndex}.label`)}
                         placeholder="vd: Không đường"
                       />
                     </div>
-                    <div className="col-span-3 space-y-2">
+                    <div className="space-y-2 sm:col-span-3">
                       <Label>priceDelta</Label>
                       <Input
                         type="number"
@@ -401,11 +401,12 @@ function CustomizationGroupTemplatesPage() {
                         placeholder="0"
                       />
                     </div>
-                    <div className="col-span-1">
+                    <div className="sm:col-span-1">
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
+                        aria-label={`Xóa option ${optionIndex + 1}`}
                         onClick={() => removeOption(optionIndex)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -464,7 +465,7 @@ function CustomizationGroupTemplatesPage() {
         description={`Bạn có chắc muốn xoá template "${templateToDelete?.label}"?`}
         isLoading={deleteMutation.isPending}
       />
-    </div>
+    </Page>
   );
 }
 

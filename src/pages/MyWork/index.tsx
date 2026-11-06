@@ -489,7 +489,7 @@ const MySchedulePage = () => {
   };
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="My Work Schedule"
         description="View and manage your work schedule"

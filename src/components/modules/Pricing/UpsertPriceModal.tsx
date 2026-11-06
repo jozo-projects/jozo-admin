@@ -320,16 +320,16 @@ function UpsertPricingModal(props: Props) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {icon ? (
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Edit pricing">
             {icon}
           </Button>
         ) : (
-          <Button className="my-3">{title}</Button>
+          <Button>{title}</Button>
         )}
       </DialogTrigger>
 
       <DialogContent
-        className="sm:max-w-[425px]"
+        className="max-h-[calc(100dvh-2rem)] sm:max-w-xl"
         onInteractOutside={handleClose}
       >
           <Spin spinning={isPending}>
@@ -340,7 +340,7 @@ function UpsertPricingModal(props: Props) {
               </DialogDescription>
             </DialogHeader>
 
-            <ScrollArea className="h-[calc(100vh-8rem)]">
+            <ScrollArea className="h-[min(70dvh,42rem)]">
               <div className="grid gap-4 p-1">
                 {open && roomTypeRows.length === 0 && isRoomTypesLoading ? (
                   <div className="flex min-h-[200px] items-center justify-center py-8">
@@ -462,7 +462,7 @@ function UpsertPricingModal(props: Props) {
                           variant="default"
                           size="sm"
                           onClick={addTimeSlot}
-                          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                          className="flex items-center gap-2"
                         >
                           <PlusIcon size={16} />
                           Thêm khung giờ
@@ -481,7 +481,7 @@ function UpsertPricingModal(props: Props) {
                             className={cn(
                               "border rounded-lg",
                               errors.timeSlots?.[index]?.start?.message &&
-                                "border-red-500",
+                                "border-destructive",
                             )}
                           >
                             <AccordionTrigger className="px-4">
@@ -492,7 +492,7 @@ function UpsertPricingModal(props: Props) {
                                 <Typography
                                   className={cn(
                                     "text-muted-foreground",
-                                    errors.timeSlots?.[index] && "text-red-500",
+                                    errors.timeSlots?.[index] && "text-destructive",
                                   )}
                                 >
                                   {timeSlot.start && timeSlot.end

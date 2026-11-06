@@ -98,7 +98,7 @@ const CoffeeCreateSessionModal: React.FC<CoffeeCreateSessionModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[520px]">
+      <DialogContent className="overflow-y-auto sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>Tạo coffee session</DialogTitle>
           <DialogDescription>

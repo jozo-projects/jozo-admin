@@ -1,5 +1,5 @@
 import { IMessengerMessage } from "@/@types/MessengerMessage";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,7 +96,7 @@ function MessengerMessagesPage() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Tin nhắn Facebook"
         description={`${data?.total ?? 0} tin nhắn đã lưu trong Jozo`}
@@ -104,7 +104,7 @@ function MessengerMessagesPage() {
       />
 
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="mb-5 flex max-w-md items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
@@ -124,8 +124,8 @@ function MessengerMessagesPage() {
           ) : messages.length === 0 ? (
             <div className="py-12 text-center">
               <MessageCircle className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <h3 className="text-lg font-semibold">Chưa có tin nhắn</h3>
-              <p className="text-sm text-muted-foreground">Tin nhắn nhận từ webhook sẽ xuất hiện ở đây.</p>
+              <h3 className="text-lg font-semibold">{debouncedSearch ? "Không tìm thấy tin nhắn" : "Chưa có tin nhắn"}</h3>
+              <p className="text-sm text-muted-foreground">{debouncedSearch ? "Thử tìm kiếm bằng nội dung hoặc người gửi khác." : "Tin nhắn nhận từ webhook sẽ xuất hiện ở đây."}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -146,14 +146,14 @@ function MessengerMessagesPage() {
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         <Badge variant="secondary">Messenger</Badge>
-                        <span className="text-xs text-muted-foreground">Người gửi: {message.senderId}</span>
+                        <span className="break-all text-xs text-muted-foreground">Người gửi: {message.senderId}</span>
                         <span className="text-xs text-muted-foreground">
                           {formatUTCToLocal(message.receivedAt)}
                         </span>
                       </div>
                       <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
                       {isAdmin && (
-                        <p className="mt-2 text-xs text-muted-foreground">Message ID: {message.messageId}</p>
+                        <p className="mt-2 break-all text-xs text-muted-foreground">Message ID: {message.messageId}</p>
                       )}
                     </div>
                     {isAdmin && (
@@ -174,7 +174,7 @@ function MessengerMessagesPage() {
           )}
 
           {totalPages > 1 && (
-            <div className="mt-5 flex items-center justify-between">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
               <Button
                 variant="outline"
                 disabled={currentPage === 1}
@@ -218,7 +218,7 @@ function MessengerMessagesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </Page>
   );
 }
 

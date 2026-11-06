@@ -10,7 +10,7 @@ import {
   IMembershipConfig,
   MembershipConfigPayload,
 } from "@/@types/Membership";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import {
   Card,
   CardContent,
@@ -467,14 +467,17 @@ const MembershipConfigPage = () => {
 
   if (isLoading) {
     return (
+      <>
+      <PageHeader title="Membership" icon={Sparkles} />
       <div className="flex h-64 items-center justify-center text-muted-foreground">
         Đang tải cấu hình membership...
       </div>
+      </>
     );
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Membership"
         description="Quản lý cấu hình tích điểm, hạng thành viên và thưởng duy trì."
@@ -1126,7 +1129,7 @@ const MembershipConfigPage = () => {
           </div>
         </form>
       </Form>
-    </div>
+    </Page>
   );
 };
 

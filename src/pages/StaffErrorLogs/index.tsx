@@ -213,7 +213,7 @@ const StaffErrorLogsPage = () => {
   };
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Log lỗi nhân viên"
         description="Admin ghi nhận cảnh cáo/phạt tiền và quản lý preset lỗi nhân viên"

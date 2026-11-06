@@ -1,6 +1,6 @@
 import { IRoomType } from "@/@types/RoomType";
 import roomTypeApis from "@/apis/roomType.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Building2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -145,7 +145,7 @@ function RoomTypesListPage() {
             to="/room-types/$id/edit"
             params={{ id: row.original._id as string }}
           >
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label={`Edit ${row.original.name}`}>
               <PencilIcon size={16} />
             </Button>
           </Link>
@@ -153,6 +153,7 @@ function RoomTypesListPage() {
           <Button
             variant="ghost"
             size="icon"
+            aria-label={`Delete ${row.original.name}`}
             onClick={() => setSelectedRoomType(row.original)}
           >
             <TrashIcon size={16} />
@@ -163,7 +164,7 @@ function RoomTypesListPage() {
   ];
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Room Types"
         description="Danh sách các loại phòng"
@@ -197,7 +198,7 @@ function RoomTypesListPage() {
         description={`Bạn có chắc chắn muốn xóa loại phòng "${selectedRoomType?.name}"?`}
         isLoading={deleteRoomTypeMutation.isPending}
       />
-    </div>
+    </Page>
   );
 }
 

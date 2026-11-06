@@ -307,8 +307,8 @@ ${inner}
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] max-w-lg gap-0 p-0 flex flex-col">
-        <DialogHeader className="p-6 pb-2 space-y-1">
+      <DialogContent className="flex flex-col gap-0 p-0 sm:max-h-[85vh] sm:max-w-lg">
+        <DialogHeader className="space-y-1 p-6 pb-2 pr-12">
           <DialogTitle>New order preview — {tableName || "?"}</DialogTitle>
           <DialogDescription>
             {summaryMessage ? (
@@ -319,7 +319,7 @@ ${inner}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[50vh] px-6">
+        <ScrollArea className="min-h-0 flex-1 px-6 sm:max-h-[50vh]">
           <div className="space-y-3 pb-4 pr-3">
             {isLoading ? (
               <p className="text-sm text-muted-foreground">

@@ -11,7 +11,6 @@ import dayjs, { Dayjs } from "dayjs";
 import {
   ChevronLeft,
   ChevronRight,
-  CircleXIcon,
   LocateFixed,
 } from "lucide-react";
 import React, { useId } from "react";
@@ -79,13 +78,6 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
                 className="min-w-[168px] justify-start pl-3 text-left font-normal"
               >
                 {date.format("DD/MM/YYYY")}
-                <CircleXIcon
-                  className="ml-auto h-4 w-4 opacity-50"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDateChange(getDefaultBusinessDate());
-                  }}
-                />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -129,13 +121,14 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 rounded-md border bg-white p-1">
+          <div className="flex items-center gap-1 rounded-md border bg-background p-1">
             {TIMELINE_ZOOM_OPTIONS.map((option) => (
               <Button
                 key={option.value}
                 type="button"
                 size="sm"
                 variant={zoom === option.value ? "default" : "ghost"}
+                aria-pressed={zoom === option.value}
                 className="h-7 px-2.5"
                 onClick={() => onZoomChange(option.value)}
               >

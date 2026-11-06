@@ -493,7 +493,7 @@ const BillsTableSection = ({
               key={bill._id || "unknown"}
               className="rounded-md border p-3 space-y-2"
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <button
                   className="font-medium text-blue-600 hover:underline focus:outline-none"
                   onClick={() => bill._id && onBillClick(bill._id)}
@@ -514,6 +514,7 @@ const BillsTableSection = ({
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2"
+                    aria-label="Đổi phương thức thanh toán"
                     onClick={() => onPaymentMethodEdit(bill)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -523,6 +524,7 @@ const BillsTableSection = ({
                       variant="ghost"
                       size="sm"
                       className="h-7 px-2"
+                      aria-label="Xem lịch sử phương thức thanh toán"
                       onClick={() => onPaymentMethodHistory(bill)}
                     >
                       <History className="h-3.5 w-3.5" />

@@ -156,26 +156,26 @@ export function ShiftRegistrationCalendar({
   return (
     <div className="w-full">
       {/* Calendar Header */}
-      <div className="mb-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm sm:mb-5 sm:rounded-xl sm:p-4">
+      <div className="mb-3 rounded-2xl border border-border bg-card p-3 shadow-sm sm:mb-5 sm:rounded-xl sm:p-4">
         <div className="flex items-center justify-between gap-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={handlePrevMonth}
-            className="h-10 w-10 shrink-0 rounded-full text-slate-600 hover:bg-slate-100 sm:h-9 sm:w-9"
+            className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted sm:h-9 sm:w-9"
             aria-label="Previous month"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
 
           <div className="min-w-0 flex-1 text-center">
-            <h2 className="truncate text-base font-semibold capitalize tracking-tight text-slate-900 sm:text-xl md:text-2xl">
+            <h2 className="truncate text-base font-semibold capitalize tracking-tight text-foreground sm:text-xl md:text-2xl">
               {currentDate.format("MMMM YYYY")}
             </h2>
             <button
               type="button"
               onClick={handleToday}
-              className="mt-0.5 text-xs font-medium text-blue-600 transition-colors hover:text-blue-700 sm:text-sm"
+              className="mt-0.5 text-xs font-medium text-primary transition-colors hover:text-primary/80 sm:text-sm"
             >
               Today
             </button>
@@ -185,7 +185,7 @@ export function ShiftRegistrationCalendar({
             variant="ghost"
             size="icon"
             onClick={handleNextMonth}
-            className="h-10 w-10 shrink-0 rounded-full text-slate-600 hover:bg-slate-100 sm:h-9 sm:w-9"
+            className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted sm:h-9 sm:w-9"
             aria-label="Next month"
           >
             <ChevronRight className="h-5 w-5" />
@@ -194,12 +194,12 @@ export function ShiftRegistrationCalendar({
       </div>
 
       {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-1.5 bg-transparent sm:gap-px sm:overflow-hidden sm:rounded-xl sm:border sm:border-slate-200/80 sm:bg-slate-200/80">
+      <div className="grid grid-cols-7 gap-1.5 bg-transparent sm:gap-px sm:overflow-hidden sm:rounded-xl sm:border sm:border-border sm:bg-border">
         {/* Weekday Headers */}
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <div
             key={day}
-            className="rounded-lg bg-transparent py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400 sm:rounded-none sm:bg-slate-50 sm:py-3 sm:text-sm sm:text-slate-500"
+            className="rounded-lg bg-transparent py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:rounded-none sm:bg-muted sm:py-3 sm:text-sm"
           >
             {day}
           </div>
@@ -219,13 +219,13 @@ export function ShiftRegistrationCalendar({
               <div
                 key={`${weekIndex}-${dayIndex}`}
                 className={cn(
-                  "relative min-h-[72px] rounded-xl border border-slate-200/80 bg-white px-1.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all sm:min-h-[110px] sm:rounded-none sm:border-0 sm:bg-white sm:px-2 sm:py-2 md:min-h-[120px] md:p-2.5 lg:min-h-[132px]",
+                  "relative min-h-[72px] rounded-xl border border-border bg-card px-1.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-all sm:min-h-[110px] sm:rounded-none sm:border-0 sm:bg-card sm:px-2 sm:py-2 md:min-h-[120px] md:p-2.5 lg:min-h-[132px]",
                   !isDisabled && "cursor-pointer active:scale-[0.99]",
-                  !day.isCurrentMonth && "text-gray-400",
+                  !day.isCurrentMonth && "text-muted-foreground",
                   isToday && "bg-blue-50 ring-1 ring-inset ring-blue-200",
                   isDisabled && "cursor-not-allowed opacity-50",
-                  isFull && !isPast && "bg-slate-50",
-                  !isDisabled && "hover:bg-slate-50",
+                  isFull && !isPast && "bg-muted/50",
+                  !isDisabled && "hover:bg-muted/50",
                 )}
                 onClick={() => {
                   if (!isDisabled) {
@@ -239,8 +239,8 @@ export function ShiftRegistrationCalendar({
                       "flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold sm:h-8 sm:w-8 sm:text-base",
                       isToday
                         ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-700",
-                      !day.isCurrentMonth && "text-slate-400",
+                        : "text-foreground",
+                      !day.isCurrentMonth && "text-muted-foreground",
                     )}
                   >
                     {day.date.date()}
@@ -274,7 +274,7 @@ export function ShiftRegistrationCalendar({
                       })}
 
                       {shiftTypes.length > 2 && (
-                        <span className="inline-flex min-h-6 items-center rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">
+                        <span className="inline-flex min-h-6 items-center rounded-full border border-border bg-card px-2 py-1 text-[10px] font-semibold text-muted-foreground">
                           +{shiftTypes.length - 2}
                         </span>
                       )}

@@ -97,8 +97,8 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent aria-describedby={undefined} className="overflow-y-auto sm:max-h-[80vh] sm:max-w-2xl">
+        <DialogHeader className="pr-8">
           <DialogTitle className="flex items-center gap-2">
             <UtensilsCrossed className="h-5 w-5 text-orange-500" />
             Chi tiết đơn hàng mới
@@ -112,7 +112,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
               <User className="h-4 w-4" />
               Thông tin khách hàng
             </h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-blue-600" />
                 <span className="text-sm">
@@ -139,7 +139,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
               {orderData.items.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 p-3"
                 >
                   <div className="flex-1">
                     <div className="font-medium text-gray-900">{item.name}</div>
@@ -176,8 +176,8 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
 
           {/* Thông tin đơn hàng */}
           <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
+            <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+              <div className="break-all">
                 <strong>Mã đơn hàng:</strong> {orderData.orderId}
               </div>
               <div>

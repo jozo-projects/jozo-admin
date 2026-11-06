@@ -322,7 +322,7 @@ export function FnbModal({ isOpen, onClose, initialValues }: FnbModalProps) {
           >
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Basic Information</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="name"
@@ -358,7 +358,7 @@ export function FnbModal({ isOpen, onClose, initialValues }: FnbModalProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="category"
@@ -428,7 +428,7 @@ export function FnbModal({ isOpen, onClose, initialValues }: FnbModalProps) {
                   render={() => (
                     <FormItem className="space-y-4">
                       <FormLabel>Inventory Management</FormLabel>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <FormField
                           control={form.control}
                           name="inventory.quantity"
@@ -466,7 +466,7 @@ export function FnbModal({ isOpen, onClose, initialValues }: FnbModalProps) {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <FormField
                           control={form.control}
                           name="inventory.minStock"
@@ -586,7 +586,7 @@ export function FnbModal({ isOpen, onClose, initialValues }: FnbModalProps) {
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
                         <FormField
                           control={form.control}
                           name={`variants.${index}.name`}
@@ -653,7 +653,7 @@ export function FnbModal({ isOpen, onClose, initialValues }: FnbModalProps) {
                         render={() => (
                           <FormItem className="space-y-4">
                             <FormLabel>Inventory Management</FormLabel>
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid gap-4 sm:grid-cols-3">
                               <FormField
                                 control={form.control}
                                 name={`variants.${index}.inventory.quantity`}

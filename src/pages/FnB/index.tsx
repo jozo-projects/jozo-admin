@@ -1,5 +1,5 @@
 import { FnbMenu } from "@/@types/FnBMenu";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { useDeleteMenu, useGetAllMenus } from "@/hooks/use-fnb-menu";
@@ -59,7 +59,7 @@ const FnBPage = () => {
   });
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Food & Beverage Menu"
         description={`Quản lý thực đơn đồ ăn và thức uống${
@@ -92,7 +92,7 @@ const FnBPage = () => {
         onClose={() => setIsModalOpen(false)}
         initialValues={selectedMenu || undefined}
       />
-    </div>
+    </Page>
   );
 };
 

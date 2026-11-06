@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -220,7 +220,7 @@ const FnbStatsPage = () => {
         : "Month";
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="FNB Statistics"
         description="Food & beverage order stats by day, week, or month"
@@ -482,7 +482,7 @@ const FnbStatsPage = () => {
           </Card>
         </>
       )}
-    </div>
+    </Page>
   );
 };
 

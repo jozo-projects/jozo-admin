@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { DeleteModal } from "@/components/shared/DeleteModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -70,14 +70,17 @@ const GiftsPage = () => {
 
   if (isLoading) {
     return (
+      <>
+      <PageHeader title="Quản lý Quà Tặng" icon={Gift} />
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">Đang tải...</div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Quản lý Quà Tặng"
         description="Quản lý các quà tặng và khuyến mãi"
@@ -228,7 +231,7 @@ const GiftsPage = () => {
         title="Xóa Quà Tặng"
         description={`Bạn có chắc chắn muốn xóa "${itemToDelete?.name}"? Hành động này không thể hoàn tác.`}
       />
-    </div>
+    </Page>
   );
 };
 

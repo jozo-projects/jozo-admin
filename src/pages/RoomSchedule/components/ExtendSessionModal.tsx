@@ -82,7 +82,7 @@ const ExtendSessionModal: React.FC<ExtendSessionModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Extend Session</DialogTitle>
           <DialogDescription>

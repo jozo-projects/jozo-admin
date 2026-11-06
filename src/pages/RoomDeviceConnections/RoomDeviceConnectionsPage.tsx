@@ -5,7 +5,7 @@ import type {
   RoomDeviceRoomGroup,
 } from "@/@types/Room";
 import roomApis from "@/apis/room.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -99,8 +99,8 @@ const RoomGroupCard = ({
   roomName?: string;
 }) => (
   <Card>
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-      <div>
+    <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-3">
+      <div className="min-w-0 break-words">
         <CardTitle className="text-base">
           {roomName || `Phòng ${group.roomId}`}
         </CardTitle>
@@ -111,7 +111,22 @@ const RoomGroupCard = ({
       <Badge variant="secondary">{group.count} thiết bị</Badge>
     </CardHeader>
     <CardContent className="px-0 pb-0 sm:px-0">
-      <Table>
+      <div className="space-y-3 px-4 pb-4 sm:hidden">
+        {group.devices.map((device) => (
+          <div key={`${device.deviceId}-${device.socketId}`} className="space-y-2 rounded-lg border bg-muted/20 p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="break-all font-medium">{device.deviceId}</span>
+              <ClientTypeBadge type={device.clientType} />
+            </div>
+            <dl className="space-y-1 text-muted-foreground">
+              <div><dt className="inline">Origin: </dt><dd className="inline break-all">{device.origin || "—"}</dd></div>
+              <div><dt className="inline">Socket ID: </dt><dd className="inline break-all font-mono text-xs">{device.socketId}</dd></div>
+              <div><dt className="inline">Kết nối lúc: </dt><dd className="inline">{formatUTCToLocal(device.connectedAt)} ({timeAgo(device.connectedAt)})</dd></div>
+            </dl>
+          </div>
+        ))}
+      </div>
+      <div className="hidden sm:block"><Table>
         <TableHeader>
           <TableRow>
             <TableHead className="pl-6">Device ID</TableHead>
@@ -129,7 +144,7 @@ const RoomGroupCard = ({
             />
           ))}
         </TableBody>
-      </Table>
+      </Table></div>
     </CardContent>
   </Card>
 );
@@ -173,7 +188,7 @@ const RoomDeviceConnectionsPage = () => {
   const onlineRoomCount = rooms.length;
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Theo dõi thiết bị"
         description="Danh sách thiết bị tablet / tv đang kết nối theo từng phòng"
@@ -267,7 +282,7 @@ const RoomDeviceConnectionsPage = () => {
           ))}
         </div>
       )}
-    </div>
+    </Page>
   );
 };
 

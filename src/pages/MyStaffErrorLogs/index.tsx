@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Table,
   TableBody,
@@ -74,7 +75,7 @@ const MyStaffErrorLogsPage = () => {
   );
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Lỗi của tôi"
         description="Xem cảnh cáo/phạt tiền đã được admin ghi nhận"
@@ -104,8 +105,9 @@ const MyStaffErrorLogsPage = () => {
       <Card>
         <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
           <div>
-            <Label>Loại</Label>
-            <select
+            <Label htmlFor="my-log-type">Loại</Label>
+            <NativeSelect
+              id="my-log-type"
               value={filters.type}
               onChange={(event) =>
                 setFilters((prev) => ({
@@ -113,16 +115,17 @@ const MyStaffErrorLogsPage = () => {
                   type: event.target.value as StaffErrorLogType | "",
                 }))
               }
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+              className="mt-1"
             >
               <option value="">Tất cả</option>
               <option value={StaffErrorLogType.Warning}>Cảnh cáo</option>
               <option value={StaffErrorLogType.Penalty}>Phạt tiền</option>
-            </select>
+            </NativeSelect>
           </div>
           <div>
-            <Label>Trạng thái</Label>
-            <select
+            <Label htmlFor="my-log-status">Trạng thái</Label>
+            <NativeSelect
+              id="my-log-status"
               value={filters.status}
               onChange={(event) =>
                 setFilters((prev) => ({
@@ -130,16 +133,17 @@ const MyStaffErrorLogsPage = () => {
                   status: event.target.value as StaffErrorLogStatus | "",
                 }))
               }
-              className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm"
+              className="mt-1"
             >
               <option value="">Tất cả</option>
               <option value={StaffErrorLogStatus.Active}>Đang hiệu lực</option>
               <option value={StaffErrorLogStatus.Cancelled}>Đã hủy</option>
-            </select>
+            </NativeSelect>
           </div>
           <div>
-            <Label>Từ ngày</Label>
+            <Label htmlFor="my-log-start">Từ ngày</Label>
             <Input
+              id="my-log-start"
               type="date"
               value={filters.startDate}
               onChange={(event) =>
@@ -149,8 +153,9 @@ const MyStaffErrorLogsPage = () => {
             />
           </div>
           <div>
-            <Label>Đến ngày</Label>
+            <Label htmlFor="my-log-end">Đến ngày</Label>
             <Input
+              id="my-log-end"
               type="date"
               value={filters.endDate}
               onChange={(event) =>
@@ -162,7 +167,31 @@ const MyStaffErrorLogsPage = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <div className="space-y-3 md:hidden">
+        {isLoading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Đang tải...</p>
+        ) : logs.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Chưa có log lỗi nào</p>
+        ) : logs.map((log) => (
+          <Card key={log._id}>
+            <CardContent className="space-y-3 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <LogTypeBadge type={log.type} />
+                <StatusBadge status={log.status} />
+              </div>
+              <p className="break-words font-medium">{log.presetName || log.title}</p>
+              {log.note && <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{log.note}</p>}
+              <dl className="grid grid-cols-2 gap-3 text-sm">
+                <div><dt className="text-muted-foreground">Số tiền</dt><dd>{log.type === StaffErrorLogType.Penalty ? money(log.amount) : "-"}</dd></div>
+                <div><dt className="text-muted-foreground">Ngày xảy ra</dt><dd>{formatDateTime(log.occurredAt)}</dd></div>
+                <div className="col-span-2"><dt className="text-muted-foreground">Người ghi nhận</dt><dd>{log.createdByName}</dd></div>
+              </dl>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           <Table>
             <TableHeader>

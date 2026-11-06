@@ -249,14 +249,17 @@ const EditUserForm = () => {
 
   if (isLoadingUser) {
     return (
+      <>
+      <PageHeader title="Edit admin / staff" icon={UserCog} showBackButton backUrl={PATHS.STAFF_MANAGEMENT} />
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">Loading...</div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Edit admin / staff"
         description="Update administrator or staff profile"

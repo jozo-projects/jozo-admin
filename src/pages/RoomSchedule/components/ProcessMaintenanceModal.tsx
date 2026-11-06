@@ -136,7 +136,7 @@ const ProcessMaintenanceModal: React.FC<ProcessMaintenanceModalProps> = ({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-md gap-0 p-0">
+      <DialogContent className="gap-0 overflow-y-auto p-0 sm:max-w-md">
         <div className="px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6 sm:pt-6 sm:pb-6">
           <DialogHeader className="pr-8">
             <DialogTitle className="flex items-center gap-2 text-lg">

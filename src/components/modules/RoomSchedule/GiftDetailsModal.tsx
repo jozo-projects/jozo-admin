@@ -50,8 +50,8 @@ const GiftDetailsModal: React.FC<GiftDetailsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent aria-describedby={undefined} className="overflow-y-auto overscroll-y-contain sm:max-h-[80vh] sm:max-w-2xl">
+        <DialogHeader className="pr-8">
           <DialogTitle className="flex items-center gap-2">
             <GiftIcon className="h-5 w-5 text-purple-500" />
             Chi tiết quà tặng đã nhận
@@ -65,7 +65,7 @@ const GiftDetailsModal: React.FC<GiftDetailsModalProps> = ({
               <MapPin className="h-4 w-4" />
               Thông tin phòng
             </h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-purple-600" />
                 <span className="text-sm">
@@ -74,7 +74,7 @@ const GiftDetailsModal: React.FC<GiftDetailsModalProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-purple-600" />
-                <span className="text-sm">
+                <span className="min-w-0 break-all text-sm">
                   <strong>Schedule ID:</strong> {scheduleId}
                 </span>
               </div>
@@ -82,7 +82,7 @@ const GiftDetailsModal: React.FC<GiftDetailsModalProps> = ({
           </div>
 
           {/* Hình ảnh và thông tin cơ bản */}
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-4">
             {gift.image && (
               <div className="flex-shrink-0">
                 <img
@@ -92,7 +92,7 @@ const GiftDetailsModal: React.FC<GiftDetailsModalProps> = ({
                 />
               </div>
             )}
-            <div className="flex-1">
+            <div className="min-w-0 flex-1 basis-40">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 {gift.name}
               </h2>
@@ -149,7 +149,7 @@ const GiftDetailsModal: React.FC<GiftDetailsModalProps> = ({
                     {gift.items.map((item, index) => (
                       <div
                         key={index}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg"
                       >
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">
@@ -188,7 +188,7 @@ const GiftDetailsModal: React.FC<GiftDetailsModalProps> = ({
           {/* Thông tin tổng quan */}
           <Separator />
           <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid gap-4 text-sm sm:grid-cols-2">
               <div>
                 <strong>Loại quà:</strong> {GIFT_TYPE_LABELS[gift.type]}
               </div>

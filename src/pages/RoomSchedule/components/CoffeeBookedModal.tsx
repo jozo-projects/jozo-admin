@@ -99,7 +99,7 @@ const CoffeeBookedModal: React.FC<CoffeeBookedModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[560px]">
+      <DialogContent className="overflow-y-auto sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle>Booked coffee session</DialogTitle>
           <DialogDescription>

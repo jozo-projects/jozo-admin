@@ -1,6 +1,6 @@
 import { IRoom } from "@/@types/Room";
 import roomApis from "@/apis/room.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { DeleteModal } from "@/components/shared/DeleteModal";
 import { Button } from "@/components/ui/button";
 import { DoorOpen } from "lucide-react";
@@ -97,13 +97,14 @@ function RoomsListPage() {
                 to="/rooms/$id/edit"
               params={{ id: row.original._id }}
             >
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" aria-label={`Chỉnh sửa phòng ${row.original.roomName}`}>
                 <PencilIcon size={16} />
               </Button>
             </Link>
             <Button
               variant="ghost"
               size="icon"
+              aria-label={`Xóa phòng ${row.original.roomName}`}
               onClick={() => setSelectedRoom(row.original)}
             >
               <TrashIcon size={16} />
@@ -114,7 +115,7 @@ function RoomsListPage() {
   ];
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Rooms Management"
         description="Quản lý danh sách phòng"
@@ -150,7 +151,7 @@ function RoomsListPage() {
         description={`Bạn có chắc chắn muốn xóa phòng "${selectedRoom?.roomName}"?`}
         isLoading={deleteRoomMutation.isPending}
       />
-    </div>
+    </Page>
   );
 }
 

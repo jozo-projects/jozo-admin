@@ -1,4 +1,5 @@
 import authorizationApis from "@/apis/authorization.apis";
+import { AuthShell } from "@/components/shared/AuthShell";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Form,
@@ -77,8 +78,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <div className="bg-card text-card-foreground p-6 rounded shadow-md w-full max-w-sm border border-border">
+    <AuthShell>
         <Typography variant="h2" className="mb-2">
           Quên mật khẩu
         </Typography>
@@ -135,7 +135,6 @@ export default function ForgotPasswordPage() {
             </form>
           </Form>
         )}
-      </div>
-    </div>
+    </AuthShell>
   );
 }

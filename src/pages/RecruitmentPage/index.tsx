@@ -65,14 +65,17 @@ const RecruitmentPage: React.FC = () => {
 
   if (error) {
     return (
+      <>
+      <PageHeader title="Quản lý tuyển dụng" icon={Users} />
       <div className="flex items-center justify-center h-64">
-        <div className="text-red-500">Có lỗi xảy ra khi tải dữ liệu</div>
+        <div className="text-destructive">Có lỗi xảy ra khi tải dữ liệu</div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Quản lý tuyển dụng"
         description="Quản lý danh sách ứng viên tuyển dụng"

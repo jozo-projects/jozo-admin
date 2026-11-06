@@ -386,14 +386,17 @@ const StaffSchedulePage = () => {
 
   if (isLoadingUsers || isLoadingSchedules) {
     return (
+      <>
+      <PageHeader title="Staff Schedule Management" icon={CalendarIcon} />
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">Loading...</div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Staff Schedule Management"
         description="Click on staff name to view earnings details, or click on a cell to view/register schedule"
@@ -454,7 +457,7 @@ const StaffSchedulePage = () => {
         </div>
 
         <div className="relative w-full sm:w-auto">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Search staff..."
             value={searchTerm}
@@ -476,7 +479,7 @@ const StaffSchedulePage = () => {
             <TableRow>
               <TableHead
                 rowSpan={2}
-                className="min-w-[250px] sticky left-0 bg-white z-10"
+                className="min-w-[250px] sticky left-0 bg-card z-10"
               >
                 Staff Name
               </TableHead>
@@ -517,7 +520,7 @@ const StaffSchedulePage = () => {
               <TableRow>
                 <TableCell
                   colSpan={dates.length * visibleShifts.length + 1}
-                  className="text-center py-8 text-gray-500"
+                  className="text-center py-8 text-muted-foreground"
                 >
                   {searchTerm ? "No staff found" : "No staff available"}
                 </TableCell>
@@ -529,7 +532,7 @@ const StaffSchedulePage = () => {
                   <TableRow key={user._id}>
                     <TableCell
                       className={cn(
-                        "min-w-[250px] sticky left-0 bg-white z-10 font-medium",
+                        "min-w-[250px] sticky left-0 bg-card z-10 font-medium",
                         "cursor-pointer hover:text-blue-600 hover:underline py-6",
                       )}
                       onClick={() => handleStaffClick(user._id)}

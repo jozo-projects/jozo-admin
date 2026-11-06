@@ -85,7 +85,7 @@ const EditRoomTypeModal: React.FC<EditRoomTypeModalProps> = ({
             <Label htmlFor="roomName" className="text-right">
               Tên phòng
             </Label>
-            <div className="col-span-3 text-sm text-gray-600">
+            <div className="col-span-3 text-sm text-muted-foreground">
               {room?.roomName}
             </div>
           </div>

@@ -84,14 +84,17 @@ const StaffManagementPage = () => {
 
   if (isLoadingUsers) {
     return (
+      <>
+      <PageHeader title="Quản lý Admin/Staff" icon={Users} />
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">Đang tải...</div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Quản lý Admin/Staff"
         description="Quản lý danh sách quản trị viên và nhân viên"
@@ -123,17 +126,17 @@ const StaffManagementPage = () => {
       <div className="grid gap-4">
         {filteredUsers.map((user: User) => (
           <Card key={user._id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
+                <div className="min-w-0 flex-1 break-words">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
                     <h3 className="text-lg font-semibold">
                       {getUserName(user)}
                     </h3>
                     {getRoleBadge(user.role)}
                   </div>
 
-                  <div className="space-y-1 text-sm text-gray-600">
+                  <div className="space-y-1 text-sm text-muted-foreground">
                     {user.username && <p>Username: {user.username}</p>}
                     {user.email && <p>Email: {user.email}</p>}
                     <p>Số điện thoại: {user.phone_number}</p>
@@ -177,7 +180,7 @@ const StaffManagementPage = () => {
       {filteredUsers.length === 0 && (
         <Card>
           <CardContent className="p-12 text-center">
-            <p className="text-gray-500">
+            <p className="text-muted-foreground">
               {searchTerm
                 ? "Không tìm thấy admin/staff nào phù hợp"
                 : "Chưa có admin/staff nào"}

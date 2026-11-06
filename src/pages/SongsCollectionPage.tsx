@@ -793,14 +793,19 @@ const SongsCollectionPage = () => {
 
   if (isLoading) {
     return (
+      <>
+      <PageHeader title="Bộ sưu tập bài hát" icon={Music} />
       <div className="flex items-center justify-center h-64">
         <div className="text-lg">Đang tải danh sách bài hát...</div>
       </div>
+      </>
     );
   }
 
   if (error) {
     return (
+      <>
+      <PageHeader title="Bộ sưu tập bài hát" icon={Music} />
       <div className="flex flex-col items-center justify-center h-64 gap-3">
         <div className="text-lg text-red-600">
           Không thể tải danh sách bài hát
@@ -813,6 +818,7 @@ const SongsCollectionPage = () => {
           Thử lại
         </button>
       </div>
+      </>
     );
   }
 

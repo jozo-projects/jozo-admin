@@ -96,7 +96,7 @@ export function RevenuePeriodSelector({ period, date, range, isStaff, onPeriod, 
   return (
     <section aria-label="Chọn kỳ doanh thu" className="space-y-2">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        {!isStaff && <div className="inline-flex max-w-full gap-1 self-start rounded-lg bg-muted p-1" role="group" aria-label="Loại kỳ">
+        {!isStaff && <div className="flex max-w-full flex-wrap gap-1 self-start rounded-lg bg-muted p-1" role="group" aria-label="Loại kỳ">
           {(Object.keys(labels) as RevenuePeriod[]).map((key) => (
             <Button key={key} size="sm" variant={period === key ? "default" : "ghost"}
               aria-pressed={period === key} onClick={() => { setOpen(false); onPeriod(key); }}>

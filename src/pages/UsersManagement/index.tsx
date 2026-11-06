@@ -88,13 +88,13 @@ const PaginationControls = ({
 
   return (
     <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-sm text-gray-600">
+      <div className="text-sm text-muted-foreground">
         Hiển thị {displayStart} - {displayEnd} trong tổng số {total} người dùng
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Hiển thị:</span>
+          <span className="text-sm text-muted-foreground">Hiển thị:</span>
           <Select
             value={pageSize.toString()}
             onValueChange={(value) => onPageSizeChange(Number(value))}
@@ -110,7 +110,7 @@ const PaginationControls = ({
               ))}
             </SelectContent>
           </Select>
-          <span className="text-sm text-gray-600">bản ghi</span>
+          <span className="text-sm text-muted-foreground">bản ghi</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ const UsersManagementPage = () => {
   };
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Quản lý Thành viên"
         description="Quản lý danh sách người dùng"
@@ -255,10 +255,10 @@ const UsersManagementPage = () => {
                 key={user._id}
                 className="hover:shadow-md transition-shadow"
               >
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
+                    <div className="min-w-0 flex-1 break-words">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
                         <h3 className="text-lg font-semibold">
                           {getUserName(user)}
                         </h3>
@@ -314,7 +314,7 @@ const UsersManagementPage = () => {
           {filteredUsers.length === 0 && (
             <Card>
               <CardContent className="p-12 text-center">
-                <p className="text-gray-500">
+                <p className="text-muted-foreground">
                   {queryConfig.search.trim()
                     ? "Không tìm thấy user nào phù hợp"
                     : "Chưa có user nào"}

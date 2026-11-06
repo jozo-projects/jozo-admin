@@ -101,7 +101,7 @@ export const columns: ColumnDef<Recruitment>[] = [
           </Avatar>
           <div>
             <div className="font-medium">{recruitment.fullName}</div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               {Array.isArray(recruitment.position)
                 ? recruitment.position
                     .map((pos) => positionLabels[pos as Position] || pos)
@@ -146,7 +146,7 @@ export const columns: ColumnDef<Recruitment>[] = [
             <Calendar className="h-3 w-3 text-gray-400" />
             <span>{calculateAge(recruitment.birthDate)} tuổi</span>
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-muted-foreground">
             {genderLabels[recruitment.gender as Gender] || recruitment.gender}
           </div>
         </div>
@@ -163,7 +163,7 @@ export const columns: ColumnDef<Recruitment>[] = [
           {currentStatusLabels[recruitment.currentStatus as CurrentStatus] ||
             recruitment.currentStatus}
           {recruitment.otherStatus && (
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-muted-foreground mt-1">
               {recruitment.otherStatus}
             </div>
           )}
@@ -213,7 +213,7 @@ export const columns: ColumnDef<Recruitment>[] = [
           {format(new Date(recruitment.submittedAt), "dd/MM/yyyy", {
             locale: vi,
           })}
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-muted-foreground">
             {format(new Date(recruitment.submittedAt), "HH:mm", { locale: vi })}
           </div>
         </div>
@@ -253,20 +253,20 @@ export const columns: ColumnDef<Recruitment>[] = [
                 <Eye className="h-4 w-4" />
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Chi tiết ứng viên</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Họ tên
                     </label>
                     <p className="text-sm">{recruitment.fullName}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Ngày sinh
                     </label>
                     <p className="text-sm">
@@ -276,7 +276,7 @@ export const columns: ColumnDef<Recruitment>[] = [
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Giới tính
                     </label>
                     <p className="text-sm">
@@ -285,27 +285,27 @@ export const columns: ColumnDef<Recruitment>[] = [
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Số điện thoại
                     </label>
                     <p className="text-sm">{recruitment.phone}</p>
                   </div>
                   {recruitment.email && (
                     <div>
-                      <label className="text-sm font-medium text-gray-700">
+                      <label className="text-sm font-medium text-muted-foreground">
                         Email
                       </label>
                       <p className="text-sm">{recruitment.email}</p>
                     </div>
                   )}
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Mạng xã hội
                     </label>
                     <p className="text-sm">{recruitment.socialMedia}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Tình trạng hiện tại
                     </label>
                     <p className="text-sm">
@@ -315,7 +315,7 @@ export const columns: ColumnDef<Recruitment>[] = [
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Vị trí ứng tuyển
                     </label>
                     <p className="text-sm">
@@ -333,7 +333,7 @@ export const columns: ColumnDef<Recruitment>[] = [
 
                 {recruitment.otherStatus && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Tình trạng khác
                     </label>
                     <p className="text-sm">{recruitment.otherStatus}</p>
@@ -341,7 +341,7 @@ export const columns: ColumnDef<Recruitment>[] = [
                 )}
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-muted-foreground">
                     Ghi chú
                   </label>
                   <p className="text-sm whitespace-pre-wrap break-words">
@@ -350,7 +350,7 @@ export const columns: ColumnDef<Recruitment>[] = [
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-muted-foreground">
                     Ca làm việc
                   </label>
                   <div className="flex flex-wrap gap-2 mt-1">
@@ -371,7 +371,7 @@ export const columns: ColumnDef<Recruitment>[] = [
 
                 {recruitment.workDays && recruitment.workDays.length > 0 && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-medium text-muted-foreground">
                       Ngày có thể làm việc
                     </label>
                     <div className="flex flex-wrap gap-2 mt-1">

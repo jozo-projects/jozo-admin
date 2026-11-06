@@ -10,9 +10,11 @@ import { Button } from "../ui/button";
 import { AppSidebar } from "./AppSideBar";
 import { MessengerInbox } from "../shared/MessengerInbox";
 import { NotificationBell } from "../shared/NotificationBell";
+import { PageHeaderTargetContext } from "./page-header-context";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [pageHeaderTarget, setPageHeaderTarget] = useState<HTMLDivElement | null>(null);
 
   // Kiểm tra chế độ và áp dụng từ localStorage nếu có
   useEffect(() => {
@@ -36,9 +38,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <AppSidebar />
 
       <SidebarInset className="min-w-0">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-card px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4" />
+          <div ref={setPageHeaderTarget} className="min-w-0 flex-1" />
           <div className="ml-auto flex items-center gap-1">
             <MessengerInbox />
             <NotificationBell />
@@ -53,7 +56,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <div className="flex min-w-0 flex-1 flex-col p-4 md:p-6 [&>*]:min-w-0">
-          {children}
+          <PageHeaderTargetContext.Provider value={pageHeaderTarget}>
+            {children}
+          </PageHeaderTargetContext.Provider>
         </div>
       </SidebarInset>
     </SidebarProvider>

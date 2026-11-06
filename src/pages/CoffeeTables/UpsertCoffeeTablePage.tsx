@@ -1,5 +1,5 @@
 import coffeeTableApis from "@/apis/coffeeTable.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -114,7 +114,7 @@ function UpsertCoffeeTablePage() {
   };
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-6">
+    <Page className="max-w-3xl">
       <PageHeader
         title={isEditMode ? "Edit Service Station" : "New Service Station"}
         description={
@@ -179,7 +179,7 @@ function UpsertCoffeeTablePage() {
             control={form.control}
             name="isActive"
             render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+              <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border p-4">
                 <div className="space-y-0.5">
                   <FormLabel className="text-base">Active</FormLabel>
                   <div className="text-sm text-muted-foreground">
@@ -205,7 +205,7 @@ function UpsertCoffeeTablePage() {
           </Button>
         </form>
       </Form>
-    </div>
+    </Page>
   );
 }
 

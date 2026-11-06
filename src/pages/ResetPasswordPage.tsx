@@ -1,4 +1,5 @@
 import authorizationApis from "@/apis/authorization.apis";
+import { AuthShell } from "@/components/shared/AuthShell";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Form,
@@ -103,8 +104,8 @@ export default function ResetPasswordPage() {
 
   if (!forgotPasswordToken) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="bg-card text-card-foreground p-6 rounded shadow-md w-full max-w-sm border border-border space-y-4">
+      <AuthShell>
+        <div className="space-y-4">
           <Typography variant="h2">Link không hợp lệ</Typography>
           <p className="text-sm text-muted-foreground">
             {TOKEN_EXPIRED_MESSAGE}
@@ -119,16 +120,16 @@ export default function ResetPasswordPage() {
             Quay lại đăng nhập
           </Link>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
+    <AuthShell>
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="bg-card text-card-foreground p-6 rounded shadow-md w-full max-w-sm border border-border"
+          className="w-full"
         >
           <Typography variant="h2" className="mb-2">
             Đặt lại mật khẩu
@@ -178,7 +179,7 @@ export default function ResetPasswordPage() {
             control={form.control}
             name="confirm_password"
             render={({ field }) => (
-              <FormItem className="mt-1">
+              <FormItem className="mt-4">
                 <FormLabel>Xác nhận mật khẩu</FormLabel>
                 <FormControl>
                   <Input
@@ -208,6 +209,6 @@ export default function ResetPasswordPage() {
           </Button>
         </form>
       </Form>
-    </div>
+    </AuthShell>
   );
 }

@@ -624,9 +624,9 @@ const UpsertGiftModal: React.FC<UpsertGiftModalProps> = ({
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Thông tin cơ bản</h3>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-4 sm:grid-cols-3">
                 {/* Tên quà tặng */}
-                <div className="space-y-2 col-span-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="name">Tên quà tặng *</Label>
                   <Input
                     id="name"
@@ -701,7 +701,7 @@ const UpsertGiftModal: React.FC<UpsertGiftModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-4 sm:grid-cols-3">
                 {/* Tổng số lượng */}
                 <div className="space-y-2">
                   <Label htmlFor="totalQuantity">Tổng số lượng *</Label>

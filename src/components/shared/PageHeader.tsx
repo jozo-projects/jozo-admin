@@ -1,9 +1,11 @@
-import { ReactNode } from "react";
+import { ReactNode, useContext } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, LucideIcon } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { PageHeaderTargetContext } from "@/components/Layout/page-header-context";
 
 export interface PageHeaderProps {
   title: string;
@@ -27,6 +29,7 @@ export function PageHeader({
   showSeparator = true,
 }: PageHeaderProps) {
   const router = useRouter();
+  const headerTarget = useContext(PageHeaderTargetContext);
 
   const handleBack = () => {
     if (backUrl) {
@@ -36,10 +39,8 @@ export function PageHeader({
     }
   };
 
-  return (
-    <div className={cn("w-full", className)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
+  const titleContent = (
+        <div className="flex min-w-0 items-center gap-2">
           {showBackButton && (
             <Button
               variant="ghost"
@@ -53,31 +54,39 @@ export function PageHeader({
           )}
 
           {Icon && (
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+            <div className="hidden size-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground sm:flex">
               <Icon className="size-4" />
             </div>
           )}
 
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground">
+            <h1 title={title} className="truncate text-base font-semibold leading-tight tracking-tight text-foreground">
               {title}
             </h1>
-            {description && (
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                {description}
-              </p>
-            )}
           </div>
         </div>
+  );
 
+  return (
+    <>
+      {headerTarget && createPortal(titleContent, headerTarget)}
+      {(!headerTarget || description || actions) && (
+        <div className={cn("w-full", className)}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {!headerTarget && titleContent}
+            {description && (
+              <p className="text-sm leading-5 text-muted-foreground">{description}</p>
+            )}
         {actions && (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto sm:shrink-0">
             {actions}
           </div>
         )}
-      </div>
+          </div>
 
-      {showSeparator && <Separator className="mt-4" />}
-    </div>
+          {showSeparator && <Separator className="mt-4" />}
+        </div>
+      )}
+    </>
   );
 }

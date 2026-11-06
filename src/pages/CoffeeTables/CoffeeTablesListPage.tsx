@@ -1,6 +1,6 @@
 import { ICoffeeTable } from "@/@types/CoffeeTable";
 import coffeeTableApis from "@/apis/coffeeTable.apis";
-import { PageHeader } from "@/components/shared";
+import { Page, PageHeader } from "@/components/shared";
 import { DeleteModal } from "@/components/shared/DeleteModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -94,7 +94,7 @@ function CoffeeTablesListPage() {
   ];
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <Page>
       <PageHeader
         title="Service Stations"
         description="Manage coffee lounge service stations"
@@ -127,7 +127,7 @@ function CoffeeTablesListPage() {
         description={`Are you sure you want to delete "${selectedTable?.name}"?`}
         isLoading={deleteCoffeeTableMutation.isPending}
       />
-    </div>
+    </Page>
   );
 }
 

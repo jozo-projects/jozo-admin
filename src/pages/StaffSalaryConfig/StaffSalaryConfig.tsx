@@ -115,12 +115,11 @@ function StaffSalaryConfig() {
     syncSalaryMutation.isPending;
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
         title="Staff salary configuration"
         description="Global snapshot, full-system sync, special salary days, and probation settings per user."
         icon={CircleDollarSign}
-        className="mb-2"
       />
 
       <GlobalSnapshotBlock
