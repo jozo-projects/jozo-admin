@@ -16,6 +16,8 @@ const supportRequestApis = {
     http.get<SupportRequestListResponse>(
       `${ROOM_MUSIC_CONTROLLER}/${roomId}/support-requests/active`,
     ),
+  getAllActive: () =>
+    http.get<SupportRequestListResponse>(`${ROOM_MUSIC_CONTROLLER}/support-requests/active`),
   getHistory: (roomId: string) =>
     http.get<SupportRequestListResponse>(
       `${ROOM_MUSIC_CONTROLLER}/${roomId}/support-requests/history`,

@@ -50,6 +50,8 @@ import {
 } from "@/utils/coffeeSessionOrderBatch";
 import roomApis from "@/apis/room.apis";
 import supportRequestApis from "@/apis/supportRequest.apis";
+import useAuth from "@/hooks/useAuth";
+import { mergeSupportSnapshot } from "./supportRequestSync";
 import type { SupportRequest } from "@/@types/SupportRequest";
 
 /** Tạm mute giọng đọc hỗ trợ và đơn hàng. Bật lại bằng cách đổi thành false. */
@@ -224,32 +226,33 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     {},
   );
 
-  // Rebuild room bells after a full page reload. Realtime events alone cannot
-  // restore requests that were created before the socket connected.
-  useEffect(() => {
-    let cancelled = false;
-    void supportRequestApis
-      .getAllHistory()
-      .then((response) => {
-        if (cancelled) return;
-        const activeRequests = (response.data.result ?? []).filter(
-          (request) => !["resolved", "closed"].includes(request.status),
-        );
-        setSupportRequests((previous) => ({
-          ...previous,
-          ...Object.fromEntries(
-            activeRequests.map((request) => [request.requestId, request]),
-          ),
-        }));
-      })
-      .catch(() => {
-        // The socket path remains available if the initial recovery request fails.
-      });
+  const { user } = useAuth();
+  const supportRevision = useRef(0);
+  const supportRevisions = useRef<Record<string, number>>({});
+  const supportSyncSequence = useRef(0);
+  const canSyncSupport = user?.role === "admin" || user?.role === "staff";
 
-    return () => {
-      cancelled = true;
-    };
+  const syncActiveSupportRequests = useCallback(async () => {
+    const sequence = ++supportSyncSequence.current;
+    const revision = supportRevision.current;
+    try {
+      const response = await supportRequestApis.getAllActive();
+      if (sequence !== supportSyncSequence.current) return;
+      setSupportRequests((previous) =>
+        mergeSupportSnapshot(previous, response.data.result ?? [], supportRevisions.current, revision),
+      );
+    } catch (error) {
+      if (sequence === supportSyncSequence.current) console.error("Failed to sync active support requests", error);
+    }
   }, []);
+
+  useEffect(() => {
+    supportRevisions.current = {};
+    supportRevision.current = 0;
+    setSupportRequests({});
+    if (canSyncSupport) void syncActiveSupportRequests();
+    return () => { supportSyncSequence.current++; };
+  }, [canSyncSupport, user?._id, syncActiveSupportRequests]);
   const [orderNotifications, setOrderNotifications] =
     useState<OrderNotificationsMap>({});
   const [giftNotifications, setGiftNotifications] =
@@ -512,6 +515,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     const upsertSupportRequest = (payload: unknown) => {
       const request = normalizeSupportRequest(payload);
       if (!request) return null;
+      supportRevisions.current[request.requestId] = ++supportRevision.current;
       setSupportRequests((prev) => ({ ...prev, [request.requestId]: request }));
       return request;
     };
@@ -533,6 +537,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     const handleSupportRequestUpdated = (payload: unknown) => {
       const request = normalizeSupportRequest(payload);
       if (!request) return;
+      supportRevisions.current[request.requestId] = ++supportRevision.current;
 
       if (["resolved", "closed"].includes(request.status)) {
         setSupportRequests((prev) => {
@@ -567,6 +572,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     const handleSupportRequestClosed = (payload: unknown) => {
       const request = normalizeSupportRequest(payload);
       if (!request) return;
+      supportRevisions.current[request.requestId] = ++supportRevision.current;
       setSupportRequests((prev) => {
         const next = { ...prev };
         delete next[request.requestId];
@@ -982,6 +988,7 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
 
     const handleBillReconnect = () => {
       void refreshScheduleBillAndOrder(queryClient);
+      if (canSyncSupport) void syncActiveSupportRequests();
     };
     onConnect(handleBillReconnect);
     onNotification(handleNotification);
@@ -1023,6 +1030,8 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
       leaveRoom("admin");
     };
   }, [
+    canSyncSupport,
+    syncActiveSupportRequests,
     onConnect,
     offConnect,
     joinRoom,
@@ -1112,43 +1121,6 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
 
     void hydratePendingOrderNotifications();
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const hydrateActiveSupportRequests = async () => {
-      try {
-        const roomsResponse = await roomApis.getRooms();
-        const rooms = roomsResponse.data.result ?? [];
-        const activeResults = await Promise.all(
-          rooms.map(async (room) => {
-            const roomId = String(room._id ?? room.roomId ?? "");
-            if (!roomId) return [];
-            const response = await supportRequestApis.getActive(roomId);
-            return response.data.result ?? [];
-          }),
-        );
-
-        if (cancelled) return;
-        setSupportRequests((prev) => {
-          const next = { ...prev };
-          activeResults.flat().forEach((request) => {
-            next[request.requestId] = request;
-          });
-          return next;
-        });
-      } catch (error) {
-        if (!cancelled) {
-          console.error("Failed to hydrate active support requests", error);
-        }
-      }
-    };
-
-    void hydrateActiveSupportRequests();
     return () => {
       cancelled = true;
     };
