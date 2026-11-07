@@ -1132,7 +1132,7 @@ const RoomTimelineTable: React.FC = () => {
           ) : (
             /* Desktop View - Container cho phép scroll ngang, thêm onScroll để bắt sự kiện scroll */
             <div
-              className="jozo-timeline w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white/85 text-slate-900 backdrop-blur-sm dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-100"
+              className="jozo-timeline w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white/85 text-slate-900 dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-100"
               ref={timelineContainerRef}
               onScroll={handleScroll}
             >
@@ -1774,7 +1774,7 @@ const RoomTimelineTable: React.FC = () => {
             </div>
           ) : (
             <div
-              className="jozo-timeline w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white/85 text-slate-900 backdrop-blur-sm dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-100"
+              className="jozo-timeline w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-md border bg-white/85 text-slate-900 dark:border-slate-600 dark:bg-slate-900/80 dark:text-slate-100"
               ref={timelineContainerRef}
               onScroll={handleScroll}
             >
