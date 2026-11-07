@@ -46,12 +46,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <AppSidebar />
 
       <SidebarInset className={`relative isolate min-w-0 text-foreground ${isNight ? "dark" : ""}`}>
-        <DaySky now={skyTime} preview={SHOW_SKY_PREVIEW && previewHour !== null} />
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-card px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4" />
           <div ref={setPageHeaderTarget} className="min-w-0 flex-1" />
           <div className="ml-auto flex items-center gap-1">
+            <DaySky now={skyTime} preview={SHOW_SKY_PREVIEW && previewHour !== null} />
             <SkyGreeting now={skyTime} />
             <MessengerInbox />
             <NotificationBell />
