@@ -120,6 +120,8 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
 
   // State cho modal đặt đồ ăn
   const [isMenuModalOpen, setIsMenuModalOpen] = React.useState(false);
+  const [confirmCancellation, setConfirmCancellation] = React.useState(false);
+  const [cancellationReason, setCancellationReason] = React.useState("");
 
   // State cho edit note
   const [isEditingNote, setIsEditingNote] = React.useState(false);
@@ -423,6 +425,8 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
     if (!isOpen) {
       setPromotionSelectOpen(false);
       setRoomSelectOpen(false);
+      setConfirmCancellation(false);
+      setCancellationReason("");
     }
   }, [isOpen]);
 
@@ -492,6 +496,8 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
         });
       }
       if (variables.status) {
+        setConfirmCancellation(false);
+        setCancellationReason("");
         onClose();
         toast({
           title: "Success",
@@ -724,6 +730,7 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
     // Nếu chuyển sang "Cancelled", cập nhật endTime thành thời gian hiện tại.
     else if (newStatus === RoomStatus.Cancelled) {
       updateData.endTime = toIsoStringWithZeroSubsecond(dayjs());
+      if (cancellationReason.trim()) updateData.cancellationReason = cancellationReason.trim();
     }
 
     // Gọi API update với dữ liệu mới (bao gồm status và thời gian)
@@ -1181,6 +1188,14 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
             </div>
           </div>
 
+          {confirmCancellation && <div className="space-y-2 border-t px-4 py-3 sm:px-6">
+            <label htmlFor="cancellationReason" className="text-sm font-medium">Lý do huỷ (không bắt buộc)</label>
+            <Textarea id="cancellationReason" maxLength={500} value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} placeholder="Nhập lý do nếu có" />
+            <div className="flex gap-2">
+              <Button type="button" variant="destructive" loading={isPending} onClick={() => handleUpdate(RoomStatus.Cancelled)}>Xác nhận huỷ booking</Button>
+              <Button type="button" variant="outline" disabled={isPending} onClick={() => setConfirmCancellation(false)}>Quay lại</Button>
+            </div>
+          </div>}
           <DialogFooter className="shrink-0 grid grid-cols-1 gap-2 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:grid-cols-2 sm:px-6 sm:py-4">
             <Button
               variant="outline"
@@ -1200,16 +1215,16 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
               Bắt đầu sử dụng
               {adjustedStartTime ? ` (${adjustedStartTime})` : ""}
             </Button>
-            <Button
+            {!confirmCancellation && <Button
               variant="destructive"
               onClick={() => {
-                handleUpdate(RoomStatus.Cancelled);
+                setConfirmCancellation(true);
               }}
               loading={isPending}
               className="h-9"
             >
               Hủy booking
-            </Button>
+            </Button>}
             <Button variant="ghost" onClick={onClose} className="h-9">
               Đóng
             </Button>

@@ -27,6 +27,8 @@ const LEGEND_ITEMS = [
   { label: "In use", className: "bg-green-500" },
   { label: "Quá hạn / đã qua", className: "bg-green-700" },
   { label: "Maintenance", className: "bg-gray-500" },
+  { label: "Đã huỷ", className: "bg-red-500" },
+  { label: "Đã kết thúc", className: "bg-gray-300" },
 ] as const;
 
 interface TimelineControlsProps {

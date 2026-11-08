@@ -8,7 +8,7 @@ import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { AppSidebar } from "./AppSideBar";
-import DaySky, { getSkyState, SkyGreeting, useCurrentTime } from "./DaySky";
+import DaySky, { SkyGreeting, useCurrentTime } from "./DaySky";
 import { MessengerInbox } from "../shared/MessengerInbox";
 import { NotificationBell } from "../shared/NotificationBell";
 import { PageHeaderTargetContext } from "./page-header-context";
@@ -21,7 +21,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const currentTime = useCurrentTime();
   const skyTime = new Date(currentTime);
   if (SHOW_SKY_PREVIEW && previewHour !== null) skyTime.setHours(previewHour, 0, 0, 0);
-  const isNight = !getSkyState(skyTime).isDay;
+
   const [pageHeaderTarget, setPageHeaderTarget] = useState<HTMLDivElement | null>(null);
 
   // Kiểm tra chế độ và áp dụng từ localStorage nếu có
@@ -45,7 +45,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <AppSidebar />
 
-      <SidebarInset className={`relative isolate min-w-0 text-foreground ${isNight ? "dark" : ""}`}>
+      <SidebarInset className="relative isolate min-w-0 text-foreground">
         <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-card px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4" />

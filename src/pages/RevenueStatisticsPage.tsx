@@ -1,4 +1,6 @@
 import billAPis from "@/apis/bill.apis";
+import { cancellationRange } from "@/utils/cancellationPeriod";
+import CancelledScheduleReport from "@/pages/RoomSchedule/components/CancelledScheduleReport";
 import BillMemberSummary from "@/components/bill/BillMemberSummary";
 import { PageHeader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -579,6 +581,10 @@ const BillsTableSection = ({
 );
 
 const RevenueStatisticsPage = () => {
+  const [reportTab, setReportTab] = useState<"revenue" | "cancelled">("revenue");
+  const [cancelDate, setCancelDate] = useState(() => dayjs().tz(VN_TZ).subtract(3, "hour").format("YYYY-MM-DD"));
+  const [cancelPeriod, setCancelPeriod] = useState<RevenuePeriod>("daily");
+  const [cancelCustom, setCancelCustom] = useState<RevenueRange>(() => cancellationRange("daily", dayjs().tz(VN_TZ).subtract(3, "hour").format("YYYY-MM-DD")));
   const [selectedDate, setSelectedDate] = useState(currentBusinessDate);
   const [activeTab, setActiveTab] = useState<RevenuePeriod>("daily");
   const [customRange, setCustomRange] = useState<RevenueRange>(() =>
@@ -617,6 +623,8 @@ const RevenueStatisticsPage = () => {
     [effectivePeriod, customRange, selectedDate],
   );
 
+  const cancelRange = useMemo(() => cancelPeriod === "custom" ? cancelCustom : cancellationRange(cancelPeriod, cancelDate), [cancelPeriod, cancelCustom, cancelDate]);
+
   const { data: roomsData } = useQuery({
     queryKey: ["rooms"],
     queryFn: () => roomApis.getRooms(),
@@ -653,6 +661,7 @@ const RevenueStatisticsPage = () => {
 
   const revenueQuery = useQuery({
     queryKey: ["billRevenue", range.start, range.end, isStaff],
+    enabled: reportTab === "revenue" || !isAdmin,
     queryFn: async () => {
       const response = await billAPis.getBillRevenue(range.start, range.end, "exact");
       if (!response.data.result) {
@@ -839,16 +848,21 @@ const RevenueStatisticsPage = () => {
         icon={TrendingUp}
       />
 
+      {isAdmin && <div role="tablist" aria-label="Loại thống kê" className="flex w-fit gap-1 rounded-lg bg-muted p-1">
+        <Button role="tab" aria-selected={reportTab === "revenue"} size="sm" variant={reportTab === "revenue" ? "default" : "ghost"} onClick={() => setReportTab("revenue")}>Doanh thu</Button>
+        <Button role="tab" aria-selected={reportTab === "cancelled"} size="sm" variant={reportTab === "cancelled" ? "default" : "ghost"} onClick={() => setReportTab("cancelled")}>Lịch bị huỷ</Button>
+      </div>}
       <RevenuePeriodSelector
-        period={effectivePeriod}
-        date={selectedDate}
-        range={range}
+        key={reportTab}
+        period={reportTab === "cancelled" && isAdmin ? cancelPeriod : effectivePeriod}
+        date={reportTab === "cancelled" && isAdmin ? cancelDate : selectedDate}
+        range={reportTab === "cancelled" && isAdmin ? cancelRange : range}
         isStaff={isStaff}
-        onPeriod={handleTabChange}
-        onDate={setSelectedDate}
-        onCustom={setCustomRange}
+        onPeriod={reportTab === "cancelled" && isAdmin ? (value) => { if (value === "custom" && cancelPeriod !== "custom") setCancelCustom(cancellationRange("daily", cancelDate)); setCancelPeriod(value); } : handleTabChange}
+        onDate={reportTab === "cancelled" && isAdmin ? setCancelDate : setSelectedDate}
+        onCustom={reportTab === "cancelled" && isAdmin ? setCancelCustom : setCustomRange}
       />
-      <div className="space-y-4">
+      {isAdmin && reportTab === "cancelled" ? <CancelledScheduleReport key={`${cancelRange.start}-${cancelRange.end}`} range={cancelRange} rooms={roomsData} /> : <div className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <Select
                 value={selectedPaymentMethod}
@@ -911,7 +925,7 @@ const RevenueStatisticsPage = () => {
             </div>
           );
         })() : null}
-      </div>
+      </div>}
 
       {/* Modal chi tiết hóa đơn */}
       <Dialog

@@ -44,7 +44,7 @@ import {
   useTurnOffAllRooms,
 } from "@/hooks/room-schedule";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useIsStaff } from "@/hooks/usePermission";
+import { useIsAdmin, useIsStaff } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
 import SupportRequestModal from "./SupportRequestModal";
 import {
@@ -107,6 +107,7 @@ import {
   packTimelineLanes,
 } from "../utils/timelineHours";
 import ProcessLockedModal from "./ProcessLockedModal";
+import HistoricalScheduleDetails from "./HistoricalScheduleDetails";
 
 const AUTO_SCROLL_MARKER_VIEWPORT_RATIO = 0.65;
 
@@ -229,6 +230,8 @@ const RoomTimelineTable: React.FC = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const isStaff = useIsStaff();
+  const isAdmin = useIsAdmin();
+  const [historicalSchedule, setHistoricalSchedule] = useState<IRoomSchedule | null>(null);
   const {
     supportNotifications,
     supportRequests,
@@ -771,6 +774,8 @@ const RoomTimelineTable: React.FC = () => {
     } else if (lowerStatus === "maintenance") {
       setMaintenanceSchedule(schedule);
       setModal("maintenance");
+    } else if (isAdmin && ["finished", "completed", "cancelled"].includes(lowerStatus)) {
+      setHistoricalSchedule(schedule);
     }
   };
 
@@ -905,6 +910,8 @@ const RoomTimelineTable: React.FC = () => {
         eventStart.add(120, "minute"),
       );
       durationMinutes = eventEnd.diff(eventStart, "minute");
+    } else if (status === "cancelled") {
+      durationMinutes = 15;
     }
 
     if (offsetMinutes > TIMELINE_MINUTE_SPAN) {
@@ -941,6 +948,8 @@ const RoomTimelineTable: React.FC = () => {
       }
     } else if (status === "maintenance") {
       bgColor = "bg-gray-500";
+    } else if (status === "cancelled") {
+      bgColor = "bg-red-500";
     } else {
       bgColor = "bg-gray-300";
     }
@@ -1392,7 +1401,7 @@ const RoomTimelineTable: React.FC = () => {
                           visibleRoomSchedules.map((schedule) => {
                             const { left, width } = getMarkerStyle(schedule);
                             const startMin = left / timelineScale;
-                            const endMin = startMin + width / timelineScale;
+                            const endMin = startMin + Math.max(width, 44) / timelineScale;
                             return { item: schedule, startMin, endMin };
                           }),
                         );
@@ -2100,6 +2109,7 @@ const RoomTimelineTable: React.FC = () => {
       </Tabs>
 
       {/* Các modal khác */}
+      <HistoricalScheduleDetails schedule={historicalSchedule} rooms={roomsData || []} onClose={() => setHistoricalSchedule(null)} />
       {modal === "create" && selectedRoom && (
         <ScheduleModal
           isOpen={true}

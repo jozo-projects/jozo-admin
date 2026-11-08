@@ -95,11 +95,7 @@ export const applyScheduleChangedToCache = (
     return merged;
   });
 
-  if (action === "cancelled" || action === "finished") {
-    return updated;
-  }
-
-  return updated.filter((item) => item.status?.toLowerCase() !== "cancelled");
+  return updated;
 };
 
 export const useRoomSchedules = (date: Dayjs = dayjs()) => {

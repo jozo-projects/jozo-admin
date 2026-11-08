@@ -144,6 +144,8 @@ const getVerticalMarkerStyle = (
       eventStart.add(120, "minute"),
     );
     durationMinutes = eventEnd.diff(eventStart, "minute");
+  } else if (status === "cancelled") {
+    durationMinutes = 15;
   }
 
   if (offsetMinutes > TIMELINE_MINUTE_SPAN) {
@@ -181,6 +183,8 @@ const getVerticalMarkerStyle = (
     }
   } else if (status === "maintenance") {
     bgColor = "bg-gray-500";
+  } else if (status === "cancelled") {
+    bgColor = "bg-red-500";
   } else {
     bgColor = "bg-gray-300";
   }
@@ -624,7 +628,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                             <div className="p-2 sm:p-1.5 h-full flex flex-col justify-center">
                               <div className="text-xs sm:text-sm text-white font-medium truncate leading-tight">
                                 {eventStart.format("HH:mm")}
-                                {schedule.endTime &&
+                                {schedule.endTime && status !== "cancelled" &&
                                   ` - ${eventEnd.format("HH:mm")}`}
                               </div>
                               {height >= 40 && (

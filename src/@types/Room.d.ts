@@ -45,8 +45,12 @@ interface IRoomSchedule {
   // Room upgrade information
   originalRoomType?: string;
   upgraded?: boolean;
+  cancelledAt?: string | null;
+  cancelledBy?: string | null;
+  cancellationSource?: string | null;
+  cancellationReason?: string | null;
   // Booking source
-  source?: "customer" | "admin" | "walk-in" | "staff";
+  source?: "customer" | "admin" | "walk-in" | "staff" | "system";
   dateOfUse?: string;
   bookingCode?: string;
   // Gift enabled

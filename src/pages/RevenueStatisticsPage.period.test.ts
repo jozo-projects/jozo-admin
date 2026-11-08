@@ -113,6 +113,58 @@ afterEach(async () => {
   host.remove();
   vi.useRealTimers();
 });
+it("requests the selected cancellation-time range and displays server results", async () => {
+  const existingGet = get.getMockImplementation()!;
+  get.mockImplementation((url: string, config?: unknown) => {
+    if (url === "/room-schedule/cancellations") return Promise.resolve({ data: { result: {
+      items: [{ _id: "in", roomId: "1", status: "cancelled", startTime: "2026-11-05T02:00:00.000Z", cancelledAt: "2026-11-05T19:00:00.000Z", cancellationSource: "staff", cancelledBy: "staff-id", cancellationReason: "Khách đổi lịch", customerName: "Trong kỳ" }],
+      total: 1, page: 1, limit: 20, bySource: [], unknownTimestampCount: 2,
+    } } });
+    return existingGet(url, config);
+  });
+  await mount();
+  await click("Lịch bị huỷ");
+  expect(host.textContent).toContain("Trong kỳ");
+  expect(host.textContent).toContain("2");
+  expect(get.mock.calls.some(([url, config]) => url === "/room-schedule/cancellations" && config.params.start === "2026-11-04T20:00:00.000Z" && config.params.end === "2026-11-05T20:00:00.000Z")).toBe(true);
+  const row = [...host.querySelectorAll("button")].find((button) => button.textContent?.includes("Trong kỳ"));
+  await act(async () => row!.click());
+  await flush();
+  expect(document.body.textContent).toContain("Khách đổi lịch");
+  expect(document.body.textContent).toContain("staff-id");
+});
+it("requests each cancellation page from the server", async () => {
+  const existingGet = get.getMockImplementation()!;
+  get.mockImplementation((url: string, config?: { params?: { page?: number } }) => {
+    if (url === "/room-schedule/cancellations") {
+      const page = config?.params?.page || 1;
+      return Promise.resolve({ data: { result: {
+        items: [{ _id: String(page), roomId: "1", status: "cancelled", startTime: "2026-11-05T02:00:00.000Z", cancelledAt: "2026-11-05T19:00:00.000Z", customerName: `Khách trang ${page}` }],
+        total: 21, page, limit: 20, bySource: [], unknownTimestampCount: 0,
+      } } });
+    }
+    return existingGet(url, config);
+  });
+  await mount();
+  await click("Lịch bị huỷ");
+  expect(host.textContent).toContain("Khách trang 1");
+  await click("Sau");
+  expect(host.textContent).toContain("Khách trang 2");
+  expect(get.mock.calls.some(([url, config]) => url === "/room-schedule/cancellations" && config.params.page === 2)).toBe(true);
+  await click("Tháng");
+  expect(get.mock.calls.some(([url, config]) => url === "/room-schedule/cancellations" && config.params.page === 1 && config.params.start === "2026-10-31T20:00:00.000Z" && config.params.end === "2026-11-30T20:00:00.000Z")).toBe(true);
+});
+it("does not present zero when the cancellation report fails", async () => {
+  const existingGet = get.getMockImplementation()!;
+  get.mockImplementation((url: string, config?: unknown) => {
+    if (url === "/room-schedule/cancellations") return Promise.reject(new Error("network error"));
+    return existingGet(url, config);
+  });
+  await mount();
+  await click("Lịch bị huỷ");
+  expect(host.textContent).toContain("Không tải được dữ liệu");
+  expect(host.textContent).not.toContain("Không có lịch bị huỷ trong kỳ này");
+});
 it("keeps the toolbar compact without redundant shortcuts or instructions", async () => {
   await mount();
   for (const text of ["Hôm nay", "Hôm qua", "Hiện tại", "Làm mới", "Tính từ mốc", "Kỳ đang xem"]) {

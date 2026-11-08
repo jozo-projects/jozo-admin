@@ -9,6 +9,7 @@ interface ICreateRoomScheduleRequest {
   startTime: string;
   endTime: string | null;
   status: RoomStatus;
+  cancellationReason?: string;
   note?: string;
   customerPhone?: string;
   giftEnabled?: boolean;
@@ -29,6 +30,15 @@ interface IChangeRoomRequest {
   roomType?: RoomType;
 }
 
+interface CancellationReport {
+  items: IRoomSchedule[];
+  total: number;
+  page: number;
+  limit: number;
+  bySource: Array<{ source: string; count: number }>;
+  unknownTimestampCount: number;
+}
+
 const SCHEDULE_CONTROLLER = "/room-schedule";
 
 const roomsScheduleApis = {
@@ -37,6 +47,10 @@ const roomsScheduleApis = {
       params: {
         date,
       },
+    }),
+  getCancelledSchedules: (start: string, end: string, page: number, limit: number) =>
+    http.get<HTTPResponse<CancellationReport>>(`${SCHEDULE_CONTROLLER}/cancellations`, {
+      params: { start, end, page, limit },
     }),
   updateSchedule: (
     id: string,
