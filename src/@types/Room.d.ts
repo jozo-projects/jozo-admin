@@ -48,7 +48,7 @@ interface IRoomSchedule {
   cancelledAt?: string | null;
   cancelledBy?: string | null;
   cancellationSource?: string | null;
-  cancellationReason?: string | null;
+  cancellationReason?: string;
   // Booking source
   source?: "customer" | "admin" | "walk-in" | "staff" | "system";
   dateOfUse?: string;
