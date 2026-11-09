@@ -455,7 +455,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       if (!transfer) return { transfer: false as const };
       try {
         const response = await roomsMusicApis.moveQueue(sourceIndex, { targetRoomId: targetIndex });
-        return { transfer: true as const, movedCount: response.data.result.movedCount };
+        const movedCount = response.data.result?.movedCount;
+        return { transfer: true as const, movedCount: typeof movedCount === "number" ? movedCount : null };
       } catch {
         return { transfer: true as const, movedCount: null };
       }
@@ -463,8 +464,11 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   });
 
   const { mutateAsync: fetchRoomChangeQueue, isPending: isCheckingQueue } = useMutation({
-    mutationFn: async (sourceIndex: string) =>
-      (await roomsMusicApis.getQueue(sourceIndex)).data.result.queue,
+    mutationFn: async (sourceIndex: string) => {
+      const queue = (await roomsMusicApis.getQueue(sourceIndex)).data.result?.queue;
+      if (!Array.isArray(queue)) throw new Error("Không tải được danh sách bài hát");
+      return queue;
+    },
   });
 
 
