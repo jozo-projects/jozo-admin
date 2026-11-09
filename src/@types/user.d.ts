@@ -9,6 +9,7 @@ export type User = {
   phone_number: string;
   date_of_birth: string;
   role: string; // "admin", "staff", "member" hoặc "user"
+  tier?: string;
   status?: string;
   created_at: string;
   updated_at: string;
@@ -71,6 +72,7 @@ export type UsersQueryParams = {
   limit?: number;
   search?: string;
   role?: string;
+  tier?: string;
   enabled?: boolean;
 };
 

@@ -1,4 +1,5 @@
 import { IRoom, IRoomSchedule } from "@/@types/Room";
+import RoomDeviceIndicators from "./RoomDeviceIndicators";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useState } from "react";
 import {
@@ -332,6 +333,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                       {getRoomTypeLeadIcon(room.roomType)}
                       {room.roomName}
                     </button>
+                    <RoomDeviceIndicators roomId={room.roomId} roomName={room.roomName} />
                     <span className="rounded bg-muted px-2 py-1 text-xs text-muted-foreground sm:text-sm">
                       {getRoomTypeLabel(room.roomType)}
                     </span>

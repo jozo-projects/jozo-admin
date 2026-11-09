@@ -47,6 +47,7 @@ export const useSocket = ({ onSocketReady }: UseSocketOptions = {}) => {
       reconnectionDelay: 1000,
       timeout: 20000,
       query: queryParams,
+      auth: (callback) => callback({ token: localStorage.getItem("access_token") }),
       transports: ["websocket"],
     });
 

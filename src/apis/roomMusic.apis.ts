@@ -90,13 +90,17 @@ export interface MoveMusicQueueRequest {
 }
 
 const roomsMusicApis = {
+  getQueue: (roomId: string) =>
+    http.get<HTTPResponse<{ queue: Song[]; nowPlaying: Song | null }>>(
+      `${ROOM_MUSIC_CONTROLLER}/${roomId}`,
+    ),
   resolveRequest: (roomId: string) =>
     http.post<HTTPResponse>(
       `${ROOMS_MUSIC_CONTROLLER}/${roomId}/solve-request`
     ),
   /** POST /room-music/:roomId/move-queue — chuyển queue nhạc sang phòng khác */
   moveQueue: (roomId: string, payload: MoveMusicQueueRequest) =>
-    http.post<HTTPResponse>(
+    http.post<HTTPResponse<{ movedCount: number }>>(
       `${ROOM_MUSIC_CONTROLLER}/${roomId}/move-queue`,
       payload,
     ),

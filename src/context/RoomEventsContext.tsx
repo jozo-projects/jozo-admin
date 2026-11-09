@@ -178,7 +178,8 @@ interface RoomEventsProviderProps {
 export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
   children,
 }) => {
-  const { state: connectionWarnings, onSocketReady } = useRoomConnectionWarnings();
+  const { user } = useAuth();
+  const { state: connectionWarnings, onSocketReady } = useRoomConnectionWarnings(user?.role === "admin" || user?.role === "staff");
   const {
     onConnect,
     offConnect,
@@ -226,7 +227,6 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     {},
   );
 
-  const { user } = useAuth();
   const supportRevision = useRef(0);
   const supportRevisions = useRef<Record<string, number>>({});
   const supportSyncSequence = useRef(0);

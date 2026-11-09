@@ -5,6 +5,8 @@ import type {
   RoomDeviceRoomGroup,
 } from "@/@types/Room";
 import roomApis from "@/apis/room.apis";
+import MoveQueueDialog from "./MoveQueueDialog";
+import DeviceAuthorizations from "./DeviceAuthorizations";
 import { Page, PageHeader } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,7 +32,7 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 const CLIENT_TYPE_META: Record<
   RoomDeviceClientType,
@@ -68,11 +70,14 @@ const ClientTypeBadge = ({ type }: { type: RoomDeviceClientType }) => {
   );
 };
 
-const DeviceRow = ({ device }: { device: RoomDeviceConnection }) => (
+const DeviceRow = ({ device, onMoveQueue }: { device: RoomDeviceConnection; onMoveQueue: () => void }) => (
   <TableRow>
     <TableCell className="font-medium">{device.deviceId}</TableCell>
     <TableCell>
-      <ClientTypeBadge type={device.clientType} />
+      <div className="flex flex-wrap items-center gap-2">
+        <ClientTypeBadge type={device.clientType} />
+        {device.clientType === "control" && <Button variant="outline" size="sm" onClick={onMoveQueue}>Chuyển bài hát</Button>}
+      </div>
     </TableCell>
     <TableCell className="max-w-[220px] truncate text-muted-foreground">
       {device.origin || "—"}
@@ -94,9 +99,11 @@ const DeviceRow = ({ device }: { device: RoomDeviceConnection }) => (
 const RoomGroupCard = ({
   group,
   roomName,
+  onMoveQueue,
 }: {
   group: RoomDeviceRoomGroup;
   roomName?: string;
+  onMoveQueue: () => void;
 }) => (
   <Card>
     <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0 pb-3">
@@ -123,6 +130,7 @@ const RoomGroupCard = ({
               <div><dt className="inline">Socket ID: </dt><dd className="inline break-all font-mono text-xs">{device.socketId}</dd></div>
               <div><dt className="inline">Kết nối lúc: </dt><dd className="inline">{formatUTCToLocal(device.connectedAt)} ({timeAgo(device.connectedAt)})</dd></div>
             </dl>
+            {device.clientType === "control" && <Button variant="outline" size="sm" onClick={onMoveQueue}>Chuyển bài hát</Button>}
           </div>
         ))}
       </div>
@@ -141,6 +149,7 @@ const RoomGroupCard = ({
             <DeviceRow
               key={`${device.deviceId}-${device.socketId}`}
               device={device}
+              onMoveQueue={onMoveQueue}
             />
           ))}
         </TableBody>
@@ -166,6 +175,7 @@ const EmptyState = () => (
 );
 
 const RoomDeviceConnectionsPage = () => {
+  const [moveSource, setMoveSource] = useState<string | null>(null);
   const { data, isLoading, isFetching, isError, refetch, dataUpdatedAt } =
     useRoomDeviceConnections();
 
@@ -209,6 +219,10 @@ const RoomDeviceConnectionsPage = () => {
           </Button>
         }
       />
+
+      {moveSource !== null && <MoveQueueDialog open onOpenChange={(open) => { if (!open) setMoveSource(null); }} initialSource={moveSource} rooms={(roomsRes?.data.result ?? []) as IRoom[]} />}
+
+      <DeviceAuthorizations />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
@@ -278,6 +292,7 @@ const RoomDeviceConnectionsPage = () => {
               key={group.roomId}
               group={group}
               roomName={roomNameById.get(String(group.roomId))}
+              onMoveQueue={() => setMoveSource(String(group.roomId))}
             />
           ))}
         </div>

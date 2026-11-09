@@ -11,7 +11,7 @@ import type { AxiosError } from "axios";
 
 export const useUsers = (params: UsersQueryParams = {}) => {
   const queryClient = useQueryClient();
-  const { page = 1, limit = 10000, search, role, enabled = true } = params;
+  const { page = 1, limit = 10000, search, role, tier, enabled = true } = params;
 
   const extractErrorMessage = (error: unknown) => {
     const axiosError = error as AxiosError<{ message?: string }>;
@@ -29,13 +29,14 @@ export const useUsers = (params: UsersQueryParams = {}) => {
     refetch: refetchUsers,
     isFetching: isFetchingUsers,
   } = useQuery({
-    queryKey: ["users", page, limit, search, role],
+    queryKey: ["users", page, limit, search, role, tier],
     queryFn: () =>
       userApis.getAllUsers({
         page,
         limit,
         ...(search ? { search } : {}),
         ...(role ? { role } : {}),
+        ...(tier ? { tier } : {}),
       }),
     enabled,
     staleTime: 5 * 60 * 1000,

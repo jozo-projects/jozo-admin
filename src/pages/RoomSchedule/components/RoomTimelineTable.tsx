@@ -7,6 +7,7 @@ import {
 import { ICoffeeTable } from "@/@types/CoffeeTable";
 import { Gift as GiftType } from "@/@types/Gift";
 import { IRoom, IRoomSchedule } from "@/@types/Room";
+import RoomDeviceIndicators from "./RoomDeviceIndicators";
 import coffeeSessionApis from "@/apis/coffeeSession.apis";
 import coffeeTableApis from "@/apis/coffeeTable.apis";
 import roomApis from "@/apis/room.apis";
@@ -1270,6 +1271,7 @@ const RoomTimelineTable: React.FC = () => {
                             {getRoomTypeLeadIcon(room.roomType)}
                             {room.roomName}
                           </button>
+                          <RoomDeviceIndicators roomId={room.roomId} roomName={room.roomName} />
                           <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded shrink-0 dark:bg-slate-700 dark:text-slate-200">
                             {getRoomTypeLabel(room.roomType)}
                           </span>

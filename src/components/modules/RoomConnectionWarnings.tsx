@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, X } from "lucide-react";
 import roomApis from "@/apis/room.apis";
 import type { RoomConnectionWarningState } from "@/utils/roomConnectionWarnings";
 
@@ -13,9 +14,12 @@ export const RoomConnectionWarnings = ({
     queryFn: () => roomApis.getRooms(),
     enabled: state.status !== "inactive",
   });
+  const warningKey = JSON.stringify([state.status, state.losses.map(({ roomId, clientType }) => `${roomId}:${clientType}`).sort()]);
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  useEffect(() => { setDismissedKey(null); }, [warningKey]);
   if (state.status === "inactive") return null;
   const monitoringInterrupted = state.status !== "live";
-  if (!monitoringInterrupted && !state.losses.length) return null;
+  if ((!monitoringInterrupted && !state.losses.length) || dismissedKey === warningKey) return null;
 
   const names = new Map(
     (roomsResponse?.data.result ?? []).map((room) => [String(room.roomId), room.roomName]),
@@ -29,7 +33,10 @@ export const RoomConnectionWarnings = ({
     >
       <div className="mb-2 flex items-center gap-2 font-semibold text-destructive">
         <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-        Kết nối thiết bị phòng
+        <span className="flex-1">Kết nối thiết bị phòng</span>
+        <button type="button" aria-label="Đóng cảnh báo kết nối phòng" onClick={() => setDismissedKey(warningKey)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
       </div>
       {monitoringInterrupted && (
         <p className="mb-2 font-medium text-amber-700" role="status">

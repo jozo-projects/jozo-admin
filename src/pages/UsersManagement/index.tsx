@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useUsers } from "@/hooks/use-users";
+import { useMembershipConfig } from "@/hooks/use-membership";
 import { useDebounce } from "@/hooks/use-debounce";
 import { User } from "@/@types/user";
 import { Badge } from "@/components/ui/badge";
@@ -142,6 +143,8 @@ const PaginationControls = ({
 const UsersManagementPage = () => {
   const router = useRouter();
   const { queryConfig, setQueryConfig } = useUsersManagementQueryConfig();
+  const { data: membershipConfig, isError: isMembershipConfigError } = useMembershipConfig();
+  const tiers = Object.keys(membershipConfig?.tierThresholds ?? {});
   const pageSize = PAGE_SIZE_OPTIONS.includes(queryConfig.limit)
     ? queryConfig.limit
     : 10;
@@ -160,6 +163,7 @@ const UsersManagementPage = () => {
     page: currentPage,
     limit: pageSize,
     search: queryConfig.search.trim() || undefined,
+    tier: queryConfig.tier || undefined,
     role: `${Role.Member},${Role.User}`,
   });
 
@@ -230,15 +234,33 @@ const UsersManagementPage = () => {
       {/* Search Bar — luôn mount để không mất focus khi refetch */}
       <Card>
         <CardContent className="pt-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm theo tên, email hoặc số điện thoại..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Tìm kiếm theo tên, email hoặc số điện thoại..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select
+              value={queryConfig.tier || "__all__"}
+              onValueChange={(value) => void setQueryConfig({ tier: value === "__all__" ? "" : value, page: 1 })}
+            >
+              <SelectTrigger className="w-full sm:w-56" aria-label="Lọc theo hạng thành viên">
+                <SelectValue placeholder="Tất cả hạng" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Tất cả hạng</SelectItem>
+                {queryConfig.tier && !tiers.includes(queryConfig.tier) && (
+                  <SelectItem value={queryConfig.tier}>{queryConfig.tier}</SelectItem>
+                )}
+                {tiers.map((tier) => <SelectItem key={tier} value={tier}>{tier}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
+          {isMembershipConfigError && <p className="mt-2 text-sm text-destructive">Không tải được danh sách hạng thành viên.</p>}
         </CardContent>
       </Card>
 
@@ -262,7 +284,7 @@ const UsersManagementPage = () => {
                         <h3 className="text-lg font-semibold">
                           {getUserName(user)}
                         </h3>
-                        <Badge variant="secondary">User</Badge>
+                        <Badge variant="secondary">{user.tier || "Chưa có hạng"}</Badge>
                       </div>
 
                       <div className="space-y-1 text-sm text-muted-foreground">
@@ -315,7 +337,7 @@ const UsersManagementPage = () => {
             <Card>
               <CardContent className="p-12 text-center">
                 <p className="text-muted-foreground">
-                  {queryConfig.search.trim()
+                  {queryConfig.search.trim() || queryConfig.tier
                     ? "Không tìm thấy user nào phù hợp"
                     : "Chưa có user nào"}
                 </p>

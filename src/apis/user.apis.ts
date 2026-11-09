@@ -16,7 +16,7 @@ import {
 export const userApis = {
   // Lấy danh sách tất cả users
   getAllUsers: (params?: UsersQueryParams) => {
-    const { page = 1, limit = 1000, search, role } = params || {};
+    const { page = 1, limit = 1000, search, role, tier } = params || {};
 
     const isStaffScope = role?.split(",").some((value) => value === "admin" || value === "staff");
     const endpoint = isStaffScope ? "/users" : "/membership/members";
@@ -27,6 +27,7 @@ export const userApis = {
         limit,
         ...(search ? { search } : {}),
         ...(role ? { role } : {}),
+        ...(tier && !isStaffScope ? { tier } : {}),
       },
     });
   },

@@ -1,4 +1,5 @@
 import { OrderDetail } from "@/@types/FnbOrder";
+import type { Song } from "@/@types/RoomMusic";
 import { memberBirthdayKeys } from "@/hooks/use-member-birthday";
 import { useScheduleBirthday } from "@/hooks/use-schedule-birthday";
 import { ScheduleBirthdayBenefits } from "@/components/modules/ScheduleBirthdayBenefits";
@@ -165,7 +166,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   const checkoutInProgress = useRef(false);
   const [isPreparingCheckout, setIsPreparingCheckout] = useState(false);
   const [isConfirmEndOpen, setIsConfirmEndOpen] = useState(false);
-  const [isMoveQueueConfirmOpen, setIsMoveQueueConfirmOpen] = useState(false);
+
+  const [roomChangeSongs, setRoomChangeSongs] = useState<Song[] | null>(null);
   const [selectedPromotion, setSelectedPromotion] = useState<string>("");
   const [customEndTime, setCustomEndTime] = useState<string>("");
   const [customStartTime, setCustomStartTime] = useState<string>("");
@@ -310,10 +312,8 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     staleTime: 5 * 60 * 1000,
   });
 
-  const room = roomsData?.data.result?.find(
-    (room) => room._id === schedule.roomId,
-  );
   const rooms = fetchedRooms?.data?.result || roomsData?.data.result || [];
+  const room = rooms.find((room) => String(room._id) === schedule.roomId);
   const availableRooms = rooms.filter(
     (room) => room._id !== schedule.roomId && !isRoomUnderMaintenance(room),
   );
@@ -444,51 +444,29 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
   );
 
   // Mutation đổi phòng
-  const { mutate: changeRoom, isPending: isChangingRoom } = useMutation({
-    mutationFn: (payload: IChangeRoomRequest) =>
-      roomsScheduleApis.changeRoom(schedule._id, payload),
-    onSuccess: () => {
-      toast({
-        title: "Đã đổi phòng",
-        description: "Phòng đã được cập nhật. Danh sách nhạc chưa được chuyển.",
-      });
-      onClose();
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Không thể đổi phòng, vui lòng thử lại",
-        variant: "destructive",
-      });
+  const { mutateAsync: changeRoom, isPending: isChangingRoom } = useMutation({
+    mutationFn: async ({ payload, transfer, sourceIndex, targetIndex }: {
+      payload: IChangeRoomRequest;
+      transfer: boolean;
+      sourceIndex: string;
+      targetIndex: string;
+    }) => {
+      await roomsScheduleApis.changeRoom(schedule._id, payload);
+      if (!transfer) return { transfer: false as const };
+      try {
+        const response = await roomsMusicApis.moveQueue(sourceIndex, { targetRoomId: targetIndex });
+        return { transfer: true as const, movedCount: response.data.result.movedCount };
+      } catch {
+        return { transfer: true as const, movedCount: null };
+      }
     },
   });
 
-  const { mutate: moveQueue, isPending: isMovingQueue } = useMutation({
-    mutationFn: () => {
-      const sourceRoomIndex = room?.roomId;
-      const targetRoomIndex = selectedTargetRoom?.roomId;
-      if (sourceRoomIndex == null || targetRoomIndex == null) {
-        throw new Error("Không xác định được số phòng nguồn hoặc phòng đích");
-      }
-      return roomsMusicApis.moveQueue(String(sourceRoomIndex), {
-        targetRoomId: String(targetRoomIndex),
-      });
-    },
-    onSuccess: () => {
-      setIsMoveQueueConfirmOpen(false);
-      toast({
-        title: "Đã chuyển danh sách nhạc",
-        description: "Các bài đang chờ đã được nối vào cuối queue phòng mới.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Không thể chuyển danh sách nhạc",
-        description: "Vui lòng thử lại.",
-        variant: "destructive",
-      });
-    },
+  const { mutateAsync: fetchRoomChangeQueue, isPending: isCheckingQueue } = useMutation({
+    mutationFn: async (sourceIndex: string) =>
+      (await roomsMusicApis.getQueue(sourceIndex)).data.result.queue,
   });
+
 
   // Sau khi lưu size, cần tính lại tiền phòng theo size mới:
   // invalidate query bill để backend trả về giá đúng với roomType mới.
@@ -496,7 +474,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     queryClient.invalidateQueries({ queryKey: billQueryKey });
   };
 
-  const handleChangeRoom = () => {
+  const handleChangeRoom = async () => {
     if (!targetRoomId) {
       toast({
         title: "Thiếu thông tin",
@@ -515,6 +493,21 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       return;
     }
 
+    if (room?.roomId == null || selectedTargetRoom?.roomId == null) {
+      toast({ title: "Không xác định được phòng", description: "Vui lòng tải lại danh sách phòng và thử lại.", variant: "destructive" });
+      return;
+    }
+    try {
+      const songs = await fetchRoomChangeQueue(String(room.roomId));
+      if (songs.length > 0) setRoomChangeSongs(songs);
+      else await confirmChangeRoom(false);
+    } catch {
+      toast({ title: "Không tải được danh sách bài hát", description: "Chưa đổi phòng. Vui lòng thử lại.", variant: "destructive" });
+    }
+  };
+
+  const confirmChangeRoom = async (transfer: boolean) => {
+    if (room?.roomId == null || selectedTargetRoom?.roomId == null) return;
     const payload: IChangeRoomRequest = {
       roomId: schedule.roomId,
       newRoomId: targetRoomId,
@@ -525,25 +518,20 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       updatedBy: user?._id,
     };
 
-    changeRoom(payload);
+    try {
+      const result = await changeRoom({ payload, transfer, sourceIndex: String(room.roomId), targetIndex: String(selectedTargetRoom.roomId) });
+      setRoomChangeSongs(null);
+      if (result.transfer && result.movedCount === null) {
+        toast({ title: "Đã đổi phòng, chưa xác nhận được chuyển nhạc", description: `Hãy kiểm tra danh sách ${room.roomName} và ${selectedTargetRoom.roomName} tại Device Connections trước khi thử lại.`, variant: "destructive" });
+      } else {
+        toast({ title: "Đã đổi phòng", description: result.transfer ? `Đã chuyển ${result.movedCount} bài đang chờ.` : "Danh sách nhạc được giữ ở phòng cũ." });
+      }
+      onClose();
+    } catch {
+      toast({ title: "Chưa xác nhận được đổi phòng", description: "Chưa gửi yêu cầu chuyển nhạc. Hãy kiểm tra trạng thái phòng trước khi thử lại.", variant: "destructive" });
+    }
   };
 
-  const handleMoveQueue = () => {
-    if (
-      !targetRoomId ||
-      !selectedTargetRoom ||
-      targetRoomId === schedule.roomId
-    ) {
-      toast({
-        title: "Chưa chọn phòng đích",
-        description:
-          "Vui lòng chọn một phòng khác trước khi chuyển danh sách nhạc.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setIsMoveQueueConfirmOpen(true);
-  };
 
   // Mutation để cập nhật số lượng item (dùng add/remove)
   const { mutate: updateItemQuantity, isPending: isUpdatingQuantity } =
@@ -1267,7 +1255,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       <Dialog
         open={isOpen}
         onOpenChange={(open) => {
-          if (!open) onClose();
+          if (!open && !isCheckingQueue && !isChangingRoom) onClose();
         }}
       >
         <DialogContent
@@ -2064,14 +2052,14 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">Đổi phòng</h3>
                     <span className="text-[11px] text-muted-foreground">
-                      Đổi phòng không tự động chuyển danh sách nhạc
+                      Có thể chọn chuyển danh sách bài chờ
                     </span>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] sm:items-end">
                     <Select
                       value={targetRoomId}
                       onValueChange={setTargetRoomId}
-                      disabled={isLoadingRooms || availableRooms.length === 0}
+                      disabled={isLoadingRooms || availableRooms.length === 0 || isCheckingQueue || isChangingRoom}
                     >
                       <SelectTrigger className="h-9 w-full">
                         <SelectValue
@@ -2097,29 +2085,22 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                     <Input
                       value={roomChangeNote}
                       onChange={(e) => setRoomChangeNote(e.target.value)}
+                      disabled={isCheckingQueue || isChangingRoom}
                       placeholder="Lý do đổi (nếu có)"
                       className="h-9"
                     />
 
                     <Button
                       variant="secondary"
-                      onClick={handleChangeRoom}
-                      loading={isChangingRoom}
-                      disabled={availableRooms.length === 0}
+                      onClick={() => void handleChangeRoom()}
+                      loading={isChangingRoom || isCheckingQueue}
+                      disabled={availableRooms.length === 0 || isChangingRoom || isCheckingQueue}
                       className="h-9 w-full sm:w-auto"
                     >
                       Chuyển phòng
                     </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={handleMoveQueue}
-                    loading={isMovingQueue}
-                    disabled={availableRooms.length === 0 || !targetRoomId}
-                    className="h-9 w-full sm:w-auto"
-                  >
-                    Chuyển danh sách nhạc
-                  </Button>
+
                 </div>
               </TabsContent>
 
@@ -2210,7 +2191,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={onClose}
-                disabled={isPending}
+                disabled={isPending || isCheckingQueue || isChangingRoom}
                 className="h-9 w-full sm:w-auto"
               >
                 Đóng
@@ -2263,31 +2244,35 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
       </AlertDialog>
 
       <AlertDialog
-        open={isMoveQueueConfirmOpen}
-        onOpenChange={setIsMoveQueueConfirmOpen}
+        open={roomChangeSongs !== null}
+        onOpenChange={(open) => {
+          if (!open && !isChangingRoom) setRoomChangeSongs(null);
+        }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
           <AlertDialogHeader>
-            <AlertDialogTitle>Chuyển danh sách nhạc?</AlertDialogTitle>
+            <AlertDialogTitle>Chuyển danh sách bài hát?</AlertDialogTitle>
             <AlertDialogDescription>
-              Chỉ các bài đang chờ sẽ được nối vào cuối danh sách nhạc của phòng
-              đích. Bài đang phát ở phòng hiện tại không bị ảnh hưởng.
+              {room?.roomName} có {roomChangeSongs?.length ?? 0} bài đang chờ. Bạn có muốn chuyển danh sách sang {selectedTargetRoom?.roomName} không?
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <ol className="max-h-56 space-y-1 overflow-y-auto rounded-md border p-3 text-sm">
+            {roomChangeSongs?.map((song, index) => (
+              <li key={`${song.video_id}-${index}`} className="flex gap-2">
+                <span className="text-muted-foreground">{index + 1}.</span>
+                <span className="break-words">{song.title || "Bài hát không có tên"}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="text-xs text-muted-foreground">Chỉ chuyển bài đang chờ, nối vào cuối danh sách phòng mới; bài đang phát không chuyển. Danh sách có thể thay đổi trong lúc xác nhận.</p>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isMovingQueue}>Hủy</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                event.preventDefault();
-                moveQueue();
-              }}
-              disabled={isMovingQueue}
-            >
-              {isMovingQueue ? "Đang chuyển..." : "Xác nhận chuyển"}
-            </AlertDialogAction>
+            <AlertDialogCancel disabled={isChangingRoom}>Hủy</AlertDialogCancel>
+            <Button variant="outline" disabled={isChangingRoom} onClick={() => void confirmChangeRoom(false)}>Không chuyển bài</Button>
+            <Button disabled={isChangingRoom} onClick={() => void confirmChangeRoom(true)}>{isChangingRoom ? "Đang xử lý..." : "Đồng ý chuyển"}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
 
       <MenuItemsModal
         isOpen={isMenuItemsModalOpen}
