@@ -7,6 +7,7 @@ import type {
 import roomApis from "@/apis/room.apis";
 import MoveQueueDialog from "./MoveQueueDialog";
 import DeviceAuthorizations from "./DeviceAuthorizations";
+import DeviceAuthorizationConfig from "./DeviceAuthorizationConfig";
 import { Page, PageHeader } from "@/components/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -222,6 +223,7 @@ const RoomDeviceConnectionsPage = () => {
 
       {moveSource !== null && <MoveQueueDialog open onOpenChange={(open) => { if (!open) setMoveSource(null); }} initialSource={moveSource} rooms={(roomsRes?.data.result ?? []) as IRoom[]} />}
 
+      <DeviceAuthorizationConfig />
       <DeviceAuthorizations />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
