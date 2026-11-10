@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmployeeScheduleStatus } from "@/constants/enum";
 import { format } from "date-fns";
-import { enUS } from "date-fns/locale";
+import { vi } from "date-fns/locale";
 import { Dayjs } from "dayjs";
 import { CalendarIcon, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -54,19 +54,19 @@ const DateSchedulesModal: React.FC<DateSchedulesModalProps> = ({
   const getStatusLabel = (status: EmployeeScheduleStatus) => {
     switch (status) {
       case EmployeeScheduleStatus.Pending:
-        return "Pending";
+        return "Chờ duyệt";
       case EmployeeScheduleStatus.Approved:
-        return "Approved";
+        return "Đã duyệt";
       case EmployeeScheduleStatus.InProgress:
-        return "In Progress";
+        return "Đang làm";
       case EmployeeScheduleStatus.Completed:
-        return "Completed";
+        return "Hoàn thành";
       case EmployeeScheduleStatus.Absent:
-        return "Absent";
+        return "Vắng mặt";
       case EmployeeScheduleStatus.Rejected:
-        return "Rejected";
+        return "Đã từ chối";
       case EmployeeScheduleStatus.Cancelled:
-        return "Cancelled";
+        return "Đã hủy";
       default:
         return status;
     }
@@ -78,11 +78,11 @@ const DateSchedulesModal: React.FC<DateSchedulesModalProps> = ({
       return `${schedule.customStartTime} - ${schedule.customEndTime}`;
     }
     if (shift === "shift1" || shift === "morning")
-      return "Shift 1 (09:00 - 14:00)";
+      return "Ca 1 (09:00 - 14:00)";
     if (shift === "shift2" || shift === "afternoon" || shift === "evening")
-      return "Shift 2 (14:00 - 19:00)";
-    if (shift === "shift3" || shift === "all") return "Shift 3 (19:00 - 01:00)";
-    return shift || "Custom";
+      return "Ca 2 (14:00 - 19:00)";
+    if (shift === "shift3" || shift === "all") return "Ca 3 (19:00 - 01:00)";
+    return shift || "Ca tùy chỉnh";
   };
 
   const getShiftBadgeColor = (schedule: IEmployeeSchedule) => {
@@ -102,8 +102,8 @@ const DateSchedulesModal: React.FC<DateSchedulesModalProps> = ({
         <DialogHeader className="pr-8">
           <DialogTitle className="flex items-center gap-2">
             <CalendarIcon className="h-5 w-5" />
-            Schedule for{" "}
-            {format(date.toDate(), "dd/MM/yyyy", { locale: enUS })}
+            Lịch làm việc ngày{" "}
+            {format(date.toDate(), "dd/MM/yyyy", { locale: vi })}
           </DialogTitle>
         </DialogHeader>
 
@@ -111,22 +111,21 @@ const DateSchedulesModal: React.FC<DateSchedulesModalProps> = ({
           {schedules.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground mb-4">
-                No shifts scheduled for this day
+                Chưa có ca làm việc trong ngày này
               </p>
               <Button onClick={onRegisterNew} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Register a shift
+                Đăng ký ca
               </Button>
             </div>
           ) : (
             <>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-muted-foreground">
-                  {schedules.length} shift{schedules.length !== 1 ? "s" : ""}{" "}
-                  total
+                  Tổng cộng {schedules.length} ca
                   {schedules.length >= 2 && (
                     <span className="ml-2 text-xs text-muted-foreground">
-                      (maximum reached)
+                      (đã đạt số ca tối đa)
                     </span>
                   )}
                 </p>
@@ -138,7 +137,7 @@ const DateSchedulesModal: React.FC<DateSchedulesModalProps> = ({
                     className="gap-2"
                   >
                     <Plus className="h-4 w-4" />
-                    Register another shift
+                    Đăng ký thêm ca
                   </Button>
                 )}
               </div>
@@ -186,7 +185,7 @@ const DateSchedulesModal: React.FC<DateSchedulesModalProps> = ({
                     {schedule.status === EmployeeScheduleStatus.Rejected &&
                       schedule.rejectedReason && (
                         <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                          <span className="font-medium">Rejection reason: </span>
+                          <span className="font-medium">Lý do từ chối: </span>
                           {schedule.rejectedReason}
                         </p>
                       )}
@@ -198,7 +197,7 @@ const DateSchedulesModal: React.FC<DateSchedulesModalProps> = ({
                       )}
 
                     <p className="text-xs text-muted-foreground mt-2">
-                      Details →
+                      Xem chi tiết →
                     </p>
                   </div>
                 ))}

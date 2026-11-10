@@ -48,10 +48,10 @@ export function ShiftRegistrationCalendar({
   };
 
   const getShiftShortLabel = (shiftType: string) => {
-    if (shiftType === "Shift 1") return "S1";
-    if (shiftType === "Shift 2") return "S2";
-    if (shiftType === "Shift 3") return "S3";
-    return "CU";
+    if (shiftType === "Shift 1") return "C1";
+    if (shiftType === "Shift 2") return "C2";
+    if (shiftType === "Shift 3") return "C3";
+    return "TC";
   };
 
   // Group schedules by date
@@ -163,21 +163,21 @@ export function ShiftRegistrationCalendar({
             size="icon"
             onClick={handlePrevMonth}
             className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted sm:h-9 sm:w-9"
-            aria-label="Previous month"
+            aria-label="Tháng trước"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
 
           <div className="min-w-0 flex-1 text-center">
             <h2 className="truncate text-base font-semibold capitalize tracking-tight text-foreground sm:text-xl md:text-2xl">
-              {currentDate.format("MMMM YYYY")}
+              {`Tháng ${currentDate.format("MM/YYYY")}`}
             </h2>
             <button
               type="button"
               onClick={handleToday}
               className="mt-0.5 text-xs font-medium text-primary transition-colors hover:text-primary/80 sm:text-sm"
             >
-              Today
+              Hôm nay
             </button>
           </div>
 
@@ -186,7 +186,7 @@ export function ShiftRegistrationCalendar({
             size="icon"
             onClick={handleNextMonth}
             className="h-10 w-10 shrink-0 rounded-full text-muted-foreground hover:bg-muted sm:h-9 sm:w-9"
-            aria-label="Next month"
+            aria-label="Tháng sau"
           >
             <ChevronRight className="h-5 w-5" />
           </Button>
@@ -196,7 +196,7 @@ export function ShiftRegistrationCalendar({
       {/* Calendar Grid */}
       <div className="grid grid-cols-7 gap-1.5 bg-transparent sm:gap-px sm:overflow-hidden sm:rounded-xl sm:border sm:border-border sm:bg-border">
         {/* Weekday Headers */}
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+        {["CN", "T2", "T3", "T4", "T5", "T6", "T7"].map((day) => (
           <div
             key={day}
             className="rounded-lg bg-transparent py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:rounded-none sm:bg-muted sm:py-3 sm:text-sm"
@@ -248,8 +248,7 @@ export function ShiftRegistrationCalendar({
 
                   {daySchedules.length > 0 && !isPast && (
                       <div className="hidden rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 sm:block sm:text-xs">
-                      {daySchedules.length} shift
-                      {daySchedules.length !== 1 ? "s" : ""}
+                      {daySchedules.length} ca
                     </div>
                   )}
                 </div>
@@ -294,7 +293,7 @@ export function ShiftRegistrationCalendar({
                             )}
                           >
                             <span className="truncate block w-full">
-                              {shiftType}
+                              {shiftType === "Custom shift" ? "Ca tùy chỉnh" : shiftType.replace("Shift", "Ca")}
                             </span>
                           </Badge>
                         );
@@ -302,7 +301,7 @@ export function ShiftRegistrationCalendar({
 
                       {shiftTypes.length > 2 && (
                         <div className="text-center text-[11px] font-medium text-slate-500">
-                          +{shiftTypes.length - 2} more
+                          +{shiftTypes.length - 2} ca khác
                         </div>
                       )}
                     </div>

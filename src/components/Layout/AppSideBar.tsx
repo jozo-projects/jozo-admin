@@ -47,7 +47,7 @@ import { JozoLogo } from "../shared/JozoLogo";
 import { LogoutButton } from "../shared/LogoutButton";
 
 export function AppSidebar() {
-  const { setOpenMobile, state, isMobile } = useSidebar();
+  const { setOpen, setOpenMobile, state, isMobile } = useSidebar();
   const location = useLocation();
   const { user } = useAuth();
   const menuItems = useMenuItems();
@@ -60,6 +60,7 @@ export function AppSidebar() {
 
   const isActive = (url?: string) => {
     if (!url) return false;
+    if (url === PATHS.MY_SCHEDULE) return location.pathname === url;
     return location.pathname === url || location.pathname.startsWith(url + "/");
   };
 
@@ -67,8 +68,16 @@ export function AppSidebar() {
     return item.subItems?.some((subItem) => isActive(subItem.url)) ?? false;
   };
 
-  const toggleGroup = (title: string) => {
-    setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
+  const toggleGroup = (title: string, isGroupActive: boolean) => {
+    if (!isMobile && state === "collapsed") {
+      setOpen(true);
+      setOpenGroups((prev) => ({ ...prev, [title]: true }));
+      return;
+    }
+    setOpenGroups((prev) => ({
+      ...prev,
+      [title]: !(prev[title] ?? isGroupActive),
+    }));
   };
 
   const prefetchRouteData = (url?: string) => {
@@ -154,7 +163,7 @@ export function AppSidebar() {
         {quickAccessItems.length > 0 && (
           <SidebarGroup className="p-0">
             <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-wide">
-              Quick access
+              Truy cập nhanh
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
@@ -193,7 +202,7 @@ export function AppSidebar() {
         {personalItems.length > 0 && (
           <SidebarGroup className="p-0">
             <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-wide">
-              Personal
+              Cá nhân
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
@@ -233,7 +242,7 @@ export function AppSidebar() {
         {managementGroups.length > 0 && (
           <SidebarGroup className="p-0">
             <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-wide">
-              Management
+              Quản lý
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
@@ -247,7 +256,7 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         tooltip={group.title}
                         isActive={isGroupActive}
-                        onClick={() => toggleGroup(group.title)}
+                        onClick={() => toggleGroup(group.title, isGroupActive)}
                         className={cn(
                           menuButtonClassName,
                           activeMenuButtonClassName,

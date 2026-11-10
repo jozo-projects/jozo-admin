@@ -29,6 +29,7 @@ import { toast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 import { CalendarIcon, CircleXIcon } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -56,11 +57,11 @@ const areTimesValid = (startTime?: string, endTime?: string) => {
 const employeeScheduleSchema = z
   .object({
     date: z.date({
-      required_error: "Date is required",
+      required_error: "Vui lòng chọn ngày làm việc",
     }),
     shifts: z
       .array(z.enum([ShiftType.Morning, ShiftType.Afternoon, ShiftType.All]))
-      .min(1, "Please select at least one shift"),
+      .min(1, "Vui lòng chọn ít nhất một ca"),
     note: z.string().max(500).optional(),
     customStartTime: z.string().optional(),
     customEndTime: z.string().optional(),
@@ -70,7 +71,7 @@ const employeeScheduleSchema = z
       return areTimesValid(data.customStartTime, data.customEndTime);
     },
     {
-      message: "Invalid time range",
+      message: "Khoảng thời gian không hợp lệ",
       path: ["customEndTime"],
     },
   );
@@ -141,7 +142,7 @@ const EmployeeScheduleRegistrationModal: React.FC<
   useEffect(() => {
     if (customStartTime && customEndTime) {
       if (!areTimesValid(customStartTime, customEndTime)) {
-        setTimeError("Invalid time range");
+        setTimeError("Khoảng thời gian không hợp lệ");
       } else {
         setTimeError("");
       }
@@ -155,9 +156,9 @@ const EmployeeScheduleRegistrationModal: React.FC<
       staffScheduleApis.registerMySchedule(data),
     onSuccess: () => {
       toast({
-        title: "Success",
+        title: "Thành công",
         description:
-          "Schedule registered successfully. Awaiting admin approval.",
+          "Đăng ký ca thành công. Vui lòng chờ quản lý duyệt.",
       });
       reset();
       refetchSchedules?.();
@@ -202,7 +203,7 @@ const EmployeeScheduleRegistrationModal: React.FC<
         // Show all messages in the toast
         if (errorMessages.length > 0) {
           toast({
-            title: responseData?.message || "Validation error",
+            title: responseData?.message || "Thông tin không hợp lệ",
             description: errorMessages.join(", "),
             variant: "destructive",
           });
@@ -236,9 +237,9 @@ const EmployeeScheduleRegistrationModal: React.FC<
         const errorMessage =
           responseData?.message ||
           axiosError?.message ||
-          "An error occurred while registering your schedule";
+          "Không thể đăng ký lịch làm việc";
         toast({
-          title: "Error",
+          title: "Lỗi",
           description: errorMessage,
           variant: "destructive",
         });
@@ -249,7 +250,7 @@ const EmployeeScheduleRegistrationModal: React.FC<
   const onSubmit = (values: FormValues) => {
     // Validate time before submit
     if (!areTimesValid(values.customStartTime, values.customEndTime)) {
-      setTimeError("Invalid time range");
+      setTimeError("Khoảng thời gian không hợp lệ");
       return;
     }
 
@@ -279,7 +280,7 @@ const EmployeeScheduleRegistrationModal: React.FC<
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="overflow-y-auto overscroll-y-contain pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:pt-6 sm:pb-6">
         <DialogHeader>
-          <DialogTitle>Register work schedule</DialogTitle>
+          <DialogTitle>Đăng ký lịch làm việc</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -288,7 +289,7 @@ const EmployeeScheduleRegistrationModal: React.FC<
               name="date"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Work date</FormLabel>
+                  <FormLabel>Ngày làm việc</FormLabel>
                   <Popover modal={true}>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -302,7 +303,7 @@ const EmployeeScheduleRegistrationModal: React.FC<
                           {field.value ? (
                             format(field.value, "dd/MM/yyyy")
                           ) : (
-                            <span>Pick a date</span>
+                            <span>Chọn ngày</span>
                           )}
                           {field.value ? (
                             <CircleXIcon
@@ -322,6 +323,7 @@ const EmployeeScheduleRegistrationModal: React.FC<
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                           mode="single"
+                          locale={vi}
                           selected={field.value}
                           onSelect={field.onChange}
                           disabled={(date) => {
@@ -344,18 +346,18 @@ const EmployeeScheduleRegistrationModal: React.FC<
               name="shifts"
               render={({ field }) => (
                 <FormItem className="space-y-3">
-                  <FormLabel className="text-base">Shift</FormLabel>
+                  <FormLabel className="text-base">Ca làm</FormLabel>
                   <div className="flex flex-col space-y-2">
                     {[
                       {
                         value: ShiftType.Morning,
-                        label: "Shift 1: 09:00 - 14:00",
+                        label: "Ca 1: 09:00 - 14:00",
                       },
                       {
                         value: ShiftType.Afternoon,
-                        label: "Shift 2: 14:00 - 19:00",
+                        label: "Ca 2: 14:00 - 19:00",
                       },
-                      { value: ShiftType.All, label: "Shift 3: 19:00 - 01:00" },
+                      { value: ShiftType.All, label: "Ca 3: 19:00 - 01:00" },
                     ].map((shiftOption) => (
                       <FormItem
                         key={shiftOption.value}
@@ -390,10 +392,10 @@ const EmployeeScheduleRegistrationModal: React.FC<
               name="note"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Note (optional)</FormLabel>
+                  <FormLabel>Ghi chú (không bắt buộc)</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Enter a note..."
+                      placeholder="Nhập ghi chú..."
                       className="resize-none"
                       maxLength={500}
                       {...field}
@@ -411,10 +413,10 @@ const EmployeeScheduleRegistrationModal: React.FC<
                 onClick={handleClose}
                 disabled={isSubmitting}
               >
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={isSubmitting || !!timeError}>
-                {isSubmitting ? "Registering..." : "Register"}
+                {isSubmitting ? "Đang đăng ký..." : "Đăng ký"}
               </Button>
             </DialogFooter>
           </form>

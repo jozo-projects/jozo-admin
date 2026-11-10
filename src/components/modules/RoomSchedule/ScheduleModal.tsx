@@ -1,3 +1,4 @@
+import http from "@/utils/http";
 import { IRoom } from "@/@types/Room";
 import { useBirthdayCheckout } from "@/hooks/use-member-birthday";
 import { BirthdayBenefits } from "@/components/modules/BirthdayBenefits";
@@ -61,7 +62,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-import { useMembershipConfig, useStreakGifts } from "@/hooks/use-membership";
+import { useStreakGifts } from "@/hooks/use-membership";
 import MemberPhoneCombobox from "@/pages/RoomSchedule/components/MemberPhoneCombobox";
 import MemberPhoneLookupCard from "@/pages/RoomSchedule/components/MemberPhoneLookupCard";
 import ScheduleDatePicker from "@/pages/RoomSchedule/components/ScheduleDatePicker";
@@ -94,6 +95,7 @@ const buildScheduleSchema = (requirePeopleCount: boolean) =>
         (value) => !value || isValidMemberPhone(value),
         "SĐT phải có 10–11 số và bắt đầu bằng 0",
       ),
+    activityType: z.enum(["nintendo-switch", "music-box"]).optional(),
     note: z.string().max(200).optional(),
     giftEnabled: z.boolean().optional(),
     promotionId: z.string().optional(),
@@ -147,6 +149,16 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const { control, handleSubmit, setValue, watch } = form;
   const startDateValue = watch("startDate");
   const startTimeValue = watch("startTime");
+  const endDateValue = watch("endDate");
+  const endTimeValue = watch("endTime");
+  const gameStart = dayjs(`${startDateValue}T${startTimeValue}`);
+  const rawGameEnd = dayjs(`${endDateValue}T${endTimeValue}`);
+  const gameEnd = rawGameEnd.isValid() && gameStart.isValid() && !rawGameEnd.isAfter(gameStart) ? rawGameEnd.add(1, "day") : rawGameEnd;
+  const gameAvailability = useQuery({
+    queryKey: ["game-availability", startDateValue, startTimeValue, endDateValue, endTimeValue, scheduleId],
+    enabled: isOpen && gameStart.isValid() && gameEnd.isValid() && gameEnd.isAfter(gameStart),
+    queryFn: async () => (await http.get<{ enabled: boolean }>("/bookings/game-config", { params: { startTime: gameStart.toISOString(), endTime: gameEnd.toISOString(), exclude: scheduleId } })).data.enabled,
+  });
   const statusValue = watch("status");
   const peopleCountValue = watch("peopleCount");
   const use4MicValue = watch("use4Mic");
@@ -166,7 +178,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
   const lookupPhone = isValidMemberPhone(customerPhoneValue)
     ? customerPhoneValue.trim()
     : "";
-  const { data: membershipConfig } = useMembershipConfig();
+
   const {
     data: streakGiftsData,
     isLoading: isLoadingMemberLookup,
@@ -221,6 +233,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
       setValue("endTime", end.format("HH:mm"));
       setValue("status", schedule.status as RoomStatus);
       setValue("note", schedule.note ?? "");
+      setValue("activityType", schedule.activityType);
       setValue("customerPhone", schedule.customerPhone ?? "");
       setValue("giftEnabled", schedule.giftEnabled ?? false);
       setValue("promotionId", schedule.promotionId ?? "");
@@ -234,6 +247,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
     }
   }, [scheduleId, schedule, isOpen, setValue]);
 
+  const [scheduleError, setScheduleError] = useState("");
   const { mutate: updateSchedule, isPending: isUpdating } = useMutation({
     mutationFn: (payload: {
       id: string;
@@ -244,6 +258,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
     },
     onError: (error) => {
       console.error("Error updating schedule:", error);
+      setScheduleError("Không thể lưu lịch. Vui lòng kiểm tra số máy và thử lại.");
     },
   });
 
@@ -270,6 +285,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
     },
     onError: (error) => {
       console.error("Error creating schedule:", error);
+      setScheduleError("Không thể tạo lịch. Vui lòng kiểm tra số máy và thử lại.");
     },
   });
 
@@ -280,6 +296,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
   useEffect(() => {
     if (!scheduleId && room && isOpen) {
       setValue("roomType", room.roomType);
+      setValue("activityType", room.roomType === RoomType.Dorm ? "nintendo-switch" : "music-box");
       setValue("peopleCount", undefined);
       setValue("use4Mic", false);
       prevPeopleCountRef.current = undefined;
@@ -426,6 +443,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
       endTime: endTimeISO,
       status: values.status,
       note: values.note,
+      activityType: values.activityType,
       customerPhone: values.customerPhone?.trim() || undefined,
       ...(birthday.checked ? { birthdayDraft: birthday.scheduleDraft } : {}),
       giftEnabled: values.giftEnabled,
@@ -451,6 +469,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
   };
 
   const onSubmit = async (values: FormValues) => {
+    setScheduleError("");
     if (birthday.blocked) return;
     try {
       if (scheduleId) {
@@ -460,6 +479,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
           endTime: endTimeISO,
           status: values.status,
           note: values.note,
+          activityType: values.activityType,
           customerPhone: values.customerPhone?.trim() || "",
           birthdayDraft: birthday.scheduleDraft,
           giftEnabled: values.giftEnabled,
@@ -538,6 +558,8 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
 
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-6">
                 <div className="flex flex-col gap-4">
+                {scheduleError && <p role="alert" className="text-destructive">{scheduleError}</p>}
+                <FormField control={control} name="activityType" render={({ field }) => <FormItem><FormLabel>Dịch vụ</FormLabel><Select value={field.value} onValueChange={field.onChange} disabled={room?.roomType === RoomType.Dorm}><FormControl><SelectTrigger><SelectValue placeholder="Chọn dịch vụ" /></SelectTrigger></FormControl><SelectContent><SelectItem value="music-box">Music Box</SelectItem><SelectItem value="nintendo-switch" disabled={gameAvailability.data !== true}>Nintendo Switch {gameAvailability.data === false ? "(hết máy)" : ""}</SelectItem></SelectContent></Select><FormMessage /></FormItem>} />
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   <FormField
                     control={control}
@@ -747,7 +769,6 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
                     memberInfo={memberLookupUser}
                     availableGifts={streakGiftsData?.availableGifts}
                     streakRewards={streakGiftsData?.streakRewards}
-                    configStreakRewards={membershipConfig?.streak?.rewards}
                   />
                 )}
 

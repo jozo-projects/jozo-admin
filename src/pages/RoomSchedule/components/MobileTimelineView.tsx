@@ -1,5 +1,6 @@
 import { IRoom, IRoomSchedule } from "@/@types/Room";
 import RoomDeviceIndicators from "./RoomDeviceIndicators";
+import ScheduleActivityIcon from "./ScheduleActivityIcon";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useState } from "react";
 import {
@@ -628,10 +629,13 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                             onClick={() => onScheduleClick(schedule)}
                           >
                             <div className="p-2 sm:p-1.5 h-full flex flex-col justify-center">
-                              <div className="text-xs sm:text-sm text-white font-medium truncate leading-tight">
-                                {eventStart.format("HH:mm")}
-                                {schedule.endTime && status !== "cancelled" &&
-                                  ` - ${eventEnd.format("HH:mm")}`}
+                              <div className="flex min-w-0 items-center gap-1 text-xs sm:text-sm text-white font-medium leading-tight">
+                                <ScheduleActivityIcon activityType={schedule.activityType} />
+                                <span className="truncate">
+                                  {eventStart.format("HH:mm")}
+                                  {schedule.endTime && status !== "cancelled" &&
+                                    ` - ${eventEnd.format("HH:mm")}`}
+                                </span>
                               </div>
                               {height >= 40 && (
                                 <div className="text-xs text-white/90 truncate mt-1 leading-tight">

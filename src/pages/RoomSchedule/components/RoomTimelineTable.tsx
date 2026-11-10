@@ -8,6 +8,7 @@ import { ICoffeeTable } from "@/@types/CoffeeTable";
 import { Gift as GiftType } from "@/@types/Gift";
 import { IRoom, IRoomSchedule } from "@/@types/Room";
 import RoomDeviceIndicators from "./RoomDeviceIndicators";
+import ScheduleActivityIcon from "./ScheduleActivityIcon";
 import coffeeSessionApis from "@/apis/coffeeSession.apis";
 import coffeeTableApis from "@/apis/coffeeTable.apis";
 import roomApis from "@/apis/room.apis";
@@ -1461,7 +1462,7 @@ const RoomTimelineTable: React.FC = () => {
                                   title={`${scheduleLabel} - ${dayjs(
                                     schedule.startTime,
                                   ).format("HH:mm")}`}
-                                  aria-label={`${scheduleLabel} ${schedule.status} từ ${dayjs(
+                                  aria-label={`${scheduleLabel} ${schedule.status}${schedule.activityType === "nintendo-switch" ? " Nintendo Switch" : schedule.activityType === "music-box" ? " Music Box" : ""} từ ${dayjs(
                                     schedule.startTime,
                                   ).format("HH:mm")}`}
                                   // draggable
@@ -1476,9 +1477,12 @@ const RoomTimelineTable: React.FC = () => {
                                         "HH:mm",
                                       )}
                                     </span>
-                                    <span className="max-w-full truncate text-xs sm:text-sm font-semibold text-white">
-                                      {scheduleLabel}
-                                    </span>
+                                    <div className="flex max-w-full min-w-0 items-center justify-center gap-1">
+                                      <ScheduleActivityIcon activityType={schedule.activityType} />
+                                      <span className="min-w-0 truncate text-xs sm:text-sm font-semibold text-white">
+                                        {scheduleLabel}
+                                      </span>
+                                    </div>
                                   </div>
                                 </button>
                               );

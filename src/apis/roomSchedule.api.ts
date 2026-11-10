@@ -11,6 +11,7 @@ interface ICreateRoomScheduleRequest {
   status: RoomStatus;
   cancellationReason?: string;
   note?: string;
+  activityType?: "nintendo-switch" | "music-box";
   customerPhone?: string;
   giftEnabled?: boolean;
   /** Gửi `null` hoặc `""` để xóa promotion đã chọn */

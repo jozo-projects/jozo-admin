@@ -1,6 +1,5 @@
 import {
   IAvailableStreakGift,
-  IStreakReward,
   IStreakRewardProgress,
 } from "@/@types/Membership";
 import { cn } from "@/lib/utils";
@@ -37,7 +36,6 @@ interface MemberPhoneLookupCardProps {
   memberInfo?: MemberLookupUser | null;
   availableGifts?: IAvailableStreakGift[];
   streakRewards?: IStreakRewardProgress[];
-  configStreakRewards?: IStreakReward[];
   className?: string;
 }
 
@@ -50,12 +48,20 @@ const MemberPhoneLookupCard: React.FC<MemberPhoneLookupCardProps> = ({
   memberInfo,
   availableGifts = [],
   streakRewards = [],
-  configStreakRewards = [],
   className,
 }) => {
   const streakCount =
     Number(memberInfo?.streak?.count ?? memberInfo?.streakCount ?? 0) || 0;
   const streakCycle = memberInfo?.streak?.cycle;
+
+  const configStreakRewards = useMemo(
+    () => streakRewards.map((reward) => ({
+      count: reward.streakCount,
+      itemCount: reward.itemCount ?? 0,
+      bonusPoints: reward.bonusPoints ?? 0,
+    })),
+    [streakRewards],
+  );
 
   const claimedCounts = useMemo(() => {
     const set = new Set<number>();

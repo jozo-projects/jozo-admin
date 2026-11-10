@@ -6,6 +6,7 @@ import { CustomCalendar } from "@/components/ui/custom-calendar";
 import holidayApis, { Holiday } from "@/apis/holiday.apis";
 import { Spin } from "@/components/ui/spin";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { RevenueSettingsForm } from "@/components/modules/RevenueSettingsForm";
 
 function CalendarPage() {
   const { toast } = useToast();
@@ -70,10 +71,12 @@ function CalendarPage() {
   return (
     <Page>
       <PageHeader
-        title="Holiday Calendar"
-        description="Manage public holidays and special dates"
+        title="Cài đặt chung"
+        description="Cài đặt kỳ doanh thu và quản lý ngày lễ"
         icon={CalendarIcon}
       />
+      <Card className="mb-4"><CardContent className="p-3 sm:p-6 space-y-3"><h2 className="font-semibold">Kỳ doanh thu</h2><RevenueSettingsForm /></CardContent></Card>
+      <h2 className="mb-3 font-semibold">Ngày lễ</h2>
       <Spin spinning={isLoading}>
         <Card>
           <CardContent className="p-3 sm:p-6">

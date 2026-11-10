@@ -38,15 +38,15 @@ const MyEarningsDetailPage = () => {
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
 
   const dayNames = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
+    "Chủ nhật",
+    "Thứ hai",
+    "Thứ ba",
+    "Thứ tư",
+    "Thứ năm",
+    "Thứ sáu",
+    "Thứ bảy",
   ];
-  const dayShortNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayShortNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
   // Calculate startDate and endDate from selected month
   const startDate = useMemo(
@@ -261,8 +261,8 @@ const MyEarningsDetailPage = () => {
   return (
     <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
-        title="My Work Statistics"
-        description="Review your shifts, working hours, deductions, and take-home pay"
+        title="Thống kê công việc"
+        description="Xem ca làm, giờ làm, khoản khấu trừ và lương thực nhận"
         icon={DollarSign}
         showBackButton
         backUrl={PATHS.MY_SCHEDULE}
@@ -271,17 +271,17 @@ const MyEarningsDetailPage = () => {
       {/* Summary Cards - desktop only */}
       <StatGrid className="hidden md:grid md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Total take-home"
-          value={`${earningsData.totalSalary.toLocaleString("en-US")}₫`}
-          hint={`After ${earningsData.totalDeductions.toLocaleString("en-US")}₫ deductions`}
+          label="Tổng lương thực nhận"
+          value={`${earningsData.totalSalary.toLocaleString("vi-VN")}₫`}
+          hint={`Đã trừ ${earningsData.totalDeductions.toLocaleString("vi-VN")}₫`}
           icon={DollarSign}
           tone="success"
         />
         <StatCard
           className="border-destructive/30 bg-destructive/5"
-          label="Deductions"
-          value={`-${earningsData.totalDeductions.toLocaleString("en-US")}₫`}
-          hint={`${earningsData.deductionCount} active penalties · Click to view`}
+          label="Khấu trừ"
+          value={`-${earningsData.totalDeductions.toLocaleString("vi-VN")}₫`}
+          hint={`${earningsData.deductionCount} khoản phạt đang áp dụng · Nhấn để xem`}
           icon={DollarSign}
           tone="danger"
           role="button"
@@ -292,16 +292,16 @@ const MyEarningsDetailPage = () => {
           }}
         />
         <StatCard
-          label="Registered shifts"
+          label="Ca đã đăng ký"
           value={earningsData.totalRegistered}
-          hint={`${earningsData.totalShifts} shifts completed`}
+          hint={`${earningsData.totalShifts} ca hoàn thành`}
           icon={CalendarIcon}
           tone="info"
         />
         <StatCard
-          label="Total hours"
+          label="Tổng giờ làm"
           value={`${earningsData.totalHours}h`}
-          hint="actual hours worked"
+          hint="Giờ đã làm"
           icon={Clock}
         />
       </StatGrid>
@@ -310,8 +310,7 @@ const MyEarningsDetailPage = () => {
         <Card className="border-warning/40 bg-warning/10">
           <CardContent className="pt-6">
             <p className="text-sm font-medium text-warning">
-              Note: If your take-home total looks wrong, contact an admin right
-              away so we can review it.
+              Lưu ý: Nếu lương thực nhận chưa đúng, hãy liên hệ quản lý để kiểm tra.
             </p>
           </CardContent>
         </Card>
@@ -321,9 +320,9 @@ const MyEarningsDetailPage = () => {
       {!isMobile && (
         <Card>
           <CardHeader>
-            <CardTitle>Filters</CardTitle>
+            <CardTitle>Bộ lọc</CardTitle>
             <CardDescription>
-              Pick a month to view earnings and shift details
+              Chọn tháng để xem lương và chi tiết ca làm
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -332,8 +331,8 @@ const MyEarningsDetailPage = () => {
                 value={selectedMonth.format("YYYY-MM")}
                 onValueChange={(value) => setSelectedMonth(dayjs(value))}
               >
-                <SelectTrigger aria-label="Select month" className="w-full sm:w-[200px]">
-                  <SelectValue placeholder="Select month" />
+                <SelectTrigger aria-label="Chọn tháng" className="w-full sm:w-[200px]">
+                  <SelectValue placeholder="Chọn tháng" />
                 </SelectTrigger>
                 <SelectContent>
                   {monthOptions.map((month) => (
@@ -351,13 +350,13 @@ const MyEarningsDetailPage = () => {
         </Card>
       )}
 
-      {/* Shift details */}
+      {/* Chi tiết ca làm */}
       <Card className={isMobile ? "border-0 shadow-none bg-transparent" : ""}>
         <CardHeader className={isMobile ? "px-0 pt-0" : ""}>
-          <CardTitle>Shift details</CardTitle>
+          <CardTitle>Chi tiết ca làm</CardTitle>
           {!isMobile && (
             <CardDescription>
-              All shifts for {selectedMonth.format("MM/YYYY")}
+              Các ca làm tháng {selectedMonth.format("MM/YYYY")}
             </CardDescription>
           )}
         </CardHeader>
@@ -370,7 +369,7 @@ const MyEarningsDetailPage = () => {
               dayNames={dayNames}
               dayShortNames={dayShortNames}
               isLoading={isLoading}
-              locale="en"
+              locale="vi"
             />
           ) : isLoading ? (
             <div className="flex items-center justify-center h-64">
@@ -380,10 +379,10 @@ const MyEarningsDetailPage = () => {
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-lg font-medium text-muted-foreground">
-                No shifts
+                Không có ca làm
               </p>
               <p className="text-sm text-muted-foreground mt-2">
-                You have not completed any shifts this month
+                Bạn chưa hoàn thành ca làm nào trong tháng này
               </p>
             </div>
           ) : (
@@ -392,13 +391,13 @@ const MyEarningsDetailPage = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[100px]">#</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Day</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>End</TableHead>
-                    <TableHead className="text-right">Hours</TableHead>
-                    <TableHead className="text-right">Pay (VND)</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Ngày</TableHead>
+                    <TableHead>Thứ</TableHead>
+                    <TableHead>Bắt đầu</TableHead>
+                    <TableHead>Kết thúc</TableHead>
+                    <TableHead className="text-right">Giờ làm</TableHead>
+                    <TableHead className="text-right">Lương (VND)</TableHead>
+                    <TableHead>Trạng thái</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -462,7 +461,7 @@ const MyEarningsDetailPage = () => {
                           {isNotRegistered
                             ? "✕"
                             : isCompleted
-                              ? `${item.salary.toLocaleString("en-US")}₫`
+                              ? `${item.salary.toLocaleString("vi-VN")}₫`
                               : "-"}
                         </TableCell>
                         <TableCell>
@@ -471,35 +470,43 @@ const MyEarningsDetailPage = () => {
                               variant="outline"
                               className="bg-gray-100 text-gray-600 border-gray-300"
                             >
-                              Not registered
+                              Chưa đăng ký
                             </Badge>
                           ) : isAbsent ? (
                             <Badge
                               variant="outline"
                               className="bg-red-100 text-red-700 border-red-300"
                             >
-                              🔴 Absent
+                              Vắng mặt
                             </Badge>
                           ) : isCompleted ? (
                             <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
-                              Completed
+                              Hoàn thành
                             </Badge>
                           ) : isPending ? (
                             <Badge
                               variant="outline"
                               className="bg-yellow-100 text-yellow-800 border-yellow-300"
                             >
-                              Pending approval
+                              Chờ duyệt
                             </Badge>
                           ) : isApproved ? (
                             <Badge
                               variant="outline"
                               className="bg-blue-100 text-blue-800 border-blue-300"
                             >
-                              Approved
+                              Đã duyệt
                             </Badge>
                           ) : (
-                            <Badge variant="outline">{item.status}</Badge>
+                            <Badge variant="outline">
+                              {item.status === EmployeeScheduleStatus.InProgress
+                                ? "Đang làm"
+                                : item.status === EmployeeScheduleStatus.Rejected
+                                  ? "Đã từ chối"
+                                  : item.status === EmployeeScheduleStatus.Cancelled
+                                    ? "Đã hủy"
+                                    : item.status}
+                            </Badge>
                           )}
                         </TableCell>
                       </TableRow>
@@ -508,13 +515,13 @@ const MyEarningsDetailPage = () => {
                   {/* Summary Row */}
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell colSpan={5} className="text-right">
-                      Total:
+                      Tổng cộng:
                     </TableCell>
                     <TableCell className="text-right text-lg">
                       {earningsData.totalHours}h
                     </TableCell>
                     <TableCell className="text-right text-lg text-green-600">
-                      {earningsData.totalSalary.toLocaleString("en-US")}₫
+                      {earningsData.totalSalary.toLocaleString("vi-VN")}₫
                     </TableCell>
                     <TableCell></TableCell>
                   </TableRow>

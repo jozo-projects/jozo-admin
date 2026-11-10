@@ -38,6 +38,7 @@ import EmployeeScheduleRegistrationModal from "./components/EmployeeScheduleRegi
 import { ShiftRegistrationCalendar } from "./components/ShiftRegistrationCalendar";
 import DateSchedulesModal from "./components/DateSchedulesModal";
 import { format } from "date-fns";
+import { vi } from "date-fns/locale";
 import dayjs, { Dayjs } from "dayjs";
 import {
   AlertCircle,
@@ -221,8 +222,8 @@ const MySchedulePage = () => {
   useEffect(() => {
     if (scheduleDetailError && scheduleIdFromUrl) {
       toast({
-        title: "Error",
-        description: "Could not find this work shift",
+        title: "Lỗi",
+        description: "Không tìm thấy ca làm việc này",
         variant: "destructive",
       });
       // Clear invalid scheduleId from URL
@@ -248,21 +249,21 @@ const MySchedulePage = () => {
 
       // Show toast notification
       const statusLabels: Record<string, string> = {
-        [EmployeeScheduleStatus.Approved]: "has been approved",
-        [EmployeeScheduleStatus.Rejected]: "has been rejected",
-        [EmployeeScheduleStatus.InProgress]: "has started",
-        [EmployeeScheduleStatus.Completed]: "has been completed",
-        [EmployeeScheduleStatus.Cancelled]: "has been cancelled",
-        [EmployeeScheduleStatus.Absent]: "was marked absent",
+        [EmployeeScheduleStatus.Approved]: "đã được duyệt",
+        [EmployeeScheduleStatus.Rejected]: "đã bị từ chối",
+        [EmployeeScheduleStatus.InProgress]: "đã bắt đầu",
+        [EmployeeScheduleStatus.Completed]: "đã hoàn thành",
+        [EmployeeScheduleStatus.Cancelled]: "đã bị hủy",
+        [EmployeeScheduleStatus.Absent]: "đã được đánh dấu vắng mặt",
       };
 
-      const statusLabel = statusLabels[data.status] || "has been updated";
+      const statusLabel = statusLabels[data.status] || "đã được cập nhật";
 
       toast({
-        title: "Shift status updated",
+        title: "Đã cập nhật trạng thái ca",
         description:
           data.message ||
-          `Work shift on ${dayjs(data.schedule.date).format(
+          `Ca làm ngày ${dayjs(data.schedule.date).format(
             "DD/MM/YYYY",
           )} ${statusLabel}`,
         duration: 5000,
@@ -287,10 +288,10 @@ const MySchedulePage = () => {
 
       // Show toast notification
       toast({
-        title: "New shift assignments",
+        title: "Ca làm mới được phân công",
         description:
           data.message ||
-          `You have been assigned ${data.schedules.length} new work shift${data.schedules.length === 1 ? "" : "s"}`,
+          `Bạn được phân công ${data.schedules.length} ca làm mới`,
         duration: 5000,
       });
 
@@ -470,11 +471,11 @@ const MySchedulePage = () => {
       return `${schedule.customStartTime} - ${schedule.customEndTime}`;
     }
     if (shift === "shift1" || shift === "morning")
-      return "Shift 1 (09:00 - 14:00)";
+      return "Ca 1 (09:00 - 14:00)";
     if (shift === "shift2" || shift === "afternoon" || shift === "evening")
-      return "Shift 2 (14:00 - 19:00)";
-    if (shift === "shift3" || shift === "all") return "Shift 3 (19:00 - 01:00)";
-    return shift || "Custom";
+      return "Ca 2 (14:00 - 19:00)";
+    if (shift === "shift3" || shift === "all") return "Ca 3 (19:00 - 01:00)";
+    return shift || "Ca tùy chỉnh";
   };
 
   const getShiftBadgeColor = (schedule: IEmployeeSchedule) => {
@@ -491,17 +492,17 @@ const MySchedulePage = () => {
   return (
     <div className="flex w-full min-w-0 flex-col gap-5 md:gap-6">
       <PageHeader
-        title="My Work Schedule"
-        description="View and manage your work schedule"
+        title="Lịch làm việc"
+        description="Xem và quản lý lịch làm việc của bạn"
         icon={Briefcase}
       />
 
       {/* Controls */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters & View</CardTitle>
+          <CardTitle>Bộ lọc và chế độ xem</CardTitle>
           <CardDescription>
-            Select time range and filters to view your work schedule
+            Chọn khoảng thời gian và bộ lọc để xem lịch làm việc
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -512,9 +513,9 @@ const MySchedulePage = () => {
                 onValueChange={(value) => setViewMode(value as ViewMode)}
               >
                 <TabsList>
-                  <TabsTrigger value="day">Day</TabsTrigger>
-                  <TabsTrigger value="week">Week</TabsTrigger>
-                  <TabsTrigger value="month">Month</TabsTrigger>
+                  <TabsTrigger value="day">Ngày</TabsTrigger>
+                  <TabsTrigger value="week">Tuần</TabsTrigger>
+                  <TabsTrigger value="month">Tháng</TabsTrigger>
                 </TabsList>
               </Tabs>
 
@@ -541,6 +542,7 @@ const MySchedulePage = () => {
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
+                      locale={vi}
                       selected={currentDate.toDate()}
                       onSelect={(date) => date && setCurrentDate(dayjs(date))}
                       initialFocus
@@ -560,7 +562,7 @@ const MySchedulePage = () => {
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Register Shift
+                Đăng ký ca
               </Button>
 
               <Select
@@ -570,30 +572,30 @@ const MySchedulePage = () => {
                 }
               >
                 <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder="Trạng thái" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="all">Tất cả trạng thái</SelectItem>
                   <SelectItem value={EmployeeScheduleStatus.Pending}>
-                    Pending
+                    Chờ duyệt
                   </SelectItem>
                   <SelectItem value={EmployeeScheduleStatus.Approved}>
-                    Approved
+                    Đã duyệt
                   </SelectItem>
                   <SelectItem value={EmployeeScheduleStatus.InProgress}>
-                    In Progress
+                    Đang làm
                   </SelectItem>
                   <SelectItem value={EmployeeScheduleStatus.Completed}>
-                    Completed
+                    Hoàn thành
                   </SelectItem>
                   <SelectItem value={EmployeeScheduleStatus.Absent}>
-                    Absent
+                    Vắng mặt
                   </SelectItem>
                   <SelectItem value={EmployeeScheduleStatus.Rejected}>
-                    Rejected
+                    Đã từ chối
                   </SelectItem>
                   <SelectItem value={EmployeeScheduleStatus.Cancelled}>
-                    Cancelled
+                    Đã hủy
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -605,14 +607,14 @@ const MySchedulePage = () => {
                 }
               >
                 <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Shift Type" />
+                  <SelectValue placeholder="Loại ca" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all_shifts">All Shifts</SelectItem>
-                  <SelectItem value="shift1">Shift 1</SelectItem>
-                  <SelectItem value="shift2">Shift 2</SelectItem>
-                  <SelectItem value="shift3">Shift 3</SelectItem>
-                  <SelectItem value="custom">Custom Shift</SelectItem>
+                  <SelectItem value="all_shifts">Tất cả ca</SelectItem>
+                  <SelectItem value="shift1">Ca 1</SelectItem>
+                  <SelectItem value="shift2">Ca 2</SelectItem>
+                  <SelectItem value="shift3">Ca 3</SelectItem>
+                  <SelectItem value="custom">Ca tùy chỉnh</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -623,15 +625,15 @@ const MySchedulePage = () => {
       {/* Calendar View */}
       <Card>
         <CardHeader>
-          <CardTitle>Work Schedule</CardTitle>
+          <CardTitle>Lịch làm việc</CardTitle>
           <CardDescription>
             {viewMode === "day"
-              ? `Work schedule for ${currentDate.format("DD/MM/YYYY")}`
+              ? `Lịch làm việc ngày ${currentDate.format("DD/MM/YYYY")}`
               : viewMode === "week"
-                ? `Work schedule from ${startDate.format(
+                ? `Lịch làm việc từ ${startDate.format(
                     "DD/MM",
-                  )} to ${endDate.format("DD/MM/YYYY")}`
-                : `Work schedule for ${currentDate.format("MM/YYYY")}`}
+                  )} đến ${endDate.format("DD/MM/YYYY")}`
+                : `Lịch làm việc tháng ${currentDate.format("MM/YYYY")}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -643,10 +645,10 @@ const MySchedulePage = () => {
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-lg font-medium text-muted-foreground">
-                No work shifts found
+                Không tìm thấy ca làm việc
               </p>
               <p className="text-sm text-muted-foreground mt-2">
-                Try selecting a different time range or change the filters
+                Hãy chọn khoảng thời gian khác hoặc thay đổi bộ lọc
               </p>
             </div>
           ) : (
@@ -699,26 +701,25 @@ const MySchedulePage = () => {
                             isToday && "text-blue-600",
                           )}
                         >
-                          {format(date.toDate(), "EEEE, dd/MM/yyyy")}
+                          {format(date.toDate(), "EEEE, dd/MM/yyyy", { locale: vi })}
                         </h3>
                         {isToday && (
                           <Badge
                             variant="default"
                             className="bg-blue-600 whitespace-nowrap"
                           >
-                            Today
+                            Hôm nay
                           </Badge>
                         )}
                       </div>
                       <Badge variant="outline" className="whitespace-nowrap">
-                        {daySchedules.length} shift
-                        {daySchedules.length !== 1 ? "s" : ""}
+                        {daySchedules.length} ca
                       </Badge>
                     </div>
 
                     {sortedSchedules.length === 0 ? (
                       <p className="text-sm text-muted-foreground italic">
-                        No work shifts
+                        Không có ca làm việc
                       </p>
                     ) : (
                       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -753,25 +754,25 @@ const MySchedulePage = () => {
                               >
                                 {schedule.status ===
                                 EmployeeScheduleStatus.Pending
-                                  ? "Pending"
+                                  ? "Chờ duyệt"
                                   : schedule.status ===
                                       EmployeeScheduleStatus.Approved
-                                    ? "Approved"
+                                    ? "Đã duyệt"
                                     : schedule.status ===
                                         EmployeeScheduleStatus.InProgress
-                                      ? "In Progress"
+                                      ? "Đang làm"
                                       : schedule.status ===
                                           EmployeeScheduleStatus.Completed
-                                        ? "Completed"
+                                        ? "Hoàn thành"
                                         : schedule.status ===
                                             EmployeeScheduleStatus.Absent
-                                          ? "Absent"
+                                          ? "Vắng mặt"
                                           : schedule.status ===
                                               EmployeeScheduleStatus.Rejected
-                                            ? "Rejected"
+                                            ? "Đã từ chối"
                                             : schedule.status ===
                                                 EmployeeScheduleStatus.Cancelled
-                                              ? "Cancelled"
+                                              ? "Đã hủy"
                                               : schedule.status}
                               </Badge>
                             </div>
@@ -780,7 +781,7 @@ const MySchedulePage = () => {
                               schedule.rejectedReason && (
                                 <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                                   <span className="font-medium">
-                                    Rejection reason:{" "}
+                                    Lý do từ chối:{" "}
                                   </span>
                                   {schedule.rejectedReason}
                                 </p>
@@ -830,10 +831,10 @@ const MySchedulePage = () => {
         <DialogContent className="overflow-y-auto p-0 sm:max-w-3xl sm:p-5 lg:max-w-4xl lg:p-6">
           <DialogHeader className="border-b px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] text-left sm:border-0 sm:px-0 sm:pb-2 sm:pt-0">
             <DialogTitle className="text-lg tracking-tight sm:text-xl">
-              Register Work Shift
+              Đăng ký ca làm việc
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Choose an available date to register your shift
+              Chọn ngày còn trống để đăng ký ca làm
             </p>
           </DialogHeader>
           <div className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-0 sm:pb-0 sm:pt-0">

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import {
   fixedRevenueRange, revenueRangeLabel, VN_TZ,
-  type RevenuePeriod, type RevenueRange,
+  DEFAULT_REVENUE_SETTINGS, type RevenueSettings, type RevenuePeriod, type RevenueRange,
 } from "@/utils/revenuePeriod";
 
 const labels: Record<RevenuePeriod, string> = {
@@ -65,7 +65,8 @@ function CustomRange({ range, onApply }: {
   );
 }
 
-export function RevenuePeriodSelector({ period, date, range, isStaff, onPeriod, onDate, onCustom }: {
+export function RevenuePeriodSelector({ period, date, range, isStaff, onPeriod, onDate, onCustom, settings = DEFAULT_REVENUE_SETTINGS }: {
+  settings?: RevenueSettings;
   period: RevenuePeriod;
   date: string;
   range: RevenueRange;
@@ -87,7 +88,8 @@ export function RevenuePeriodSelector({ period, date, range, isStaff, onPeriod, 
     onDate(dayjs(day).format("YYYY-MM-DD"));
     setOpen(false);
   };
-  const week = fixedRevenueRange("weekly", date);
+  const week = fixedRevenueRange("weekly", date, settings);
+  const cutoff = String(settings.monthStartDay).padStart(2, "0");
   const pickerLabel = period === "daily" ? "Chọn ngày" : period === "weekly" ? "Chọn tuần" : period === "monthly" ? "Chọn tháng" : "Chọn quý";
   const title = period === "daily" ? periodStart.format("DD/MM/YYYY")
     : period === "weekly" ? `${periodStart.format("DD/MM")} – ${periodEndDay.format("DD/MM/YYYY")}`
@@ -122,17 +124,17 @@ export function RevenuePeriodSelector({ period, date, range, isStaff, onPeriod, 
                   selected={localDate(date)} defaultMonth={localDate(date)} onSelect={(day) => day && chooseDay(day)} initialFocus />
                 : period === "monthly" ? <label className="block space-y-1 text-sm">
                   <span>Tháng</span><Input type="month" aria-label="Chọn tháng" value={periodStart.format("YYYY-MM")}
-                    onChange={(e) => { if (e.target.value) onDate(`${e.target.value}-06`); }} />
+                    onChange={(e) => { if (e.target.value) onDate(`${e.target.value}-${cutoff}`); }} />
                 </label>
                 : <div className="flex gap-2">
                   <Select value={String(Math.floor(periodStart.month() / 3) + 1)} onValueChange={(value) =>
-                    onDate(`${periodStart.year()}-${String((Number(value) - 1) * 3 + 1).padStart(2, "0")}-06`)}>
+                    onDate(`${periodStart.year()}-${String((Number(value) - 1) * 3 + 1).padStart(2, "0")}-${cutoff}`)}>
                     <SelectTrigger className="w-28" aria-label="Quý"><SelectValue /></SelectTrigger>
                     <SelectContent>{[1, 2, 3, 4].map((q) => <SelectItem key={q} value={String(q)}>Quý {q}</SelectItem>)}</SelectContent>
                   </Select>
                   <Input className="w-24" type="text" inputMode="numeric" aria-label="Năm của quý"
                     key={periodStart.year()} defaultValue={periodStart.format("YYYY")}
-                    onChange={(e) => { if (/^\d{4}$/.test(e.target.value) && Number(e.target.value) >= 1000) onDate(`${e.target.value}-${periodStart.format("MM")}-06`); }}
+                    onChange={(e) => { if (/^\d{4}$/.test(e.target.value) && Number(e.target.value) >= 1000) onDate(`${e.target.value}-${periodStart.format("MM")}-${cutoff}`); }}
                     onBlur={(e) => { e.target.value = periodStart.format("YYYY"); }} />
                 </div>}
             </PopoverContent>

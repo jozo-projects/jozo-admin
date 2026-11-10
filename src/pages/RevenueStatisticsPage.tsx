@@ -1,4 +1,5 @@
 import billAPis from "@/apis/bill.apis";
+import { getRevenueSettings, revenueSettingsKey } from "@/apis/revenueSettings.api";
 import { cancellationRange } from "@/utils/cancellationPeriod";
 import CancelledScheduleReport from "@/pages/RoomSchedule/components/CancelledScheduleReport";
 import BillMemberSummary from "@/components/bill/BillMemberSummary";
@@ -11,6 +12,7 @@ import {
   currentBusinessDate,
   customBusinessRange,
   fixedRevenueRange,
+  DEFAULT_REVENUE_SETTINGS,
   VN_TZ,
   type RevenuePeriod,
   type RevenueRange,
@@ -29,6 +31,7 @@ import { TrendingUp, History, Pencil } from "lucide-react";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -581,6 +584,9 @@ const BillsTableSection = ({
 );
 
 const RevenueStatisticsPage = () => {
+  const settingsQuery = useQuery({ queryKey: revenueSettingsKey, queryFn: getRevenueSettings, staleTime: 0 });
+  const settings = settingsQuery.data ?? DEFAULT_REVENUE_SETTINGS;
+  const initializedSettings = useRef(false);
   const [reportTab, setReportTab] = useState<"revenue" | "cancelled">("revenue");
   const [cancelDate, setCancelDate] = useState(() => dayjs().tz(VN_TZ).subtract(3, "hour").format("YYYY-MM-DD"));
   const [cancelPeriod, setCancelPeriod] = useState<RevenuePeriod>("daily");
@@ -608,6 +614,15 @@ const RevenueStatisticsPage = () => {
   const [historyBill, setHistoryBill] = useState<RevenueBill | null>(null);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
+  useEffect(() => {
+    if (settingsQuery.data && !initializedSettings.current) {
+      initializedSettings.current = true;
+      const date = currentBusinessDate(new Date(), settingsQuery.data);
+      setSelectedDate(date);
+      setCustomRange(customBusinessRange(date, date, settingsQuery.data));
+    }
+  }, [settingsQuery.data]);
+
   // Đảm bảo staff chỉ có thể xem tab "daily"
   useEffect(() => {
     if (isStaff && activeTab !== "daily") {
@@ -619,8 +634,8 @@ const RevenueStatisticsPage = () => {
   const range = useMemo(
     () => effectivePeriod === "custom"
       ? customRange
-      : fixedRevenueRange(effectivePeriod, selectedDate),
-    [effectivePeriod, customRange, selectedDate],
+      : fixedRevenueRange(effectivePeriod, selectedDate, settings),
+    [effectivePeriod, customRange, selectedDate, settings],
   );
 
   const cancelRange = useMemo(() => cancelPeriod === "custom" ? cancelCustom : cancellationRange(cancelPeriod, cancelDate), [cancelPeriod, cancelCustom, cancelDate]);
@@ -661,7 +676,7 @@ const RevenueStatisticsPage = () => {
 
   const revenueQuery = useQuery({
     queryKey: ["billRevenue", range.start, range.end, isStaff],
-    enabled: reportTab === "revenue" || !isAdmin,
+    enabled: !!settingsQuery.data && !settingsQuery.isError && initializedSettings.current && (reportTab === "revenue" || !isAdmin),
     queryFn: async () => {
       const response = await billAPis.getBillRevenue(range.start, range.end, "exact");
       if (!response.data.result) {
@@ -744,7 +759,7 @@ const RevenueStatisticsPage = () => {
   const handleTabChange = (value: RevenuePeriod) => {
     if (isStaff && value !== "daily") return;
     if (value === "custom" && activeTab !== "custom") {
-      setCustomRange(customBusinessRange(selectedDate, selectedDate));
+      setCustomRange(customBusinessRange(selectedDate, selectedDate, settings));
     }
     setActiveTab(value);
     setSelectedPaymentMethod("all");
@@ -841,6 +856,8 @@ const RevenueStatisticsPage = () => {
     };
   };
 
+  if (!settingsQuery.data || settingsQuery.isError) return <div className="space-y-3"><PageHeader title="Thống kê doanh thu" icon={TrendingUp} /><p role={settingsQuery.isError ? "alert" : undefined}>{settingsQuery.isError ? "Không tải được cài đặt doanh thu. Vui lòng tải lại trang." : "Đang tải cài đặt doanh thu..."}</p></div>;
+
   return (
     <div className="flex w-full flex-col gap-6">
       <PageHeader
@@ -854,6 +871,7 @@ const RevenueStatisticsPage = () => {
       </div>}
       <RevenuePeriodSelector
         key={reportTab}
+        settings={reportTab === "cancelled" && isAdmin ? DEFAULT_REVENUE_SETTINGS : settings}
         period={reportTab === "cancelled" && isAdmin ? cancelPeriod : effectivePeriod}
         date={reportTab === "cancelled" && isAdmin ? cancelDate : selectedDate}
         range={reportTab === "cancelled" && isAdmin ? cancelRange : range}

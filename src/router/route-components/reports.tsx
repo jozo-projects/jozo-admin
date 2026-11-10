@@ -18,9 +18,9 @@ const RetailSalesPage = lazy(
 );
 
 export const CalendarRoute = () => (
-  <AdminStaffRoute>
+  <AdminRoute>
     <CalendarPage />
-  </AdminStaffRoute>
+  </AdminRoute>
 );
 
 export const PriceRoute = () => (

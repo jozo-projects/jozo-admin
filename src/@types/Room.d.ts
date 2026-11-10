@@ -12,6 +12,7 @@ interface ITimeSlot {
 }
 
 interface IRoom {
+  services?: ("singing" | "gaming")[];
   _id?: ObjectId;
   roomId: number;
   roomName: string;
@@ -31,6 +32,7 @@ interface IRoomSchedule {
   endTime: string | null;
   status: RoomStatus;
   note?: string;
+  activityType?: "nintendo-switch" | "music-box";
   createdAt: string;
   updatedAt: string;
   createdBy: string;

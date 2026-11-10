@@ -29,9 +29,11 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { roomStatusOptions, roomTypeOptions } from "../constants";
+import { RoomService, toggleRoomService } from "./roomServices";
 
 // FormValues đồng bộ với IRoom tối giản
 type FormValues = {
+  services?: RoomService[];
   roomId: number;
   roomName: string;
   roomType: RoomType;
@@ -82,6 +84,7 @@ function UpsertRoomPage() {
         maxCapacity: data.maxCapacity || 1,
         description: data.description,
         status: data.status,
+        services: data.services,
       });
     }
   }, [id, data]);
@@ -109,6 +112,10 @@ function UpsertRoomPage() {
   });
 
   const onSubmit = async (values: FormValues) => {
+    if ((!id || values.services !== undefined) && !values.services?.length) {
+      form.setError("services", { message: "Chọn ít nhất một dịch vụ" });
+      return;
+    }
     const payload: IRoom = {
       ...data,
       roomId: values.roomId,
@@ -116,6 +123,7 @@ function UpsertRoomPage() {
       roomType: values.roomType,
       description: values.description || "",
       status: values.status,
+      services: values.services,
     };
 
     if (id) {
@@ -202,6 +210,29 @@ function UpsertRoomPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="services"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Dịch vụ phòng</FormLabel>
+                {id && field.value === undefined && <p className="text-sm text-muted-foreground">Chưa xác định dịch vụ cho phòng cũ.</p>}
+                <div className="flex flex-wrap gap-5">
+                  {([
+                    ["singing", "Hát"],
+                    ["gaming", "Chơi game"],
+                  ] as const).map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={field.value?.includes(value) ?? false} onChange={(event) => field.onChange(toggleRoomService(field.value, value, event.target.checked))} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
                 <FormMessage />
               </FormItem>
             )}
