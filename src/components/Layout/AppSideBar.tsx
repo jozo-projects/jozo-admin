@@ -128,6 +128,7 @@ export function AppSidebar() {
   const managementGroups = menuItems.filter(
     (item) => item.subItems && item.subItems.length > 0,
   );
+  const settingsItems = menuItems.filter((item) => item.section === "settings");
 
   const menuButtonClassName = cn(
     "relative rounded-lg font-medium",
@@ -305,6 +306,37 @@ export function AppSidebar() {
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
+        )}
+        {settingsItems.length > 0 && (
+          <>
+            <SidebarSeparator className="my-2" />
+            <SidebarGroup className="p-0">
+              <SidebarGroupContent>
+                <SidebarMenu className="gap-1">
+                  {settingsItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item.url)}
+                        tooltip={item.title}
+                        className={cn(menuButtonClassName, activeMenuButtonClassName)}
+                      >
+                        <Link
+                          to={item.url || "#"}
+                          onMouseEnter={() => prefetchRouteData(item.url)}
+                          onFocus={() => prefetchRouteData(item.url)}
+                          onClick={closeMobileSidebar}
+                        >
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
         )}
       </SidebarContent>
 

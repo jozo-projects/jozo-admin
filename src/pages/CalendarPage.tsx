@@ -5,8 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CustomCalendar } from "@/components/ui/custom-calendar";
 import holidayApis, { Holiday } from "@/apis/holiday.apis";
 import { Spin } from "@/components/ui/spin";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Settings2 } from "lucide-react";
 import { RevenueSettingsForm } from "@/components/modules/RevenueSettingsForm";
+import OnlineGameBookingConfig from "@/pages/RoomDeviceConnections/OnlineGameBookingConfig";
+import DeviceAuthorizationConfig from "@/pages/RoomDeviceConnections/DeviceAuthorizationConfig";
+import TvReleaseConfig from "@/pages/RoomDeviceConnections/TvReleaseConfig";
 
 function CalendarPage() {
   const { toast } = useToast();
@@ -72,9 +75,12 @@ function CalendarPage() {
     <Page>
       <PageHeader
         title="Cài đặt chung"
-        description="Cài đặt kỳ doanh thu và quản lý ngày lễ"
-        icon={CalendarIcon}
+        description="Quản lý các cài đặt chung của Jozo"
+        icon={Settings2}
       />
+      <OnlineGameBookingConfig />
+      <DeviceAuthorizationConfig />
+      <TvReleaseConfig />
       <Card className="mb-4"><CardContent className="p-3 sm:p-6 space-y-3"><h2 className="font-semibold">Kỳ doanh thu</h2><RevenueSettingsForm /></CardContent></Card>
       <h2 className="mb-3 font-semibold">Ngày lễ</h2>
       <Spin spinning={isLoading}>

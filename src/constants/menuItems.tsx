@@ -3,7 +3,6 @@ import {
   BedDouble,
   BellRing,
   Briefcase,
-  Calendar,
   ClipboardList,
   Clock,
   Coffee,
@@ -32,7 +31,7 @@ export type MenuItem = {
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
   subItems?: MenuItem[];
   roles?: Role[]; // Restrict visibility by role
-  section?: "quick-access" | "personal";
+  section?: "quick-access" | "personal" | "settings";
 };
 
 const STAFF_AND_ADMIN = [Role.Admin, Role.Staff];
@@ -47,16 +46,16 @@ const MENU_ITEMS: MenuItem[] = [
     section: "quick-access",
   },
   {
-    title: "Lịch sử hỗ trợ",
-    url: PATHS.SUPPORT_HISTORY,
-    icon: ClipboardList,
+    title: "Tin nhắn Facebook",
+    url: PATHS.MESSENGER_MESSAGES,
+    icon: MessageCircle,
     roles: STAFF_AND_ADMIN,
     section: "quick-access",
   },
   {
-    title: "Tin nhắn Facebook",
-    url: PATHS.MESSENGER_MESSAGES,
-    icon: MessageCircle,
+    title: "Tổng doanh thu",
+    url: PATHS.TOTAL_REVENUE,
+    icon: BarChart3,
     roles: STAFF_AND_ADMIN,
     section: "quick-access",
   },
@@ -84,14 +83,14 @@ const MENU_ITEMS: MenuItem[] = [
   {
     title: "Cài đặt chung",
     url: PATHS.CALENDAR,
-    icon: Calendar,
+    icon: Settings2,
     roles: ADMIN_ONLY,
-    section: "quick-access",
+    section: "settings",
   },
   {
-    title: "Tổng doanh thu",
-    url: PATHS.TOTAL_REVENUE,
-    icon: BarChart3,
+    title: "Lịch sử hỗ trợ",
+    url: PATHS.SUPPORT_HISTORY,
+    icon: ClipboardList,
     roles: STAFF_AND_ADMIN,
     section: "quick-access",
   },
@@ -132,15 +131,15 @@ const MENU_ITEMS: MenuItem[] = [
     roles: STAFF_AND_ADMIN,
     subItems: [
       {
-        title: "Kiểm kho",
-        url: PATHS.FNB_SHIFT_COUNT,
-        icon: ClipboardList,
-        roles: STAFF_AND_ADMIN,
-      },
-      {
         title: "Bán lẻ",
         url: PATHS.RETAIL_SALES,
         icon: ShoppingCart,
+        roles: STAFF_AND_ADMIN,
+      },
+      {
+        title: "Kiểm kho",
+        url: PATHS.FNB_SHIFT_COUNT,
+        icon: ClipboardList,
         roles: STAFF_AND_ADMIN,
       },
       {
@@ -150,15 +149,15 @@ const MENU_ITEMS: MenuItem[] = [
         roles: ADMIN_ONLY,
       },
       {
-        title: "Mẫu tùy chọn",
-        url: PATHS.CUSTOMIZATION_GROUP_TEMPLATES,
-        icon: Settings2,
-        roles: ADMIN_ONLY,
-      },
-      {
         title: "Thống kê F&B",
         url: PATHS.FNB_STATS,
         icon: BarChart3,
+        roles: ADMIN_ONLY,
+      },
+      {
+        title: "Mẫu tùy chọn",
+        url: PATHS.CUSTOMIZATION_GROUP_TEMPLATES,
+        icon: Settings2,
         roles: ADMIN_ONLY,
       },
     ],
@@ -188,9 +187,9 @@ const MENU_ITEMS: MenuItem[] = [
     roles: ADMIN_ONLY,
     subItems: [
       {
-        title: "Tài khoản",
-        url: PATHS.USERS_MANAGEMENT,
-        icon: Users,
+        title: "Lịch nhân viên",
+        url: PATHS.STAFF_SCHEDULE,
+        icon: Clock,
         roles: ADMIN_ONLY,
       },
       {
@@ -200,21 +199,21 @@ const MENU_ITEMS: MenuItem[] = [
         roles: ADMIN_ONLY,
       },
       {
-        title: "Lịch nhân viên",
-        url: PATHS.STAFF_SCHEDULE,
-        icon: Clock,
-        roles: ADMIN_ONLY,
-      },
-      {
-        title: "Cấu hình lương",
-        url: PATHS.STAFF_SALARY_CONFIG,
-        icon: DollarSign,
+        title: "Tài khoản",
+        url: PATHS.USERS_MANAGEMENT,
+        icon: Users,
         roles: ADMIN_ONLY,
       },
       {
         title: "Lỗi nhân viên",
         url: PATHS.STAFF_ERROR_LOGS,
         icon: BellRing,
+        roles: ADMIN_ONLY,
+      },
+      {
+        title: "Cấu hình lương",
+        url: PATHS.STAFF_SALARY_CONFIG,
+        icon: DollarSign,
         roles: ADMIN_ONLY,
       },
       {
