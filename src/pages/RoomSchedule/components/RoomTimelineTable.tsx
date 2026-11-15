@@ -1053,13 +1053,21 @@ const RoomTimelineTable: React.FC = () => {
     });
   };
 
+  const activeSupportRequests = Object.values(supportRequests)
+    .filter((request) =>
+      ["pending", "not_supported", "acknowledged"].includes(request.status),
+    )
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const getSupportRoomName = (roomId: string) =>
+    roomsData?.find(
+      (room) => String(room.roomId) === String(roomId) || String(room._id) === String(roomId),
+    )?.roomName ?? `Phòng ${roomId}`;
   const selectedSupportRequest = supportRequestModalId
     ? (supportRequests[supportRequestModalId] ?? null)
     : null;
-  const selectedSupportRoomName =
-    roomsData?.find(
-      (room) => String(room._id) === String(selectedSupportRequest?.roomId),
-    )?.roomName ?? `Phòng ${selectedSupportRequest?.roomId ?? ""}`;
+  const selectedSupportRoomName = selectedSupportRequest
+    ? getSupportRoomName(selectedSupportRequest.roomId)
+    : "";
 
   return (
     <Page>
@@ -1080,6 +1088,27 @@ const RoomTimelineTable: React.FC = () => {
         </TabsList>
 
         <TabsContent value="rooms" className="mt-4 min-w-0 space-y-6">
+          {activeSupportRequests.length > 0 && (
+            <section aria-label="Yêu cầu hỗ trợ đang mở" className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+              <h2 className="mb-2 text-sm font-semibold">Yêu cầu hỗ trợ đang mở ({activeSupportRequests.length})</h2>
+              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+                {activeSupportRequests.map((request) => (
+                  <button
+                    key={request.requestId}
+                    type="button"
+                    onClick={() => handleSupportRequestBell(request.requestId)}
+                    className="rounded-md border bg-background px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="font-medium">{getSupportRoomName(request.roomId)}</span>
+                    <span className="ml-2 text-muted-foreground">
+                      {request.status === "pending" ? "Đang chờ" : request.status === "not_supported" ? "Chưa hỗ trợ" : "Đang xử lý"}
+                      {" · "}{dayjs(request.createdAt).format("DD/MM HH:mm")}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           <TimelineControls
             date={roomsDate}
             onDateChange={setRoomsDate}

@@ -92,7 +92,7 @@ export default function RoomDeviceIndicators({ roomId, roomName }: { roomId: num
         if (!requests.length && !granted && !connected && !denied.length) return null;
         const state = requests.length ? `Có ${requests.length} yêu cầu chờ duyệt` : connected ? (granted ? "Có kết nối · đã cấp quyền" : "Có kết nối · chưa xác nhận quyền") : granted ? "Đã cấp quyền · không kết nối" : "Có yêu cầu đã từ chối";
         const Icon = type === "control" ? Gamepad2 : Tv;
-        return <Tooltip key={type}><TooltipTrigger asChild><button type="button" aria-label={`${label(type)} ${roomName}: ${state}`} onClick={() => setSelected(type)} className={`inline-flex min-h-8 min-w-8 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${requests.length ? "text-red-600 motion-safe:animate-pulse" : connected ? "text-green-600" : "text-muted-foreground"}`}><Icon className="h-4 w-4" /></button></TooltipTrigger><TooltipContent>{label(type)}: {state}</TooltipContent></Tooltip>;
+        return <Tooltip key={type}><TooltipTrigger asChild><button type="button" aria-label={`${label(type)} ${roomName}: ${state}`} onClick={() => setSelected(type)} className={`inline-flex min-h-8 min-w-8 items-center justify-center rounded-md hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${requests.length ? "text-amber-600 motion-safe:animate-pulse" : connected ? "text-green-600" : "text-muted-foreground"}`}><Icon className="h-4 w-4" /></button></TooltipTrigger><TooltipContent>{label(type)}: {state}</TooltipContent></Tooltip>;
       })}
     </span>
     <Dialog open={selected !== null} onOpenChange={(open) => { if (!open && !busy && !confirmation) setSelected(null); }}>
