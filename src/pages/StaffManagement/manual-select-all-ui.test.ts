@@ -1,0 +1,33 @@
+// @vitest-environment jsdom
+import { afterEach, expect, it, vi } from 'vitest';
+import { act, createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import Page from './ManualNotificationPage';
+const api = vi.hoisted(() => ({ get: vi.fn() }));
+vi.mock('@/utils/http', () => ({ default: api }));
+vi.mock('@/components/shared', () => ({ PageHeader: () => null }));
+vi.mock('@/hooks/use-users', () => ({ useUsers: () => ({ users: [], pagination: { total: 0, total_pages: 0 } }) }));
+vi.mock('./ManualNotificationHistory', () => ({ default: () => null }));
+vi.mock('./ManualNotification', () => ({ default: ({selected, onRemove}: {selected: {id:string}[], onRemove: (id:string) => void}) => createElement('button', {onClick: () => onRemove('0')}, `Đã chọn ${selected.length}`) }));
+Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+let root: Root;
+afterEach(() => { if (root) act(() => root.unmount()); document.body.innerHTML = ''; api.get.mockReset(); });
+it('loads all pages without search, permits exclusion and keeps selection on failure', async () => {
+  const items = Array.from({length: 101}, (_, i) => ({_id: String(i), name: `N${i}`, role: 'staff'}));
+  api.get.mockImplementation((_url, {params}) => Promise.resolve({data: {result: {items: items.slice((params.page - 1) * 100, params.page * 100), pagination: {page: params.page, limit: 100, total: 101, total_pages: 2}}}}));
+  const host = document.createElement('div'); document.body.append(host); root = createRoot(host);
+  await act(async () => root.render(createElement(Page)));
+  expect(api.get).not.toHaveBeenCalled();
+  await act(async () => [...host.querySelectorAll('button')].find(b => b.textContent === 'Tạo thông báo')!.click());
+  const button = () => [...document.querySelectorAll('button')].find(b => b.textContent === 'Chọn tất cả nhân viên')!;
+  await act(async () => button().click());
+  expect(document.body.textContent).toContain('Đã chọn 101');
+  expect(api.get).toHaveBeenCalledTimes(2);
+  expect(api.get.mock.calls[0][1].params).toEqual({page: 1, limit: 100, role: 'staff', sort_by: '_id', sort_order: 'asc'});
+  await act(async () => [...document.querySelectorAll('button')].find(b => b.textContent === 'Đã chọn 101')!.click());
+  expect(document.body.textContent).toContain('Đã chọn 100');
+  api.get.mockRejectedValue(new Error('offline'));
+  await act(async () => button().click());
+  expect(document.body.textContent).toContain('Đã chọn 100');
+  expect(document.body.textContent).toContain('Không tải được danh sách đầy đủ');
+});

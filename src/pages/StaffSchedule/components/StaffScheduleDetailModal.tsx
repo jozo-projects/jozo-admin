@@ -232,6 +232,7 @@ const StaffScheduleDetailModal: React.FC<StaffScheduleDetailModalProps> = ({
         rejectedReason?: string;
       }) => staffScheduleApis.updateScheduleStatus(schedule!._id, data),
       onSuccess: (_data, variables) => {
+        void queryClient.invalidateQueries({ queryKey: ["shift-reminder-progress"] });
         queryClient.invalidateQueries({ queryKey: ["staffSchedules"] });
         queryClient.invalidateQueries({ queryKey: ["mySchedules"] });
         queryClient.invalidateQueries({ queryKey: ["staff-schedules"] });
@@ -272,6 +273,7 @@ const StaffScheduleDetailModal: React.FC<StaffScheduleDetailModalProps> = ({
   const { mutate: deleteSchedule, isPending: isDeleting } = useMutation({
     mutationFn: () => staffScheduleApis.deleteSchedule(schedule!._id),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["shift-reminder-progress"] });
       const deletedId = schedule!._id;
       // Drop detail cache for this id — do not invalidate (refetch would GET a deleted row → 404).
       queryClient.removeQueries({

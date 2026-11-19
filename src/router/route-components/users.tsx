@@ -19,6 +19,7 @@ const CreateStaffPage = lazy(
 const EditStaffPage = lazy(
   () => import("@/pages/StaffManagement/pages/EditUserPage"),
 );
+const ManualNotificationPage = lazy(() => import("@/pages/StaffManagement/ManualNotificationPage"));
 const StaffPage = lazy(() => import("@/pages/StaffPage"));
 
 export const UsersRoute = () => (
@@ -62,3 +63,5 @@ export const StaffRoute = () => (
     <StaffPage />
   </StaffRouteGuard>
 );
+
+export const ManualNotificationRoute = () => <AdminRoute><ManualNotificationPage /></AdminRoute>;

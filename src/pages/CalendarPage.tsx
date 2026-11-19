@@ -10,6 +10,7 @@ import { RevenueSettingsForm } from "@/components/modules/RevenueSettingsForm";
 import OnlineGameBookingConfig from "@/pages/RoomDeviceConnections/OnlineGameBookingConfig";
 import DeviceAuthorizationConfig from "@/pages/RoomDeviceConnections/DeviceAuthorizationConfig";
 import TvReleaseConfig from "@/pages/RoomDeviceConnections/TvReleaseConfig";
+import ShiftReminderSettings from "@/components/modules/ShiftReminderSettings";
 
 function CalendarPage() {
   const { toast } = useToast();
@@ -81,6 +82,7 @@ function CalendarPage() {
       <OnlineGameBookingConfig />
       <DeviceAuthorizationConfig />
       <TvReleaseConfig />
+      <ShiftReminderSettings />
       <Card className="mb-4"><CardContent className="p-3 sm:p-6 space-y-3"><h2 className="font-semibold">Kỳ doanh thu</h2><RevenueSettingsForm /></CardContent></Card>
       <h2 className="mb-3 font-semibold">Ngày lễ</h2>
       <Spin spinning={isLoading}>

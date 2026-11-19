@@ -32,7 +32,7 @@ interface IRoomSchedule {
   endTime: string | null;
   status: RoomStatus;
   note?: string;
-  activityType?: "nintendo-switch" | "music-box";
+  activityType?: "nintendo-switch" | "music-box" | "music-box-and-nintendo-switch";
   createdAt: string;
   updatedAt: string;
   createdBy: string;

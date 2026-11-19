@@ -15,6 +15,9 @@ import { DeleteModal } from "@/components/shared/DeleteModal";
 import { toast } from "@/hooks/use-toast";
 import { Role } from "@/constants/enum";
 import PaginationContainer from "@/pages/RecruitmentPage/components/PaginationContainer";
+import { EmployeeShiftOverride } from "@/components/modules/ShiftReminderSettings";
+import { useIsAdmin } from "@/hooks/usePermission";
+import { useIsMutating } from "@tanstack/react-query";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -24,6 +27,9 @@ const StaffManagementPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
+  const [overrideUserId, setOverrideUserId] = useState<string | null>(null);
+  const isAdmin = useIsAdmin();
+  const savingOverride = useIsMutating({ mutationKey: ["shift-reminder-override-save"] }) > 0;
   const {
     users,
     isLoadingUsers,
@@ -107,6 +113,7 @@ const StaffManagementPage = () => {
         }
       />
 
+
       {/* Search Bar */}
       <Card>
         <CardContent className="pt-6">
@@ -155,7 +162,10 @@ const StaffManagementPage = () => {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {isAdmin && user.role === Role.Staff && <Button variant="outline" size="sm" disabled={savingOverride} onClick={() => setOverrideUserId(overrideUserId === user._id ? null : user._id)}>
+                    Ngoại lệ đăng ký ca
+                  </Button>}
                   <Button
                     variant="outline"
                     size="sm"
@@ -172,6 +182,7 @@ const StaffManagementPage = () => {
                   </Button>
                 </div>
               </div>
+              {overrideUserId === user._id && isAdmin && <EmployeeShiftOverride key={user._id} userId={user._id} />}
             </CardContent>
           </Card>
         ))}

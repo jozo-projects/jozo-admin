@@ -11,7 +11,7 @@ interface ICreateRoomScheduleRequest {
   status: RoomStatus;
   cancellationReason?: string;
   note?: string;
-  activityType?: "nintendo-switch" | "music-box";
+  activityType?: "nintendo-switch" | "music-box" | "music-box-and-nintendo-switch";
   customerPhone?: string;
   giftEnabled?: boolean;
   /** Gửi `null` hoặc `""` để xóa promotion đã chọn */
@@ -43,6 +43,8 @@ interface CancellationReport {
 const SCHEDULE_CONTROLLER = "/room-schedule";
 
 const roomsScheduleApis = {
+  relocateTimeline: (id: string, payload: { expectedRoomId: string; expectedStartTime: string; roomId?: string; startTime?: string; targetId?: string; targetExpectedRoomId?: string; targetExpectedStartTime?: string }) =>
+    http.post(`${SCHEDULE_CONTROLLER}/${id}/relocate`, payload),
   getRoomSchedules: (date: string) =>
     http.get<HTTPResponse<IRoomSchedule[]>>(SCHEDULE_CONTROLLER, {
       params: {

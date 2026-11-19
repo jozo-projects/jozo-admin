@@ -31,6 +31,16 @@ const LEGEND_ITEMS = [
   { label: "Đã kết thúc", className: "bg-gray-300" },
 ] as const;
 
+const ROOM_DESKTOP_LEGEND = [
+  { label: "Đã đặt tại quầy", className: "bg-blue-500" },
+  { label: "Đã đặt online / Khoá phòng", className: "bg-orange-500" },
+  { label: "Đang sử dụng", className: "bg-green-500" },
+  { label: "Quá giờ", className: "bg-red-600" },
+  { label: "Bảo trì", className: "bg-gray-500" },
+  { label: "Đã huỷ", className: "bg-red-500" },
+  { label: "Đã kết thúc", className: "bg-gray-300" },
+] as const;
+
 interface TimelineControlsProps {
   date: Dayjs;
   onDateChange: (date: Dayjs) => void;
@@ -41,6 +51,7 @@ interface TimelineControlsProps {
   onGoToNow: () => void;
   isBusinessToday: boolean;
   dateLabel?: string;
+  roomDesktopLegend?: boolean;
   extraActions?: React.ReactNode;
   className?: string;
 }
@@ -55,6 +66,7 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
   onGoToNow,
   isBusinessToday,
   dateLabel = "Chọn ngày",
+  roomDesktopLegend = false,
   extraActions,
   className,
 }) => {
@@ -148,13 +160,14 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
               Auto-scroll
             </label>
           </div>
+          {roomDesktopLegend && <span className="text-xs text-muted-foreground">Kéo lịch đã đặt sang phòng khác để chuyển hoặc đổi phòng.</span>}
           {extraActions}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{dateLabel}</span>
-        {LEGEND_ITEMS.map((item) => (
+        {(roomDesktopLegend ? ROOM_DESKTOP_LEGEND : LEGEND_ITEMS).map((item) => (
           <span key={item.label} className="inline-flex items-center gap-1.5">
             <span
               className={cn("inline-block h-2.5 w-2.5 rounded-sm", item.className)}
@@ -163,6 +176,7 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
             {item.label}
           </span>
         ))}
+        {roomDesktopLegend && <span>Màu đậm hơn: khoảng thời gian đã qua</span>}
         <span className="text-amber-700">Nhãn (+1) = sáng hôm sau</span>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { suppressPush } from "@/services/shift-push";
 import { AUTH_EVENTS } from "@/constants/events";
 import PATHS from "@/constants/paths";
 import { toast } from "@/hooks/use-toast";
@@ -19,13 +20,21 @@ function isPublicAuthRequest(url?: string) {
   return PUBLIC_AUTH_PATHS.some((path) => url.includes(path));
 }
 
-function handleUnauthorized() {
+async function handleUnauthorized() {
+  const initialToken = localStorage.getItem("access_token");
   if (isHandlingUnauthorized || window.location.pathname === PATHS.LOGIN) {
     return;
   }
 
   isHandlingUnauthorized = true;
 
+  try { await suppressPush(true); } catch {
+    isHandlingUnauthorized = false;
+    toast({ title: "Không thể tắt thông báo an toàn. Hãy xóa dữ liệu trang trong trình duyệt.", variant: "destructive" });
+    return;
+  }
+
+  if (localStorage.getItem("access_token") !== initialToken) { isHandlingUnauthorized = false; return; }
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
   window.dispatchEvent(new Event(AUTH_EVENTS.LOGOUT_SUCCESS));
@@ -46,7 +55,7 @@ http.interceptors.request.use(
   function (config) {
     // Read latest token from localStorage on each request
     const token = localStorage.getItem("access_token");
-    if (token) {
+    if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     
@@ -77,7 +86,7 @@ http.interceptors.response.use(
     const status = error.response?.status;
 
     if (status === 401 && !isPublicAuthRequest(error.config?.url)) {
-      handleUnauthorized();
+      if (error.config?.headers?.Authorization === `Bearer ${localStorage.getItem("access_token")}`) void handleUnauthorized();
       return Promise.reject(error);
     }
 

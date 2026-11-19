@@ -95,7 +95,7 @@ const buildScheduleSchema = (requirePeopleCount: boolean) =>
         (value) => !value || isValidMemberPhone(value),
         "SĐT phải có 10–11 số và bắt đầu bằng 0",
       ),
-    activityType: z.enum(["nintendo-switch", "music-box"]).optional(),
+    activityType: z.enum(["nintendo-switch", "music-box", "music-box-and-nintendo-switch"]).optional(),
     note: z.string().max(200).optional(),
     giftEnabled: z.boolean().optional(),
     promotionId: z.string().optional(),
@@ -559,7 +559,7 @@ const ScheduleModal: React.FC<ScheduleModalProps> = ({
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-6">
                 <div className="flex flex-col gap-4">
                 {scheduleError && <p role="alert" className="text-destructive">{scheduleError}</p>}
-                <FormField control={control} name="activityType" render={({ field }) => <FormItem><FormLabel>Dịch vụ</FormLabel><Select value={field.value} onValueChange={field.onChange} disabled={room?.roomType === RoomType.Dorm}><FormControl><SelectTrigger><SelectValue placeholder="Chọn dịch vụ" /></SelectTrigger></FormControl><SelectContent><SelectItem value="music-box">Music Box</SelectItem><SelectItem value="nintendo-switch" disabled={gameAvailability.data !== true}>Nintendo Switch {gameAvailability.data === false ? "(hết máy)" : ""}</SelectItem></SelectContent></Select><FormMessage /></FormItem>} />
+                <FormField control={control} name="activityType" render={({ field }) => <FormItem><FormLabel>Dịch vụ</FormLabel><Select value={field.value} onValueChange={field.onChange} disabled={room?.roomType === RoomType.Dorm}><FormControl><SelectTrigger><SelectValue placeholder="Chọn dịch vụ" /></SelectTrigger></FormControl><SelectContent><SelectItem value="music-box">Music Box</SelectItem><SelectItem value="nintendo-switch" disabled={gameAvailability.data !== true}>Nintendo Switch {gameAvailability.data === false ? "(hết máy)" : ""}</SelectItem><SelectItem value="music-box-and-nintendo-switch" disabled={gameAvailability.data !== true}>Hát và chơi Nintendo Switch {gameAvailability.data === false ? "(hết máy)" : ""}</SelectItem></SelectContent></Select><FormMessage /></FormItem>} />
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   <FormField
                     control={control}

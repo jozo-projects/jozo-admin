@@ -1,3 +1,4 @@
+import { reconcilePush, suppressPush } from "@/services/shift-push";
 // AuthContext.js
 import { User } from "@/@types/user";
 import authorizationApis from "@/apis/authorization.apis";
@@ -67,6 +68,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [queryClient]);
   
+  useEffect(() => {
+    if (!accessToken || userData) void reconcilePush(userData?.data.result?._id || null).catch(() => suppressPush(true).catch(() => undefined));
+  }, [accessToken, userData]);
+
+  useEffect(() => {
+    const sync = (event: StorageEvent) => {
+      if (event.key !== "access_token" && event.key !== null) return;
+      void suppressPush(!localStorage.getItem("access_token")).catch(() => undefined);
+      setAccessToken(localStorage.getItem("access_token"));
+      queryClient.clear();
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, [queryClient]);
+
   const value = {
     user: userData?.data.result || null,
     isAuthenticated: !!accessToken && !!userData?.data.result,

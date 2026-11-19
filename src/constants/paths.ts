@@ -28,6 +28,7 @@ const PATHS = {
 
   // staff management
   STAFF_MANAGEMENT: "/staff-management",
+  MANUAL_NOTIFICATION: "/staff-notifications",
   STAFF_MANAGEMENT_NEW: "/staff-management/new",
   STAFF_MANAGEMENT_EDIT: "/staff-management/:id/edit",
 

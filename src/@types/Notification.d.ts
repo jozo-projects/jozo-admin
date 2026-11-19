@@ -5,6 +5,7 @@ export enum NotificationType {
   ScheduleRejected = "schedule_rejected",
   ScheduleAssigned = "schedule_assigned",
   ScheduleReminder = "schedule_reminder",
+  ShiftRegistrationReminder = "shift_registration_reminder",
   ScheduleStatusUpdated = "schedule_status_updated",
   System = "system",
   MessengerMessageReceived = "messenger_message_received",

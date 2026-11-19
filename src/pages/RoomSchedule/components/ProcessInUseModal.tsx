@@ -365,6 +365,19 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
     },
   });
 
+  const activityMutation = useMutation({
+    mutationFn: (activityType: NonNullable<IRoomSchedule["activityType"]>) =>
+      roomsScheduleApis.updateSchedule(schedule._id, { activityType }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: getRoomSchedulesQueryKeyForSchedule(schedule), refetchType: "active" });
+      toast({ title: "Đã cập nhật dịch vụ" });
+    },
+    onError: (error) => showApiValidationErrorToast(error, {
+      title: "Không thể cập nhật dịch vụ",
+      description: "Vui lòng kiểm tra số máy và thử lại.",
+    }),
+  });
+
   // Mutation riêng để cập nhật promotion trên schedule
   const { mutate: updatePromotion } = useMutation({
     mutationFn: (promotionId: string | null) =>
@@ -1284,6 +1297,18 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                   : "—"}
               </DialogDescription>
             </DialogHeader>
+
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">Dịch vụ</span>
+              <Select value={schedule.activityType || ""} disabled={activityMutation.isPending || String(schedule.roomType).toLowerCase() === "dorm"} onValueChange={(value) => activityMutation.mutate(value as NonNullable<IRoomSchedule["activityType"]>)}>
+                <SelectTrigger aria-label="Dịch vụ" className="w-full sm:w-64"><SelectValue placeholder="Chưa xác định" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="music-box">Music Box</SelectItem>
+                  <SelectItem value="nintendo-switch">Nintendo Switch</SelectItem>
+                  <SelectItem value="music-box-and-nintendo-switch">Hát và chơi Nintendo Switch</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <Tabs
               value={activeTab}

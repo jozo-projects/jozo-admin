@@ -16,6 +16,12 @@ describe("ScheduleActivityIcon", () => {
     expect(html).toContain("lucide-mic-vocal");
   });
 
+  it("renders both icons for the combined activity", () => {
+    const html = renderToStaticMarkup(createElement(ScheduleActivityIcon, { activityType: "music-box-and-nintendo-switch" }));
+    expect(html).toContain('aria-label="Music Box"');
+    expect(html).toContain('aria-label="Nintendo Switch"');
+  });
+
   it("does not guess for an unknown or missing activity", () => {
     expect(renderToStaticMarkup(createElement(ScheduleActivityIcon, { activityType: undefined }))).toBe("");
     expect(renderToStaticMarkup(createElement(ScheduleActivityIcon, { activityType: "unknown" as never }))).toBe("");

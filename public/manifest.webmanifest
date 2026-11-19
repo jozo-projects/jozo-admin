@@ -1,0 +1,7 @@
+{
+  "id": "/",
+  "name": "Jozo Admin",
+  "short_name": "Jozo",
+  "start_url": "/my-schedule",
+  "display": "standalone"
+}

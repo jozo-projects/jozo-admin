@@ -71,6 +71,7 @@ import {
   NewStaffRoute,
   NewUserRoute,
   StaffManagementRoute,
+  ManualNotificationRoute,
   StaffRoute,
   UsersRoute,
 } from "./route-components/users";
@@ -338,6 +339,11 @@ const staffManagementRoute = createRoute({
   path: "staff-management",
   component: StaffManagementRoute,
 });
+const manualNotificationRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: "staff-notifications",
+  component: ManualNotificationRoute,
+});
 const newStaffRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "staff-management/new",
@@ -442,6 +448,7 @@ export const routeTree = rootRoute.addChildren([
     newUserRoute,
     editUserRoute,
     staffManagementRoute,
+    manualNotificationRoute,
     newStaffRoute,
     editStaffRoute,
     staffRoute,

@@ -1,3 +1,4 @@
+import { suppressPush } from "@/services/shift-push";
 import authorizationApis from "@/apis/authorization.apis";
 import { AuthShell } from "@/components/shared/AuthShell";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -58,9 +59,12 @@ export default function LoginPage() {
 
   const { mutate } = useMutation({
     mutationFn: authorizationApis.login,
-    onSuccess: ({ data }) => {
+    onSuccess: async ({ data }) => {
+      await suppressPush(true);
       localStorage.setItem("access_token", data.result?.access_token || "");
       localStorage.setItem("refresh_token", data.result?.refresh_token || "");
+
+      localStorage.removeItem("jozo.shiftPush.blocked");
 
       // Dispatch event login success
       window.dispatchEvent(new Event(AUTH_EVENTS.LOGIN_SUCCESS));

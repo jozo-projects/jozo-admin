@@ -15,7 +15,7 @@ import roomApis from "@/apis/room.apis";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-// import roomsScheduleApis from "@/apis/roomSchedule.api";
+import roomsScheduleApis from "@/apis/roomSchedule.api";
 import GiftDetailsModal from "@/components/modules/RoomSchedule/GiftDetailsModal";
 import OrderDetailsModal from "@/components/modules/RoomSchedule/OrderDetailsModal";
 import ScheduleModal from "@/components/modules/RoomSchedule/ScheduleModal";
@@ -40,11 +40,7 @@ import {
 } from "@/components/ui/tooltip";
 import { RoomType } from "@/constants/enum";
 import { useRoomEvents } from "@/context/RoomEventsContext";
-import {
-
-  useRoomSchedules,
-  useTurnOffAllRooms,
-} from "@/hooks/room-schedule";
+import { useRoomSchedules, useTurnOffAllRooms } from "@/hooks/room-schedule";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIsAdmin, useIsStaff } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
@@ -106,6 +102,7 @@ import {
   getTimelineScale,
   getTimelineTotalWidth,
   intersectsTimelineWindow,
+  isScheduleOverdue,
   packTimelineLanes,
 } from "../utils/timelineHours";
 import ProcessLockedModal from "./ProcessLockedModal";
@@ -233,7 +230,8 @@ const RoomTimelineTable: React.FC = () => {
   const isMobile = useIsMobile();
   const isStaff = useIsStaff();
   const isAdmin = useIsAdmin();
-  const [historicalSchedule, setHistoricalSchedule] = useState<IRoomSchedule | null>(null);
+  const [historicalSchedule, setHistoricalSchedule] =
+    useState<IRoomSchedule | null>(null);
   const {
     supportNotifications,
     supportRequests,
@@ -405,6 +403,62 @@ const RoomTimelineTable: React.FC = () => {
   });
   */
 
+  const [draggedSchedule, setDraggedSchedule] = useState<IRoomSchedule | null>(
+    null,
+  );
+  const [pendingSwap, setPendingSwap] = useState<{
+    source: IRoomSchedule;
+    target: IRoomSchedule;
+  } | null>(null);
+  const [pendingMove, setPendingMove] = useState<{
+    source: IRoomSchedule;
+    roomId: string;
+  } | null>(null);
+  const [dropRoomId, setDropRoomId] = useState<string | null>(null);
+  const roomName = (roomId: string) =>
+    roomsData?.find((room) => room._id === roomId)?.roomName || "Phòng không xác định";
+  const scheduleDescription = (schedule: IRoomSchedule) =>
+    `${schedule.customerName || "Lịch đặt"} · ${roomName(schedule.roomId)} · ${dayjs(schedule.startTime).format("HH:mm DD/MM")}${schedule.endTime ? ` – ${dayjs(schedule.endTime).format("HH:mm DD/MM")}` : ""}`;
+  const relocation = useMutation({
+    mutationFn: ({
+      source,
+      roomId,
+      target,
+    }: {
+      source: IRoomSchedule;
+      roomId?: string;
+      target?: IRoomSchedule;
+    }) =>
+      roomsScheduleApis.relocateTimeline(source._id, {
+        expectedRoomId: source.roomId,
+        expectedStartTime: source.startTime,
+        ...(target
+          ? {
+              targetId: target._id,
+              targetExpectedRoomId: target.roomId,
+              targetExpectedStartTime: target.startTime,
+            }
+          : { roomId }),
+      }),
+    onSuccess: (_data, variables) => {
+      refetch();
+      toast(isMobile ? { title: "Đã chuyển lịch phòng" } : {
+        title: variables.target ? "Đã đổi phòng cho hai lịch" : "Đã chuyển lịch phòng",
+        description: variables.target
+          ? `${roomName(variables.source.roomId)} ↔ ${roomName(variables.target.roomId)} · Giữ nguyên giờ từng lịch.`
+          : `${roomName(variables.source.roomId)} → ${roomName(variables.roomId || "")} · Giữ nguyên giờ.`,
+      });
+    },
+    onError: () => {
+      refetch();
+      toast({
+        title: "Không thể chuyển lịch",
+        description: isMobile ? "Lịch có thể đã thay đổi hoặc bị trùng. Vui lòng thử lại." : "Vui lòng kiểm tra lại lịch và phòng sau khi tải lại, rồi thử lại.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const { mutate: turnOffAllRooms, isPending: isTurningOffAllRooms } =
     useTurnOffAllRooms();
 
@@ -449,8 +503,6 @@ const RoomTimelineTable: React.FC = () => {
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isAutoScrollingRef = useRef(false);
-
-
 
   const scrollTimelineToMarker = (
     markerLeft: number,
@@ -776,7 +828,10 @@ const RoomTimelineTable: React.FC = () => {
     } else if (lowerStatus === "maintenance") {
       setMaintenanceSchedule(schedule);
       setModal("maintenance");
-    } else if (isAdmin && ["finished", "completed", "cancelled"].includes(lowerStatus)) {
+    } else if (
+      isAdmin &&
+      ["finished", "completed", "cancelled"].includes(lowerStatus)
+    ) {
       setHistoricalSchedule(schedule);
     }
   };
@@ -1057,10 +1112,15 @@ const RoomTimelineTable: React.FC = () => {
     .filter((request) =>
       ["pending", "not_supported", "acknowledged"].includes(request.status),
     )
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
   const getSupportRoomName = (roomId: string) =>
     roomsData?.find(
-      (room) => String(room.roomId) === String(roomId) || String(room._id) === String(roomId),
+      (room) =>
+        String(room.roomId) === String(roomId) ||
+        String(room._id) === String(roomId),
     )?.roomName ?? `Phòng ${roomId}`;
   const selectedSupportRequest = supportRequestModalId
     ? (supportRequests[supportRequestModalId] ?? null)
@@ -1089,8 +1149,13 @@ const RoomTimelineTable: React.FC = () => {
 
         <TabsContent value="rooms" className="mt-4 min-w-0 space-y-6">
           {activeSupportRequests.length > 0 && (
-            <section aria-label="Yêu cầu hỗ trợ đang mở" className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
-              <h2 className="mb-2 text-sm font-semibold">Yêu cầu hỗ trợ đang mở ({activeSupportRequests.length})</h2>
+            <section
+              aria-label="Yêu cầu hỗ trợ đang mở"
+              className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20"
+            >
+              <h2 className="mb-2 text-sm font-semibold">
+                Yêu cầu hỗ trợ đang mở ({activeSupportRequests.length})
+              </h2>
               <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
                 {activeSupportRequests.map((request) => (
                   <button
@@ -1099,10 +1164,17 @@ const RoomTimelineTable: React.FC = () => {
                     onClick={() => handleSupportRequestBell(request.requestId)}
                     className="rounded-md border bg-background px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <span className="font-medium">{getSupportRoomName(request.roomId)}</span>
+                    <span className="font-medium">
+                      {getSupportRoomName(request.roomId)}
+                    </span>
                     <span className="ml-2 text-muted-foreground">
-                      {request.status === "pending" ? "Đang chờ" : request.status === "not_supported" ? "Chưa hỗ trợ" : "Đang xử lý"}
-                      {" · "}{dayjs(request.createdAt).format("DD/MM HH:mm")}
+                      {request.status === "pending"
+                        ? "Đang chờ"
+                        : request.status === "not_supported"
+                          ? "Chưa hỗ trợ"
+                          : "Đang xử lý"}
+                      {" · "}
+                      {dayjs(request.createdAt).format("DD/MM HH:mm")}
                     </span>
                   </button>
                 ))}
@@ -1110,6 +1182,7 @@ const RoomTimelineTable: React.FC = () => {
             </section>
           )}
           <TimelineControls
+            roomDesktopLegend={!isMobile}
             date={roomsDate}
             onDateChange={setRoomsDate}
             zoom={timelineZoom}
@@ -1139,10 +1212,14 @@ const RoomTimelineTable: React.FC = () => {
           ) : error || roomError ? (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive space-y-3">
               <p>{error?.message || roomError?.message}</p>
-              <Button variant="outline" size="sm" onClick={() => {
-                refetch();
-                void refetchRooms();
-              }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  refetch();
+                  void refetchRooms();
+                }}
+              >
                 Thử lại
               </Button>
             </div>
@@ -1165,6 +1242,19 @@ const RoomTimelineTable: React.FC = () => {
               giftBlinkingRooms={viewGiftBlinkingRooms}
               onRoomClick={handleRoomClick}
               onScheduleClick={handleScheduleClick}
+              relocationPending={relocation.isPending}
+              onScheduleDrop={(source, roomId, target) => {
+                if (relocation.isPending) return;
+                if (target) {
+                  if (
+                    source._id !== target._id &&
+                    target.status.toLowerCase() === "booked"
+                  )
+                    setPendingSwap({ source, target });
+                } else if (source.roomId !== roomId) {
+                  relocation.mutate({ source, roomId });
+                }
+              }}
               onResolveRequest={handleLegacySupportNotificationClick}
               onOrderClick={handleOrderClick}
               onGiftClick={handleGiftClick}
@@ -1204,7 +1294,9 @@ const RoomTimelineTable: React.FC = () => {
                         <div
                           key={`header-marker-${hour}`}
                           className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
-                            hour >= 24 ? "text-amber-700 dark:text-amber-300" : "text-gray-600 dark:text-slate-300"
+                            hour >= 24
+                              ? "text-amber-700 dark:text-amber-300"
+                              : "text-gray-600 dark:text-slate-300"
                           }`}
                           style={{ left, width: hour >= 24 ? 40 : 28 }}
                         >
@@ -1276,22 +1368,47 @@ const RoomTimelineTable: React.FC = () => {
                     <div
                       key={room._id}
                       className={`flex border-b hover:bg-gray-50 w-full transition-colors duration-200 dark:border-slate-700 dark:hover:bg-slate-700/50 ${
-                        isMaintenance ? "bg-red-50/60 hover:bg-red-50 dark:bg-red-950/40 dark:hover:bg-red-950/60" : ""
+                        dropRoomId === room._id ? "ring-2 ring-inset ring-blue-500 bg-blue-50 dark:bg-blue-950/40" : isMaintenance
+                          ? "bg-red-50/60 hover:bg-red-50 dark:bg-red-950/40 dark:hover:bg-red-950/60"
+                          : ""
                       }`}
-                      // onDragOver={handleDragOver}
-                      // onDragLeave={handleDragLeave}
-                      // onDrop={(e) => handleDrop(e, room._id)}
+                      onDragOver={(event) => {
+                        if (draggedSchedule && !isMaintenance && draggedSchedule.roomId !== room._id) {
+                          event.preventDefault();
+                          setDropRoomId(room._id);
+                        }
+                      }}
+                      onDragLeave={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropRoomId(null);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (
+                          draggedSchedule &&
+                          !isMaintenance &&
+                          draggedSchedule.roomId !== room._id &&
+                          !relocation.isPending
+                        ) {
+                          setPendingMove({ source: draggedSchedule, roomId: room._id });
+                        }
+                        setDropRoomId(null);
+                        setDraggedSchedule(null);
+                      }}
                     >
                       <div
                         className={`w-[240px] p-2 border-r flex items-center justify-between sticky left-0 z-10 ${
-                          isMaintenance ? "bg-red-50 dark:bg-red-950" : "bg-white dark:bg-slate-800"
+                          isMaintenance
+                            ? "bg-red-50 dark:bg-red-950"
+                            : "bg-white dark:bg-slate-800"
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <button
                             onClick={() => handleRoomClick(room._id)}
                             className={`inline-flex items-center gap-1.5 hover:underline truncate ${
-                              isMaintenance ? "text-red-600 dark:text-red-300" : "text-blue-600 dark:text-sky-300"
+                              isMaintenance
+                                ? "text-red-600 dark:text-red-300"
+                                : "text-blue-600 dark:text-sky-300"
                             } ${
                               isBlinking
                                 ? "animate-[blink_1s_ease-in-out_infinite]"
@@ -1301,7 +1418,10 @@ const RoomTimelineTable: React.FC = () => {
                             {getRoomTypeLeadIcon(room.roomType)}
                             {room.roomName}
                           </button>
-                          <RoomDeviceIndicators roomId={room.roomId} roomName={room.roomName} />
+                          <RoomDeviceIndicators
+                            roomId={room.roomId}
+                            roomName={room.roomName}
+                          />
                           <span className="text-xs text-gray-500 bg-gray-100 px-1 py-0.5 rounded shrink-0 dark:bg-slate-700 dark:text-slate-200">
                             {getRoomTypeLabel(room.roomType)}
                           </span>
@@ -1433,7 +1553,8 @@ const RoomTimelineTable: React.FC = () => {
                           visibleRoomSchedules.map((schedule) => {
                             const { left, width } = getMarkerStyle(schedule);
                             const startMin = left / timelineScale;
-                            const endMin = startMin + Math.max(width, 44) / timelineScale;
+                            const endMin =
+                              startMin + Math.max(width, 44) / timelineScale;
                             return { item: schedule, startMin, endMin };
                           }),
                         );
@@ -1477,11 +1598,16 @@ const RoomTimelineTable: React.FC = () => {
                               // const isDragging =
                               //   dragState.isDragging &&
                               //   dragState.scheduleId === schedule._id;
+                              const overdue = isScheduleOverdue(
+                                schedule,
+                                currentTime,
+                              );
+                              const canDrag = schedule.status.toLowerCase() === "booked" && !relocation.isPending;
                               const eventElement = (
                                 <button
                                   key={schedule._id}
                                   type="button"
-                                  className={`absolute ${bgColor} opacity-90 rounded-md shadow-sm hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500`}
+                                  className={`absolute ${overdue ? "bg-red-600" : bgColor} ${draggedSchedule?._id === schedule._id ? "opacity-50 ring-2 ring-blue-500" : "opacity-90"} rounded-md shadow-sm hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md ${canDrag ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500`}
                                   style={{
                                     left,
                                     width: Math.max(width, 44),
@@ -1491,12 +1617,50 @@ const RoomTimelineTable: React.FC = () => {
                                   title={`${scheduleLabel} - ${dayjs(
                                     schedule.startTime,
                                   ).format("HH:mm")}`}
-                                  aria-label={`${scheduleLabel} ${schedule.status}${schedule.activityType === "nintendo-switch" ? " Nintendo Switch" : schedule.activityType === "music-box" ? " Music Box" : ""} từ ${dayjs(
+                                  aria-label={`${scheduleLabel} ${schedule.status}${overdue ? " · Quá giờ" : ""}${schedule.activityType === "music-box-and-nintendo-switch" ? " Music Box và Nintendo Switch" : schedule.activityType === "nintendo-switch" ? " Nintendo Switch" : schedule.activityType === "music-box" ? " Music Box" : ""} từ ${dayjs(
                                     schedule.startTime,
                                   ).format("HH:mm")}`}
-                                  // draggable
-                                  // onDragStart={(e) => handleDragStart(e, schedule)}
-                                  // onDragEnd={handleDragEnd}
+                                  draggable={canDrag}
+                                  onDragStart={(event) => {
+                                    event.dataTransfer.effectAllowed = "move";
+                                    event.dataTransfer.setData(
+                                      "text/plain",
+                                      schedule._id,
+                                    );
+                                    setDraggedSchedule(schedule);
+                                  }}
+                                  onDragEnd={() => { setDraggedSchedule(null); setDropRoomId(null); }}
+                                  onDragOver={(event) => {
+                                    if (draggedSchedule) event.preventDefault();
+                                  }}
+                                  onDrop={(event) => {
+                                    if (!draggedSchedule) return;
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    if (
+                                      draggedSchedule._id !== schedule._id &&
+                                      draggedSchedule.roomId !== schedule.roomId &&
+                                      !isMaintenance &&
+                                      schedule.status.toLowerCase() ===
+                                        "booked" &&
+                                      !relocation.isPending
+                                    ) {
+                                      setPendingSwap({
+                                        source: draggedSchedule,
+                                        target: schedule,
+                                      });
+                                    } else if (
+                                      draggedSchedule._id !== schedule._id
+                                    ) {
+                                      toast({
+                                        title: "Không thể đổi lịch",
+                                        description:
+                                          "Chọn một lịch đã đặt ở phòng khác không bảo trì.",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                    setDraggedSchedule(null);
+                                  }}
                                   onClick={() => handleScheduleClick(schedule)}
                                 >
                                   {/* Hiển thị thời gian trong schedule block */}
@@ -1507,11 +1671,18 @@ const RoomTimelineTable: React.FC = () => {
                                       )}
                                     </span>
                                     <div className="flex max-w-full min-w-0 items-center justify-center gap-1">
-                                      <ScheduleActivityIcon activityType={schedule.activityType} />
+                                      <ScheduleActivityIcon
+                                        activityType={schedule.activityType}
+                                      />
                                       <span className="min-w-0 truncate text-xs sm:text-sm font-semibold text-white">
                                         {scheduleLabel}
                                       </span>
                                     </div>
+                                    {overdue && (
+                                      <span className="absolute bottom-0 right-0 rounded-tl bg-red-700 px-1 text-[10px] font-semibold leading-tight text-white">
+                                        Quá giờ
+                                      </span>
+                                    )}
                                   </div>
                                 </button>
                               );
@@ -1527,6 +1698,11 @@ const RoomTimelineTable: React.FC = () => {
                                     </TooltipTrigger>
                                     <TooltipContent>
                                       <p>Size: {scheduleSizeLabel}</p>
+                                      <p>
+                                        {relocation.isPending
+                                          ? "Đang chuyển lịch"
+                                          : ""}
+                                      </p>
                                       <p>
                                         Bắt đầu: {eventStart.format("HH:mm")}
                                       </p>
@@ -1849,7 +2025,9 @@ const RoomTimelineTable: React.FC = () => {
                         <div
                           key={`coffee-header-marker-${hour}`}
                           className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
-                            hour >= 24 ? "text-amber-700 dark:text-amber-300" : "text-gray-600 dark:text-slate-300"
+                            hour >= 24
+                              ? "text-amber-700 dark:text-amber-300"
+                              : "text-gray-600 dark:text-slate-300"
                           }`}
                           style={{ left, width: hour >= 24 ? 40 : 28 }}
                         >
@@ -2144,7 +2322,11 @@ const RoomTimelineTable: React.FC = () => {
       </Tabs>
 
       {/* Các modal khác */}
-      <HistoricalScheduleDetails schedule={historicalSchedule} rooms={roomsData || []} onClose={() => setHistoricalSchedule(null)} />
+      <HistoricalScheduleDetails
+        schedule={historicalSchedule}
+        rooms={roomsData || []}
+        onClose={() => setHistoricalSchedule(null)}
+      />
       {modal === "create" && selectedRoom && (
         <ScheduleModal
           isOpen={true}
@@ -2268,6 +2450,56 @@ const RoomTimelineTable: React.FC = () => {
         onClose={() => setSupportRequestModalId(null)}
       />
 
+      <AlertDialog open={!!pendingMove} onOpenChange={(open) => { if (!open) setPendingMove(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Chuyển lịch sang phòng khác?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {pendingMove && <p>{scheduleDescription(pendingMove.source)} → {roomName(pendingMove.roomId)}</p>}
+                <p>Giữ nguyên giờ bắt đầu và kết thúc của lịch.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Huỷ</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (pendingMove) relocation.mutate(pendingMove); setPendingMove(null); }}>
+              Xác nhận chuyển
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={!!pendingSwap}
+        onOpenChange={(open) => {
+          if (!open) setPendingSwap(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Đổi lịch giữa hai phòng?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {!isMobile && pendingSwap && (
+                  <p>{roomName(pendingSwap.source.roomId)} ↔ {roomName(pendingSwap.target.roomId)}</p>
+                )}
+                <p>Hai lịch đổi phòng, giữ nguyên giờ bắt đầu và kết thúc của từng lịch.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Huỷ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingSwap) relocation.mutate(pendingSwap);
+                setPendingSwap(null);
+              }}
+            >
+              Xác nhận đổi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog
         open={turnOffAllRoomsConfirmOpen}
         onOpenChange={(open) => {

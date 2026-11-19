@@ -60,6 +60,15 @@ export const getTimelineDayStart = (viewDate: Dayjs) =>
 export const getTimelineDayEnd = (viewDate: Dayjs) =>
   getTimelineDayStart(viewDate).add(DAY_END_HOUR - DAY_START_HOUR, "hour");
 
+export const isScheduleOverdue = (
+  schedule: Pick<IRoomSchedule, "status" | "endTime">,
+  now: Dayjs,
+) => {
+  if (schedule.status.toLowerCase() !== "in use" || !schedule.endTime) return false;
+  const end = dayjs(schedule.endTime);
+  return end.isValid() && now.isAfter(end);
+};
+
 /** End time thực tế để vẽ schedule đã finish trên timeline. */
 export const getScheduleTimelineEnd = (
   schedule: Pick<IRoomSchedule, "status" | "endTime" | "actualEndTime">,

@@ -2,7 +2,7 @@ import { IRoom, IRoomSchedule } from "@/@types/Room";
 import RoomDeviceIndicators from "./RoomDeviceIndicators";
 import ScheduleActivityIcon from "./ScheduleActivityIcon";
 import dayjs, { Dayjs } from "dayjs";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   BellIcon,
   DoorOpen,
@@ -39,6 +39,7 @@ import {
   getScheduleTimelineEnd,
   getTimelineDayEnd,
   getTimelineDayStart,
+  isScheduleOverdue,
   packTimelineLanes,
 } from "../utils/timelineHours";
 
@@ -77,6 +78,8 @@ interface MobileTimelineViewProps {
   giftBlinkingRooms?: { [key: string]: boolean };
   onRoomClick: (roomId: string) => void;
   onScheduleClick: (schedule: IRoomSchedule) => void;
+  relocationPending: boolean;
+  onScheduleDrop: (source: IRoomSchedule, roomId: string, target?: IRoomSchedule) => void;
   onResolveRequest: (roomId: string) => void;
   onOrderClick: (roomId: string, orderId: string) => void;
   onGiftClick?: (roomId: string) => void;
@@ -235,11 +238,16 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
   giftBlinkingRooms = {},
   onRoomClick,
   onScheduleClick,
+  relocationPending,
+  onScheduleDrop,
   onResolveRequest,
   onOrderClick,
   onGiftClick,
 }) => {
   const isStaff = useIsStaff();
+  const drag = useRef<{ schedule: IRoomSchedule; pointerId: number; x: number; y: number; moved: boolean } | null>(null);
+  const suppressClick = useRef(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   // State để cập nhật thời gian real-time
   const [currentTimeState, setCurrentTimeState] = useState(currentTime);
 
@@ -308,6 +316,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
         return (
           <Collapsible key={room._id} defaultOpen={shouldDefaultOpen}>
             <Card
+              data-timeline-room={isMaintenance ? undefined : room._id}
               className={`overflow-hidden ${
                 isMaintenance ? "border-red-200 bg-red-50/40" : ""
               }`}
@@ -511,7 +520,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                           return (
                             <>
                               <div
-                                className="absolute left-0 right-0 bg-red-500 w-full"
+                                className="pointer-events-none absolute left-0 right-0 bg-red-500 w-full"
                                 style={{
                                   top: `${markerTop}px`,
                                   height: "2px",
@@ -519,7 +528,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                                 }}
                               />
                               <div
-                                className="absolute bg-white px-2 py-1 rounded shadow text-xs sm:text-sm text-red-500 font-medium"
+                                className="pointer-events-none absolute bg-white px-2 py-1 rounded shadow text-xs sm:text-sm text-red-500 font-medium"
                                 style={{
                                   top: `${markerTop - 12}px`,
                                   left: "8px",
@@ -573,6 +582,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                           eventStart.add(120, "minute"),
                         );
                         const status = schedule.status.toLowerCase();
+                        const overdue = isScheduleOverdue(schedule, currentTime);
                         const scheduleLabel = getScheduleTimelineLabel(
                           room.roomName,
                           schedule,
@@ -606,7 +616,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                                     ? ` ${inUseDuration % 60} phút`
                                     : ""
                                 }`;
-                          tooltipContent = `Size: ${scheduleSizeLabel}\nĐang sử dụng ${durationText}`;
+                          tooltipContent = `Size: ${scheduleSizeLabel}\nĐang sử dụng ${durationText}${overdue ? "\nQuá giờ" : ""}`;
                         } else if (status === "maintenance") {
                           tooltipContent = `Bảo trì\nBắt đầu: ${eventStart.format(
                             "HH:mm",
@@ -618,15 +628,51 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         const eventElement = (
                           <div
                             key={schedule._id}
-                            className={`absolute ${bgColor} opacity-80 rounded shadow-sm hover:opacity-100 active:opacity-90 transition-[opacity,box-shadow] duration-150 hover:shadow-md cursor-pointer touch-manipulation min-h-[32px]`}
+                            data-timeline-schedule={schedule._id}
+                            className={`absolute ${overdue ? "bg-red-600" : bgColor} ${draggingId === schedule._id ? "opacity-50 ring-2 ring-blue-500" : "opacity-80"} rounded shadow-sm hover:opacity-100 active:opacity-90 transition-[opacity,box-shadow] duration-150 hover:shadow-md cursor-pointer min-h-[32px]`}
                             style={{
                               top: `${top}px`,
                               height: `${Math.max(height, 32)}px`,
                               left: `${Math.max(leftPct, 10)}%`,
                               width: `${Math.max(widthPct, 18)}%`,
                               zIndex: lane + 1,
+                              touchAction: status === "booked" && dayjs(schedule.startTime).isAfter(dayjs()) && !relocationPending ? "none" : "manipulation",
+                              userSelect: "none",
                             }}
-                            onClick={() => onScheduleClick(schedule)}
+                            onPointerDown={(event) => {
+                              suppressClick.current = false;
+                              if ((event.pointerType === "mouse" && event.button !== 0) || status !== "booked" || !dayjs(schedule.startTime).isAfter(dayjs()) || relocationPending) return;
+                              drag.current = { schedule, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+                              event.currentTarget.setPointerCapture(event.pointerId);
+                            }}
+                            onPointerMove={(event) => {
+                              const active = drag.current;
+                              if (!active || active.pointerId !== event.pointerId) return;
+                              if (!active.moved && Math.hypot(event.clientX - active.x, event.clientY - active.y) > 8) {
+                                active.moved = true;
+                                setDraggingId(active.schedule._id);
+                              }
+                            }}
+                            onPointerUp={(event) => {
+                              const active = drag.current;
+                              if (!active || active.pointerId !== event.pointerId) return;
+                              drag.current = null;
+                              setDraggingId(null);
+                              if (!active.moved) return;
+                              suppressClick.current = true;
+                              const hit = document.elementFromPoint(event.clientX, event.clientY);
+                              const roomId = hit?.closest<HTMLElement>("[data-timeline-room]")?.dataset.timelineRoom;
+                              const targetId = hit?.closest<HTMLElement>("[data-timeline-schedule]")?.dataset.timelineSchedule;
+                              if (!roomId) return;
+                              const target = targetId ? (grouped[roomId] || []).find((item) => item._id === targetId) : undefined;
+                              onScheduleDrop(active.schedule, roomId, target);
+                            }}
+                            onPointerCancel={() => { drag.current = null; setDraggingId(null); }}
+                            onLostPointerCapture={() => { drag.current = null; setDraggingId(null); }}
+                            onClick={() => {
+                              if (suppressClick.current) { suppressClick.current = false; return; }
+                              onScheduleClick(schedule);
+                            }}
                           >
                             <div className="p-2 sm:p-1.5 h-full flex flex-col justify-center">
                               <div className="flex min-w-0 items-center gap-1 text-xs sm:text-sm text-white font-medium leading-tight">
@@ -645,6 +691,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                                 </div>
                               )}
                             </div>
+                            {overdue && <span className="absolute bottom-0 right-0 rounded-tl bg-red-700 px-1 text-[10px] font-semibold leading-tight text-white">Quá giờ</span>}
                           </div>
                         );
 

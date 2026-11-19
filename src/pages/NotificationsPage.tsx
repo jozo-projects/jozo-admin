@@ -23,6 +23,7 @@ import {
 } from "@/hooks/use-notifications";
 import { formatUTCToLocal, timeAgo } from "@/lib/dayjs";
 import { cn } from "@/lib/utils";
+import { useIsAdmin } from "@/hooks/usePermission";
 import {
   Bell,
   CalendarCheck,
@@ -37,6 +38,7 @@ import { useRouter } from "@tanstack/react-router";
 const ITEMS_PER_PAGE = 20;
 
 function NotificationsPage() {
+  const isAdmin = useIsAdmin();
   const router = useRouter();
   const [currentPage, setCurrentPage] = useState(1);
   const { data: notificationsData, isLoading } = useNotifications({
@@ -181,14 +183,15 @@ function NotificationsPage() {
                             </h4>
                             <div className="flex shrink-0 items-center gap-2">
                               {!notification.isRead && <Badge variant="default" className="h-2 w-2 rounded-full p-0" />}
-                              <Button
+                              {isAdmin && <Button
+                                aria-label="Xóa thông báo"
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                                 onClick={(event) => handleDeleteNotification(event, notification._id)}
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </Button>
+                              </Button>}
                             </div>
                           </div>
                           <p className="mb-3 text-sm text-muted-foreground">{notification.body}</p>

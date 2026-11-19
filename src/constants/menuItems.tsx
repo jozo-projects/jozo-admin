@@ -2,6 +2,7 @@ import {
   BarChart3,
   BedDouble,
   BellRing,
+  CircleXIcon,
   Briefcase,
   ClipboardList,
   Clock,
@@ -76,6 +77,13 @@ const MENU_ITEMS: MenuItem[] = [
   {
     title: "Lỗi của tôi",
     url: PATHS.MY_ERROR_LOGS,
+    icon: CircleXIcon,
+    roles: STAFF_AND_ADMIN,
+    section: "personal",
+  },
+  {
+    title: "Thông báo của tôi",
+    url: PATHS.NOTIFICATIONS,
     icon: BellRing,
     roles: STAFF_AND_ADMIN,
     section: "personal",
@@ -84,6 +92,13 @@ const MENU_ITEMS: MenuItem[] = [
     title: "Cài đặt chung",
     url: PATHS.CALENDAR,
     icon: Settings2,
+    roles: ADMIN_ONLY,
+    section: "settings",
+  },
+  {
+    title: "Quản lý thông báo nhân viên",
+    url: PATHS.MANUAL_NOTIFICATION,
+    icon: BellRing,
     roles: ADMIN_ONLY,
     section: "settings",
   },
@@ -198,6 +213,7 @@ const MENU_ITEMS: MenuItem[] = [
         icon: Users,
         roles: ADMIN_ONLY,
       },
+
       {
         title: "Tài khoản",
         url: PATHS.USERS_MANAGEMENT,
@@ -207,7 +223,7 @@ const MENU_ITEMS: MenuItem[] = [
       {
         title: "Lỗi nhân viên",
         url: PATHS.STAFF_ERROR_LOGS,
-        icon: BellRing,
+        icon: CircleXIcon,
         roles: ADMIN_ONLY,
       },
       {

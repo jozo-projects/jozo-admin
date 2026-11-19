@@ -1,4 +1,5 @@
 import billAPis from "@/apis/bill.apis";
+import membershipApis from "@/apis/membership.apis";
 import { getRevenueSettings, revenueSettingsKey } from "@/apis/revenueSettings.api";
 import { cancellationRange } from "@/utils/cancellationPeriod";
 import CancelledScheduleReport from "@/pages/RoomSchedule/components/CancelledScheduleReport";
@@ -375,6 +376,20 @@ interface BillsTableSectionProps {
   onPaymentMethodHistory: (bill: RevenueBill) => void;
 }
 
+function ReturningMemberBadge({ membership }: { membership?: IBill["membership"] }) {
+  const memberId = membership?.found ? membership.userId : undefined;
+  const { data } = useQuery({
+    queryKey: ["member-usage-count", memberId],
+    queryFn: async () =>
+      (await membershipApis.getMemberUsageHistory(memberId!, 1, 1)).data.result?.totalCount ?? null,
+    enabled: Boolean(memberId),
+    staleTime: 60_000,
+    retry: false,
+  });
+  if (typeof data !== "number" || data <= 1) return null;
+  return <Badge variant="outline" className="ml-2" title={[membership?.name, membership?.phone].filter(Boolean).join(" · ")}>Thành viên</Badge>;
+}
+
 /** Bảng hóa đơn: dạng bảng trên desktop, dạng thẻ trên mobile */
 const BillsTableSection = ({
   bills,
@@ -419,7 +434,7 @@ const BillsTableSection = ({
                     >
                       {bill.invoiceCode || "N/A"}
                     </button>
-                    {bill.membership?.found && <Badge variant="outline" className="ml-2" title={[bill.membership.name, bill.membership.phone].filter(Boolean).join(" · ")}>Thành viên</Badge>}
+                    <ReturningMemberBadge membership={bill.membership} />
                   </TableCell>
                   <TableCell>
                     {formatBillDate(bill.createdAt.toString())}
@@ -504,7 +519,7 @@ const BillsTableSection = ({
                   onClick={() => bill._id && onBillClick(bill._id)}
                 >
                   {bill.invoiceCode || "N/A"}
-                  {bill.membership?.found && <Badge variant="outline" className="ml-2">Thành viên</Badge>}
+                  <ReturningMemberBadge membership={bill.membership} />
                 </button>
                 {!isStaff && (
                   <div className="text-right">

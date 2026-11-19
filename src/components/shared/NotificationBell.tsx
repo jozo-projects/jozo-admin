@@ -35,8 +35,11 @@ import { useEffect, useState } from "react";
 import { useDeleteNotification } from "@/hooks/use-notifications";
 import { useNavigate } from "@tanstack/react-router";
 import PATHS from "@/constants/paths";
+import { notificationTarget } from "./notification-target";
+import { useIsAdmin } from "@/hooks/usePermission";
 
 export const NotificationBell = () => {
+  const isAdmin = useIsAdmin();
   const [isOpen, setIsOpen] = useState(false);
 
   const { toast } = useToast();
@@ -94,6 +97,12 @@ export const NotificationBell = () => {
       markAsRead(notification._id);
     }
 
+    const target = notificationTarget(notification);
+    if (target) {
+      setIsOpen(false);
+      navigate({ to: target as never });
+      return;
+    }
     // Navigate to my-schedule page with scheduleId if available
     if (notification.data?.scheduleId) {
       setIsOpen(false); // Close dropdown
@@ -224,7 +233,8 @@ export const NotificationBell = () => {
                         <p className="text-xs text-muted-foreground">
                           {timeAgo(notification.createdAt)}
                         </p>
-                        <Button
+                        {isAdmin && <Button
+                          aria-label="Xóa thông báo"
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -233,7 +243,7 @@ export const NotificationBell = () => {
                           }
                         >
                           <Trash2 className="h-3 w-3" />
-                        </Button>
+                        </Button>}
                       </div>
                     </div>
                   </div>

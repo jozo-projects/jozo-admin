@@ -42,6 +42,7 @@ import ScheduleMemberSection from "./ScheduleMemberSection";
 import ImagePicker from "@/components/ui/image-picker";
 import ScheduleRoomTypeSection from "./ScheduleRoomTypeSection";
 import { getRoomTypeLabel } from "../utils/scheduleRoomType";
+import { showApiValidationErrorToast } from "@/utils/apiValidationError";
 import fnbMenuApis from "@/apis/fnbMenu.apis";
 import fnbOrderApis from "@/apis/fnbOrder.apis";
 import { IAddRemoveItemRequestBody } from "@/apis/fnbOrder.apis";
@@ -523,6 +524,23 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
     },
   });
 
+  const activityMutation = useMutation({
+    mutationFn: (activityType: NonNullable<IRoomSchedule["activityType"]>) =>
+      roomsScheduleApis.updateSchedule(schedule._id, { activityType }),
+    onSuccess: (_response, activityType) => {
+      patchScheduleInRoomSchedulesCache(queryClient, schedule, { activityType });
+      void queryClient.invalidateQueries({
+        queryKey: getRoomSchedulesQueryKeyForSchedule(schedule),
+        refetchType: "active",
+      });
+      toast({ title: "Đã cập nhật dịch vụ" });
+    },
+    onError: (error) => showApiValidationErrorToast(error, {
+      title: "Không thể cập nhật dịch vụ",
+      description: "Vui lòng kiểm tra số máy và thử lại.",
+    }),
+  });
+
   // Mutation riêng để cập nhật promotion
   const { mutate: updatePromotion, isPending: isUpdatingPromotion } =
     useMutation({
@@ -816,6 +834,23 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 sm:px-6">
             <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <span className="text-sm font-medium">Dịch vụ</span>
+                <Select
+                  value={schedule.activityType || ""}
+                  disabled={activityMutation.isPending || String(schedule.roomType).toLowerCase() === "dorm"}
+                  onValueChange={(value) => activityMutation.mutate(value as NonNullable<IRoomSchedule["activityType"]>)}
+                >
+                  <SelectTrigger aria-label="Dịch vụ" className="h-9">
+                    <SelectValue placeholder="Chưa xác định" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="music-box">Music Box</SelectItem>
+                    <SelectItem value="nintendo-switch">Nintendo Switch</SelectItem>
+                    <SelectItem value="music-box-and-nintendo-switch">Hát và chơi Nintendo Switch</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <ScheduleMemberSection
                 inputId="booked-member-phone"
                 phone={member.phone}
@@ -1208,7 +1243,7 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
               onClick={() => {
                 handleUpdate(RoomStatus.InUse);
               }}
-              disabled={birthday.blocked}
+              disabled={birthday.blocked || activityMutation.isPending}
               loading={isPending}
               className="h-9"
             >

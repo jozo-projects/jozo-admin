@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/shared";
+import ShiftPushSettings from "@/components/modules/ShiftPushSettings";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { userApis } from "@/apis/user.apis";
@@ -156,7 +157,8 @@ function ProfilePage() {
         icon={User}
       />
 
-      <div className="flex justify-center">
+      <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col">
+        <ShiftPushSettings />
         <Card className="w-full max-w-2xl">
           <CardHeader>
             <CardTitle>Thông tin cá nhân</CardTitle>

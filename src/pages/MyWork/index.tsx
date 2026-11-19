@@ -1,3 +1,4 @@
+import ShiftProgressCard from "@/components/modules/ShiftProgressCard";
 import { IEmployeeSchedule } from "@/apis/staffSchedule.apis";
 import staffScheduleApis from "@/apis/staffSchedule.apis";
 import { PageHeader } from "@/components/shared";
@@ -57,12 +58,13 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { useSocket } from "@/hooks/useSocket";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const MySchedulePage = () => {
   type ShiftFilterValue = ShiftType | "all_shifts" | "custom" | undefined;
 
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState<Dayjs>(dayjs());
   const [selectedStatus, setSelectedStatus] = useState<
@@ -245,6 +247,7 @@ const MySchedulePage = () => {
       status: string;
       message: string;
     }) => {
+      void queryClient.invalidateQueries({ queryKey: ["shift-reminder-progress"] });
       console.log("Shift status changed:", data);
 
       // Show toast notification
@@ -284,6 +287,7 @@ const MySchedulePage = () => {
       }>;
       message: string;
     }) => {
+      void queryClient.invalidateQueries({ queryKey: ["shift-reminder-progress"] });
       console.log("You were assigned shifts:", data);
 
       // Show toast notification
@@ -314,6 +318,7 @@ const MySchedulePage = () => {
     offScheduleAssigned,
     refetch,
     refetchCalendarSchedules,
+    queryClient,
     toast,
   ]);
 
@@ -838,6 +843,7 @@ const MySchedulePage = () => {
             </p>
           </DialogHeader>
           <div className="px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-0 sm:pb-0 sm:pt-0">
+            {isCalendarModalOpen && <ShiftProgressCard calendar />}
             <ShiftRegistrationCalendar
               schedules={calendarSchedules}
               onDateClick={handleCalendarDateClick}

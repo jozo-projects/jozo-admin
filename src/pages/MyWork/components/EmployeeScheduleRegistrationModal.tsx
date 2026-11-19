@@ -27,7 +27,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchPersonalProgress, nextVietnamMonth, nextVietnamWeek } from "@/components/modules/ShiftProgressCard";
+import { registrationSuccessDescription } from "@/components/modules/shift-registration-progress";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { CalendarIcon, CircleXIcon } from "lucide-react";
@@ -89,6 +91,7 @@ interface EmployeeScheduleRegistrationModalProps {
 const EmployeeScheduleRegistrationModal: React.FC<
   EmployeeScheduleRegistrationModalProps
 > = ({ isOpen, onClose, refetchSchedules, initialDate, initialShift }) => {
+  const queryClient = useQueryClient();
   const [timeError, setTimeError] = useState("");
 
   const form = useForm<FormValues>({
@@ -154,15 +157,20 @@ const EmployeeScheduleRegistrationModal: React.FC<
   const { mutate: registerSchedule, isPending: isSubmitting } = useMutation({
     mutationFn: (data: IEmployeeSelfRegisterRequest) =>
       staffScheduleApis.registerMySchedule(data),
-    onSuccess: () => {
-      toast({
-        title: "Thành công",
-        description:
-          "Đăng ký ca thành công. Vui lòng chờ quản lý duyệt.",
-      });
+    onSuccess: async (_response, variables) => {
       reset();
       refetchSchedules?.();
       onClose();
+      await queryClient.cancelQueries({ queryKey: ["shift-reminder-progress"] });
+      await queryClient.invalidateQueries({ queryKey: ["shift-reminder-progress"], refetchType: "none" });
+      try {
+        const progress = await fetchPersonalProgress(nextVietnamWeek(), nextVietnamMonth());
+        toast({ title: "Thành công", description: registrationSuccessDescription(progress, variables.date) });
+      } catch {
+        toast({ title: "Thành công", description: "Đăng ký ca thành công. Vui lòng chờ quản lý duyệt. Không thể tải tiến độ; hãy thử lại trên lịch." });
+      } finally {
+        void queryClient.invalidateQueries({ queryKey: ["shift-reminder-progress"] });
+      }
     },
     onError: (error: unknown) => {
       // Check whether the response includes an errors object
