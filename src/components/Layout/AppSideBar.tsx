@@ -53,6 +53,7 @@ export function AppSidebar() {
   const menuItems = useMenuItems();
   const queryClient = useQueryClient();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
 
   const closeMobileSidebar = () => {
     setOpenMobile(false);
@@ -343,7 +344,21 @@ export function AppSidebar() {
       <SidebarFooter className="border-t p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
+            {isMobile ? <>
+              <SidebarMenuButton size="lg" className="rounded-xl" aria-expanded={mobileAccountOpen} onClick={() => setMobileAccountOpen((value) => !value)}>
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarImage src={user?.avatar || "https://github.com/shadcn.png"} alt={user?.name || "User"} />
+                  <AvatarFallback className="rounded-lg">{user?.name?.split(" ").map((n) => n[0]).join("").toUpperCase() || "U"}</AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-sm leading-tight"><span className="truncate font-semibold">{user?.name || "User"}</span><span className="truncate text-xs text-muted-foreground">{user?.email || "user@example.com"}</span></div>
+                <ChevronRight className={cn("ml-auto size-4 transition-transform", mobileAccountOpen && "rotate-90")} />
+              </SidebarMenuButton>
+              {mobileAccountOpen && <SidebarMenuSub>
+                <SidebarMenuSubItem><SidebarMenuSubButton asChild><Link to={PATHS.PROFILE as never} onClick={closeMobileSidebar}><User /><span>Profile</span></Link></SidebarMenuSubButton></SidebarMenuSubItem>
+                <SidebarMenuSubItem><SidebarMenuSubButton asChild><Link to={PATHS.CHANGE_PASSWORD as never} onClick={closeMobileSidebar}><Settings /><span>Change Password</span></Link></SidebarMenuSubButton></SidebarMenuSubItem>
+                <SidebarMenuSubItem><LogoutButton variant="ghost" className="h-10 w-full justify-start" /></SidebarMenuSubItem>
+              </SidebarMenuSub>}
+            </> : <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
@@ -433,7 +448,7 @@ export function AppSidebar() {
                   </div>
                 </DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu>}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
