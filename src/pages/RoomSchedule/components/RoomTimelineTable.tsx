@@ -69,6 +69,7 @@ import CoffeeInUseModal from "./CoffeeInUseModal";
 import CoffeeNewOrderLineItemsModal from "./CoffeeNewOrderLineItemsModal";
 import ExtendSessionModal from "./ExtendSessionModal";
 import MobileTimelineView from "./MobileTimelineView";
+import QuizGiftIndicator from "./QuizGiftIndicator";
 import ProcessBookedModal from "./ProcessBookedModal";
 import ProcessInUseModal from "./ProcessInUseModal";
 import ProcessMaintenanceModal from "./ProcessMaintenanceModal";
@@ -1442,6 +1443,9 @@ const RoomTimelineTable: React.FC = () => {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
+                          {roomSchedules.filter(schedule => schedule.status?.toLowerCase() === "in use").map(schedule => (
+                            <QuizGiftIndicator key={schedule._id} scheduleId={schedule._id} roomName={room.roomName} />
+                          ))}
                           {(hasNotification || hasSupportRequest) && (
                             <Tooltip>
                               <TooltipTrigger asChild>

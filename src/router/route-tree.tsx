@@ -61,6 +61,7 @@ import {
   GiftAppliedBillsRoute,
   GiftsRoute,
   GamesRoute,
+  QuizRoute,
   MembershipRoute,
   PromotionRoute,
   RecruitmentRoute,
@@ -289,6 +290,7 @@ const gamesRoute = createRoute({
   path: "games",
   component: GamesRoute,
 });
+const quizRoute = createRoute({ getParentRoute: () => authenticatedRoute, path: "quiz", component: QuizRoute });
 const musicCategoriesRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: "music-categories",
@@ -438,6 +440,7 @@ export const routeTree = rootRoute.addChildren([
     recruitmentRoute,
     giftsRoute,
     gamesRoute,
+    quizRoute,
     musicCategoriesRoute,
     musicCategoryDetailRoute,
     staffScheduleRoute,

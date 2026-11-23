@@ -67,6 +67,7 @@ const PATHS = {
 
   // games management
   GAMES: "/games",
+  QUIZ: "/quiz",
 
   // membership config
   MEMBERSHIP_CONFIG: "/membership-config",

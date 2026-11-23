@@ -13,6 +13,8 @@ const RecruitmentPage = lazy(
 );
 const GiftsPage = lazy(() => import("@/pages/Gifts"));
 const GamesPage = lazy(() => import("@/pages/Games"));
+const QuizPage = lazy(() => import("@/pages/QuizPage"));
+export const QuizRoute = () => <AdminRoute><QuizPage /></AdminRoute>;
 
 export const GiftAppliedBillsRoute = () => (
   <AdminRoute>

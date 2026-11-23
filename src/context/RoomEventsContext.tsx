@@ -9,6 +9,9 @@ import React, {
 } from "react";
 import { useSocket } from "@/hooks/useSocket";
 import { useRoomConnectionWarnings } from "@/hooks/use-room-connection-warnings";
+import { installQuizRewardSocket } from "@/hooks/quiz-reward-socket";
+import { toast as showToast } from "@/hooks/use-toast";
+import type { Socket } from "socket.io-client";
 import { RoomConnectionWarnings } from "@/components/modules/RoomConnectionWarnings";
 import { refreshScheduleBillAndOrder } from "@/utils/billCheckout";
 import { Gift as GiftType } from "@/@types/Gift";
@@ -179,7 +182,26 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
   children,
 }) => {
   const { user } = useAuth();
-  const { state: connectionWarnings, onSocketReady } = useRoomConnectionWarnings(user?.role === "admin" || user?.role === "staff");
+  const { state: connectionWarnings, onSocketReady: onWarningsSocketReady } = useRoomConnectionWarnings(user?.role === "admin" || user?.role === "staff");
+  const queryClient = useQueryClient();
+  const seenQuizRewards = useRef(new Set<string>());
+  const onSocketReady = useCallback((socket: Socket) => {
+    const cleanupWarnings = onWarningsSocketReady(socket);
+    const cleanupQuiz = installQuizRewardSocket(socket, queryClient, ({ roomId }) => {
+      try {
+        const audio = new Audio("/quiz-reward-chime.wav");
+        void audio.play().catch(() => { /* Browsers may require user interaction first. */ });
+      } catch { /* Audio failure must not suppress the toast. */ }
+      void queryClient.fetchQuery({ queryKey: ["rooms"], queryFn: roomApis.getRooms, staleTime: 60_000 })
+        .then(response => {
+          const room = response.data.result?.find(item => String(item._id) === roomId);
+          const name = room?.roomName || (room?.roomId != null ? String(room.roomId) : "không xác định");
+          showToast({ title: "Khách đạt quà quiz", description: `Phòng ${name} đã đạt quà, vui lòng kiểm tra và trao quà.` });
+        })
+        .catch(() => showToast({ title: "Khách đạt quà quiz", description: "Có phòng đạt quà, vui lòng kiểm tra lịch phòng." }));
+    }, seenQuizRewards.current);
+    return () => { cleanupQuiz(); cleanupWarnings(); };
+  }, [onWarningsSocketReady, queryClient]);
   const {
     onConnect,
     offConnect,
@@ -218,7 +240,6 @@ export const RoomEventsProvider: React.FC<RoomEventsProviderProps> = ({
     onOrderSupportRequested,
     offOrderSupportRequested,
   } = useSocket({ onSocketReady });
-  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const [supportNotifications, setSupportNotifications] =

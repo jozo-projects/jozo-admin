@@ -269,6 +269,7 @@ const MENU_ITEMS: MenuItem[] = [
         icon: Gamepad2,
         roles: ADMIN_ONLY,
       },
+      { title: "Quiz", url: PATHS.QUIZ, icon: Gamepad2, roles: ADMIN_ONLY },
       {
         title: "Bộ sưu tập nhạc",
         url: PATHS.SONGS_COLLECTION,

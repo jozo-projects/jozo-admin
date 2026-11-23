@@ -1,6 +1,7 @@
 import { IRoom, IRoomSchedule } from "@/@types/Room";
 import RoomDeviceIndicators from "./RoomDeviceIndicators";
 import ScheduleActivityIcon from "./ScheduleActivityIcon";
+import QuizGiftIndicator from "./QuizGiftIndicator";
 import dayjs, { Dayjs } from "dayjs";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -364,6 +365,9 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                     )}
                   </div>
                   <div className="pointer-events-none relative ml-2 flex max-w-full flex-wrap items-center gap-2">
+                    {roomSchedules.filter(schedule => schedule.status?.toLowerCase() === "in use").map(schedule => (
+                      <QuizGiftIndicator key={schedule._id} scheduleId={schedule._id} roomName={room.roomName} />
+                    ))}
                     {hasNotification && (
                       <Tooltip>
                         <TooltipTrigger asChild>
