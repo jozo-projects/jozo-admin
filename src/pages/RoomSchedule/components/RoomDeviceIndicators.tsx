@@ -16,7 +16,14 @@ export default function RoomDeviceIndicators({ roomId, roomName }: { roomId: num
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const locked = useRef(false);
-  const authorizations = useQuery({ queryKey: ["room-device-authorization", "admin"], queryFn: async () => (await api.list()).data, refetchInterval: 10_000, refetchOnWindowFocus: true });
+  const authorizations = useQuery({
+    queryKey: ["room-device-authorization", "admin"],
+    queryFn: async () => (await api.list()).data,
+    staleTime: 8_000,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
+  });
   const connections = useRoomDeviceConnections();
   useEffect(() => {
     if (!selected) return;

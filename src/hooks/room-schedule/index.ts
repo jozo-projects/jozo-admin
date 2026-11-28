@@ -110,6 +110,7 @@ export const useRoomSchedules = (date: Dayjs = dayjs()) => {
       }
       return response.data.result;
     },
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
 };

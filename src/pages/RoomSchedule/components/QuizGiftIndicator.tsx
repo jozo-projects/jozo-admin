@@ -18,6 +18,8 @@ export default function QuizGiftIndicator({ scheduleId, roomName }: { scheduleId
     queryFn: () => quizApis.getScheduleResult(scheduleId),
     enabled: isAdmin || isStaff,
     retry: false,
+    staleTime: 25_000,
+    refetchOnWindowFocus: false,
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });

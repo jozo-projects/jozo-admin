@@ -177,7 +177,7 @@ const TimelineControls: React.FC<TimelineControlsProps> = ({
           </span>
         ))}
         {roomDesktopLegend && <span>Màu đậm hơn: khoảng thời gian đã qua</span>}
-        <span className="text-amber-700">Nhãn (+1) = sáng hôm sau</span>
+        <span className="text-amber-700 dark:text-amber-300">Nhãn (+1) = sáng hôm sau</span>
       </div>
     </div>
   );

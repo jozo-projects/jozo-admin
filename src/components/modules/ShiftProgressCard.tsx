@@ -81,9 +81,9 @@ export default function ShiftProgressCard({
     enabled: !!user?._id,
     staleTime: 0,
     refetchOnMount: "always",
-    refetchOnWindowFocus: "always",
-    refetchOnReconnect: "always",
-    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
+    refetchInterval: 5 * 60_000,
+    refetchIntervalInBackground: false,
     retry: false,
   });
   const data = progress.data;

@@ -148,6 +148,7 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
   const member = useScheduleMemberPhone({
     scheduleId: schedule._id,
     initialPhone: schedule.customerPhone || "",
+    initialGiftEnabled: schedule.giftEnabled,
     isOpen,
     refetchSchedules,
   });
@@ -861,7 +862,9 @@ const ProcessBookedModal: React.FC<ProcessBookedModalProps> = ({
                 isSavingPhone={member.isSavingPhone}
                 onSavePhone={member.savePhone}
                 onClearPhone={member.clearPhone}
-                showGiftToggle={false}
+                isGiftEnabled={member.isGiftEnabled}
+                onGiftEnabledChange={member.updateGiftEnabled}
+                isUpdatingGiftEnabled={member.isUpdatingGiftEnabled}
                 customerName={schedule.customerName}
                 customerEmail={schedule.customerEmail}
                 memberInfo={member.memberInfo}

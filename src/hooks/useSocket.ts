@@ -43,13 +43,21 @@ export const useSocket = ({ onSocketReady }: UseSocketOptions = {}) => {
     socketRef.current = io(import.meta.env.VITE_SOCKET_URL, {
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
       timeout: 20000,
       query: queryParams,
       auth: (callback) => callback({ token: localStorage.getItem("access_token") }),
       transports: ["websocket"],
     });
+
+    const handleOnline = () => {
+      if (socketRef.current && !socketRef.current.connected) {
+        socketRef.current.connect();
+      }
+    };
+    window.addEventListener("online", handleOnline);
 
     // Setup reconnection handling
     socketRef.current.on("connect", () => {
@@ -78,6 +86,7 @@ export const useSocket = ({ onSocketReady }: UseSocketOptions = {}) => {
 
     // Cleanup on unmount, logout, or authentication change.
     return () => {
+      window.removeEventListener("online", handleOnline);
       cleanupExtension?.();
       if (socketRef.current) {
         socketRef.current.disconnect();

@@ -79,6 +79,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGetStandardPromotions } from "@/hooks/promotion";
 import {
@@ -1310,6 +1311,11 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
               </Select>
             </div>
 
+            <div className="mb-4 flex min-h-10 items-center justify-between gap-3 rounded-md border px-3">
+              <label htmlFor="in-use-gift-enabled" className="text-sm font-medium">Cho phép nhận quà</label>
+              <Switch id="in-use-gift-enabled" checked={member.isGiftEnabled} onCheckedChange={member.updateGiftEnabled} disabled={member.isUpdatingGiftEnabled} />
+            </div>
+
             <Tabs
               value={activeTab}
               onValueChange={(value) => {
@@ -2144,9 +2150,7 @@ const ProcessInUseModal: React.FC<ProcessInUseModalProps> = ({
                   isSavingPhone={member.isSavingPhone}
                   onSavePhone={member.savePhone}
                   onClearPhone={member.clearPhone}
-                  isGiftEnabled={member.isGiftEnabled}
-                  onGiftEnabledChange={member.updateGiftEnabled}
-                  isUpdatingGiftEnabled={member.isUpdatingGiftEnabled}
+                  showGiftToggle={false}
                   hasClaimedGift={!!gift}
                   giftDetail={gift}
                   customerName={schedule.customerName}

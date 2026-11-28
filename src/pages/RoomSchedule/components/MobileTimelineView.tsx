@@ -319,7 +319,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
             <Card
               data-timeline-room={isMaintenance ? undefined : room._id}
               className={`overflow-hidden ${
-                isMaintenance ? "border-red-200 bg-red-50/40" : ""
+                isMaintenance ? "border-red-200 bg-red-50/40 dark:border-red-900 dark:bg-red-950/30" : ""
               }`}
             >
                 <div className="relative flex flex-wrap items-center justify-between gap-2 p-3 transition-colors hover:bg-muted/50 sm:p-4">
@@ -466,7 +466,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                 <div className="px-3 sm:px-4 pb-4 overflow-x-hidden">
                   {/* Timeline dọc */}
                   <div
-                    className="relative overflow-y-auto max-h-[600px] sm:max-h-[800px] border border-gray-200 rounded-md"
+                    className="relative overflow-y-auto max-h-[600px] sm:max-h-[800px] border border-gray-200 dark:border-slate-700 rounded-md"
                     style={{
                       minHeight: `${Math.min(MOBILE_TIMELINE_HEIGHT, 600)}px`,
                     }}
@@ -484,12 +484,12 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         return (
                           <div
                             key={`hour-marker-${hour}`}
-                            className="absolute left-0 right-0 border-t border-gray-200"
+                            className="absolute left-0 right-0 border-t border-gray-200 dark:border-slate-700"
                             style={{ top: `${top}px` }}
                           >
                             <div
-                              className={`absolute left-0 top-0 -translate-y-1/2 bg-white px-2 text-xs sm:text-sm font-medium ${
-                                hour >= 24 ? "text-amber-700" : "text-gray-600"
+                              className={`absolute left-0 top-0 -translate-y-1/2 bg-white dark:bg-slate-900 px-2 text-xs sm:text-sm font-medium ${
+                                hour >= 24 ? "text-amber-700 dark:text-amber-300" : "text-gray-600 dark:text-slate-300"
                               }`}
                             >
                               {formatTimelineHourLabel(hour)}
@@ -506,7 +506,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                         return (
                           <div
                             key={`quarter-${index}`}
-                            className="absolute left-8 right-0 border-t border-gray-100"
+                            className="absolute left-8 right-0 border-t border-gray-100 dark:border-slate-800"
                             style={{ top: `${top}px` }}
                           />
                         );
@@ -532,7 +532,7 @@ const MobileTimelineView: React.FC<MobileTimelineViewProps> = ({
                                 }}
                               />
                               <div
-                                className="pointer-events-none absolute bg-white px-2 py-1 rounded shadow text-xs sm:text-sm text-red-500 font-medium"
+                                className="pointer-events-none absolute bg-white dark:bg-slate-900 px-2 py-1 rounded shadow text-xs sm:text-sm text-red-500 font-medium"
                                 style={{
                                   top: `${markerTop - 12}px`,
                                   left: "8px",

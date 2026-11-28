@@ -26,8 +26,8 @@ export function useCurrentTime() {
 
 export function SkyGreeting({ now }: { now: Date }) {
   const hour = now.getHours();
-  const greeting = hour >= 5 && hour < 12 ? "Good morning" : hour >= 12 && hour < 18 ? "Good afternoon" : "Good evening";
-  return <span className="max-w-20 shrink truncate text-xs text-muted-foreground sm:max-w-none sm:shrink-0 sm:text-sm">{greeting}</span>;
+  const greeting = hour >= 5 && hour < 12 ? "Chào buổi sáng" : hour >= 12 && hour < 18 ? "Chào buổi chiều" : "Chào buổi tối";
+  return <span className="max-w-24 shrink truncate text-xs text-muted-foreground sm:max-w-none sm:shrink-0 sm:text-sm">{greeting}</span>;
 }
 
 export default function DaySky({ now, preview = false }: { now: Date; preview?: boolean }) {

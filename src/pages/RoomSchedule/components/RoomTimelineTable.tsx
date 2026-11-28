@@ -59,6 +59,7 @@ import {
   DoorOpen,
   Gamepad2,
   Gift,
+  RefreshCw,
   ShoppingCart,
   UtensilsCrossed,
   XCircle,
@@ -177,16 +178,6 @@ type Modal =
   | "coffeeInUse"
   | null;
 
-// interface DragState {
-//   isDragging: boolean;
-//   scheduleId: string | null;
-//   startX: number;
-//   startY: number;
-//   originalRoomId: string;
-//   originalStartTime: string;
-//   originalEndTime: string;
-// }
-
 interface OrderData {
   orderId: string;
   items: Array<{
@@ -225,6 +216,102 @@ const getRoomTypeLeadIcon = (type: RoomType | string) => {
   }
   return <DoorOpen className={className} aria-hidden />;
 };
+
+function TimelineHeaderRow({
+  label,
+  keyPrefix,
+  timelineContentWidth,
+  timelineGridStyle,
+  hourMarkerSpacing,
+}: {
+  label: string;
+  keyPrefix: string;
+  timelineContentWidth: number;
+  timelineGridStyle: React.CSSProperties;
+  hourMarkerSpacing: number;
+}) {
+  return (
+    <div
+      className="flex border-b bg-gray-200 w-full dark:border-slate-600 dark:bg-slate-800"
+      style={{ position: "sticky", top: 0, zIndex: 20 }}
+    >
+      <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200 dark:border-slate-600 dark:bg-slate-800">
+        {label}
+      </div>
+      <div
+        className="relative h-10"
+        style={{
+          width: timelineContentWidth,
+          ...timelineGridStyle,
+        }}
+      >
+        {Array.from({
+          length: DAY_END_HOUR - DAY_START_HOUR + 1,
+        }).map((_, index) => {
+          const hour = DAY_START_HOUR + index;
+          const left = index * hourMarkerSpacing;
+          return (
+            <div
+              key={`${keyPrefix}-${hour}`}
+              className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
+                hour >= 24
+                  ? "text-amber-700 dark:text-amber-300"
+                  : "text-gray-600 dark:text-slate-300"
+              }`}
+              style={{ left, width: hour >= 24 ? 40 : 28 }}
+            >
+              {formatTimelineHourLabel(hour)}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TimelineNowMarker({
+  isToday,
+  markerLeft,
+  timelineTotalWidth,
+  currentTime,
+}: {
+  isToday: boolean;
+  markerLeft: number;
+  timelineTotalWidth: number;
+  currentTime: Dayjs;
+}) {
+  if (
+    !isToday ||
+    markerLeft < TIMELINE_LEFT_OFFSET ||
+    markerLeft > timelineTotalWidth
+  ) {
+    return null;
+  }
+
+  return (
+    <>
+      <div
+        className="pointer-events-none absolute z-30"
+        style={{
+          left: markerLeft - 18,
+          top: 8,
+        }}
+      >
+        <div className="rounded bg-white/95 dark:bg-slate-900/95 px-1 text-xs font-medium text-red-500 shadow-sm">
+          {currentTime.format("HH:mm")}
+        </div>
+      </div>
+      <div
+        className="pointer-events-none absolute z-30 w-0.5 bg-red-500"
+        style={{
+          left: markerLeft,
+          top: 0,
+          bottom: 0,
+        }}
+      />
+    </>
+  );
+}
 
 const RoomTimelineTable: React.FC = () => {
   const { toast } = useToast();
@@ -270,6 +357,7 @@ const RoomTimelineTable: React.FC = () => {
   const {
     data: schedules,
     isLoading,
+    isFetching: isFetchingSchedules,
     error,
     refetch: refetchRoomsDateSchedules,
   } = useRoomSchedules(roomsDate);
@@ -284,12 +372,15 @@ const RoomTimelineTable: React.FC = () => {
   const {
     data: roomsData,
     isLoading: loadingRooms,
+    isFetching: isFetchingRooms,
     error: roomError,
     refetch: refetchRooms,
   } = useQuery({
     queryKey: ["rooms"],
     queryFn: roomApis.getRooms,
     select: (data) => data.data.result as IRoom[],
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const [modal, setModal] = useState<Modal>(null);
@@ -311,14 +402,19 @@ const RoomTimelineTable: React.FC = () => {
   const [maintenanceSchedule, setMaintenanceSchedule] =
     useState<IRoomSchedule | null>(null);
 
+  const allLoadedSchedules = useMemo(
+    () => [...(schedules || []), ...(nextDaySchedules || [])],
+    [schedules, nextDaySchedules],
+  );
+
   const activeBookedSchedule = useMemo(
-    () => resolveScheduleFromCache(bookedSchedule, schedules),
-    [bookedSchedule, schedules],
+    () => resolveScheduleFromCache(bookedSchedule, allLoadedSchedules),
+    [bookedSchedule, allLoadedSchedules],
   );
 
   const activeInUseSchedule = useMemo(
-    () => resolveScheduleFromCache(inUseSchedule, schedules),
-    [inUseSchedule, schedules],
+    () => resolveScheduleFromCache(inUseSchedule, allLoadedSchedules),
+    [inUseSchedule, allLoadedSchedules],
   );
 
   const [orderData, setOrderData] = useState<OrderData | null>(null);
@@ -357,11 +453,15 @@ const RoomTimelineTable: React.FC = () => {
     queryFn: () => coffeeTableApis.getCoffeeTables(),
     select: (data) => (data.data.result ?? []) as ICoffeeTable[],
     enabled: scheduleViewTab === "coffee",
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
   const {
     data: coffeeSessions,
     isLoading: loadingCoffeeSessions,
+    isFetching: isFetchingCoffeeSessions,
     error: coffeeSessionsError,
+    refetch: refetchCoffeeSessions,
   } = useQuery({
     queryKey: ["coffeeSessions", coffeeDate.toISOString()],
     queryFn: () =>
@@ -390,19 +490,6 @@ const RoomTimelineTable: React.FC = () => {
       });
     },
   });
-
-  // Drag and drop state - TẠM THỜI DISABLED
-  /*
-  const [dragState, setDragState] = useState<DragState>({
-    isDragging: false,
-    scheduleId: null,
-    startX: 0,
-    startY: 0,
-    originalRoomId: "",
-    originalStartTime: "",
-    originalEndTime: "",
-  });
-  */
 
   const [draggedSchedule, setDraggedSchedule] = useState<IRoomSchedule | null>(
     null,
@@ -463,29 +550,6 @@ const RoomTimelineTable: React.FC = () => {
   const { mutate: turnOffAllRooms, isPending: isTurningOffAllRooms } =
     useTurnOffAllRooms();
 
-  // Mutation cho việc cập nhật schedule - TẠM THỜI DISABLED
-  /*
-  const { mutate: updateSchedule } = useMutation({
-    mutationFn: (payload: { id: string; schedule: Partial<IRoomSchedule> }) =>
-      roomsScheduleApis.updateSchedule(payload.id, payload.schedule),
-    onSuccess: () => {
-      refetch();
-      toast({
-        title: "Thành công",
-        description: "Đã cập nhật lịch trình",
-      });
-    },
-    onError: (error) => {
-      console.error("Error updating schedule:", error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể cập nhật lịch trình",
-        variant: "destructive",
-      });
-    },
-  });
-  */
-
   // Cập nhật currentTime mỗi 15s — đủ mượt cho now-marker, tránh re-render mỗi giây
   const [currentTime, setCurrentTime] = useState(dayjs());
   useEffect(() => {
@@ -501,7 +565,6 @@ const RoomTimelineTable: React.FC = () => {
 
   // State điều khiển auto-scroll
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
-  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isAutoScrollingRef = useRef(false);
 
@@ -540,12 +603,6 @@ const RoomTimelineTable: React.FC = () => {
     }
 
     setAutoScrollEnabled(false);
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
-    }
-    inactivityTimerRef.current = setTimeout(() => {
-      setAutoScrollEnabled(true);
-    }, 5000);
   };
 
   const handleZoomChange = (nextZoom: TimelineZoom) => {
@@ -567,9 +624,6 @@ const RoomTimelineTable: React.FC = () => {
   // Cleanup timer khi unmount
   useEffect(() => {
     return () => {
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-      }
       if (autoScrollTimerRef.current) {
         clearTimeout(autoScrollTimerRef.current);
       }
@@ -1102,21 +1156,35 @@ const RoomTimelineTable: React.FC = () => {
       onSuccess: () => {
         setTurnOffAllRoomsConfirmOpen(false);
         toast({
-          title: "Success",
-          description: "All rooms turned off",
+          title: "Thành công",
+          description: "Đã tắt video tất cả phòng",
         });
       },
     });
   };
 
-  const activeSupportRequests = Object.values(supportRequests)
-    .filter((request) =>
-      ["pending", "not_supported", "acknowledged"].includes(request.status),
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    );
+  const activeSupportRequests = useMemo(
+    () =>
+      Object.values(supportRequests)
+        .filter((request) =>
+          ["pending", "not_supported", "acknowledged"].includes(request.status),
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
+    [supportRequests],
+  );
+  const activeSupportRequestByRoomId = useMemo(() => {
+    const map = new Map<string, (typeof activeSupportRequests)[number]>();
+    for (const request of activeSupportRequests) {
+      const key = String(request.roomId);
+      if (!map.has(key)) {
+        map.set(key, request);
+      }
+    }
+    return map;
+  }, [activeSupportRequests]);
   const getSupportRoomName = (roomId: string) =>
     roomsData?.find(
       (room) =>
@@ -1133,8 +1201,8 @@ const RoomTimelineTable: React.FC = () => {
   return (
     <Page>
       <PageHeader
-        title="Room Schedules Timeline"
-        description="Track room schedules and manage bookings"
+        title="Bảng lịch phòng"
+        description="Theo dõi lịch phòng, bàn coffee và quản lý đặt chỗ"
         icon={CalendarIcon}
       />
 
@@ -1197,12 +1265,29 @@ const RoomTimelineTable: React.FC = () => {
             isBusinessToday={roomsIsToday}
             dateLabel="Phòng / Dorm"
             extraActions={
-              <Button
-                variant="destructive"
-                onClick={() => setTurnOffAllRoomsConfirmOpen(true)}
-              >
-                Tắt video tất cả phòng
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    refetch();
+                    void refetchRooms();
+                  }}
+                  disabled={isFetchingSchedules || isFetchingRooms}
+                  className="gap-1.5"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isFetchingSchedules || isFetchingRooms ? "animate-spin" : ""}`}
+                  />
+                  Tải lại
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setTurnOffAllRoomsConfirmOpen(true)}
+                >
+                  Tắt video tất cả phòng
+                </Button>
+              </div>
             }
           />
 
@@ -1253,7 +1338,7 @@ const RoomTimelineTable: React.FC = () => {
                   )
                     setPendingSwap({ source, target });
                 } else if (source.roomId !== roomId) {
-                  relocation.mutate({ source, roomId });
+                  setPendingMove({ source, roomId });
                 }
               }}
               onResolveRequest={handleLegacySupportNotificationClick}
@@ -1272,57 +1357,22 @@ const RoomTimelineTable: React.FC = () => {
                 style={{ width: `${timelineTotalWidth}px` }}
               >
                 {/* Timeline Header */}
-                <div
-                  className="flex border-b bg-gray-200 w-full dark:border-slate-600 dark:bg-slate-800"
-                  style={{ position: "sticky", top: 0, zIndex: 20 }}
-                >
-                  <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200 dark:border-slate-600 dark:bg-slate-800">
-                    Phòng
-                  </div>
-                  <div
-                    className="relative h-10"
-                    style={{
-                      width: timelineContentWidth,
-                      ...timelineGridStyle,
-                    }}
-                  >
-                    {Array.from({
-                      length: DAY_END_HOUR - DAY_START_HOUR + 1,
-                    }).map((_, index) => {
-                      const hour = DAY_START_HOUR + index;
-                      const left = index * hourMarkerSpacing;
-                      return (
-                        <div
-                          key={`header-marker-${hour}`}
-                          className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
-                            hour >= 24
-                              ? "text-amber-700 dark:text-amber-300"
-                              : "text-gray-600 dark:text-slate-300"
-                          }`}
-                          style={{ left, width: hour >= 24 ? 40 : 28 }}
-                        >
-                          {formatTimelineHourLabel(hour)}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <TimelineHeaderRow
+                  label="Phòng"
+                  keyPrefix="header-marker"
+                  timelineContentWidth={timelineContentWidth}
+                  timelineGridStyle={timelineGridStyle}
+                  hourMarkerSpacing={hourMarkerSpacing}
+                />
 
                 {/* Danh sách phòng */}
                 {roomsData?.map((room, index) => {
                   const roomSchedules = grouped[room._id] || [];
                   const socketRoomId = (index + 1).toString();
                   const hasNotification = supportNotifications[socketRoomId];
-                  const activeSupportRequest = Object.values(
-                    supportRequests,
-                  ).find(
-                    (request) =>
-                      (String(request.roomId) === socketRoomId ||
-                        String(request.roomId) === String(room._id)) &&
-                      (request.status === "pending" ||
-                        request.status === "not_supported" ||
-                        request.status === "acknowledged"),
-                  );
+                  const activeSupportRequest =
+                    activeSupportRequestByRoomId.get(socketRoomId) ??
+                    activeSupportRequestByRoomId.get(String(room._id));
                   const hasSupportRequest = Boolean(activeSupportRequest);
                   const isBlinking =
                     !!blinkingSupportRooms[socketRoomId] || hasSupportRequest;
@@ -1555,11 +1605,12 @@ const RoomTimelineTable: React.FC = () => {
                         });
                         const packed = packTimelineLanes(
                           visibleRoomSchedules.map((schedule) => {
-                            const { left, width } = getMarkerStyle(schedule);
-                            const startMin = left / timelineScale;
+                            const marker = getMarkerStyle(schedule);
+                            const startMin = marker.left / timelineScale;
                             const endMin =
-                              startMin + Math.max(width, 44) / timelineScale;
-                            return { item: schedule, startMin, endMin };
+                              startMin +
+                              Math.max(marker.width, 44) / timelineScale;
+                            return { item: { schedule, marker }, startMin, endMin };
                           }),
                         );
                         const laneCount = packed[0]?.laneCount ?? 1;
@@ -1583,13 +1634,12 @@ const RoomTimelineTable: React.FC = () => {
                           >
                             {roomsIsToday && (
                               <div
-                                className="absolute inset-y-0 left-0 bg-slate-900/[0.03] pointer-events-none z-0"
+                                className="absolute inset-y-0 left-0 bg-slate-900/[0.03] dark:bg-white/[0.04] pointer-events-none z-0"
                                 style={{ width: markerContentLeft }}
                               />
                             )}
-                            {packed.map(({ item: schedule, lane }) => {
-                              const { left, width, bgColor } =
-                                getMarkerStyle(schedule);
+                            {packed.map(({ item: { schedule, marker }, lane }) => {
+                              const { left, width, bgColor } = marker;
                               const scheduleLabel = getScheduleTimelineLabel(
                                 room.roomName,
                                 schedule,
@@ -1599,9 +1649,6 @@ const RoomTimelineTable: React.FC = () => {
                                 getScheduleRoomTypeLabel(
                                   getEffectiveScheduleRoomType(schedule, room),
                                 );
-                              // const isDragging =
-                              //   dragState.isDragging &&
-                              //   dragState.scheduleId === schedule._id;
                               const overdue = isScheduleOverdue(
                                 schedule,
                                 currentTime,
@@ -1722,7 +1769,7 @@ const RoomTimelineTable: React.FC = () => {
                               } else if (
                                 schedule.status.toLowerCase() === "locked"
                               ) {
-                                const lockedDuration = dayjs().diff(
+                                const lockedDuration = currentTime.diff(
                                   dayjs(schedule.startTime),
                                   "minute",
                                 );
@@ -1733,9 +1780,6 @@ const RoomTimelineTable: React.FC = () => {
                                     </TooltipTrigger>
                                     <TooltipContent>
                                       <p>Đã khóa {lockedDuration} phút</p>
-                                      {/* <p className="text-xs text-gray-500">
-                              Kéo để di chuyển
-                            </p> */}
                                     </TooltipContent>
                                   </Tooltip>
                                 );
@@ -1743,7 +1787,7 @@ const RoomTimelineTable: React.FC = () => {
                                 schedule.status.toLowerCase() === "in use"
                               ) {
                                 const eventStart = dayjs(schedule.startTime);
-                                const inUseDuration = dayjs().diff(
+                                const inUseDuration = currentTime.diff(
                                   eventStart,
                                   "minute",
                                 );
@@ -1767,7 +1811,7 @@ const RoomTimelineTable: React.FC = () => {
                                   const eventEnd = dayjs(schedule.endTime);
                                   endTimeLabel = eventEnd.format("HH:mm");
                                   const remainingMinutes = eventEnd.diff(
-                                    dayjs(),
+                                    currentTime,
                                     "minute",
                                   );
                                   if (remainingMinutes > 0) {
@@ -1788,9 +1832,8 @@ const RoomTimelineTable: React.FC = () => {
                                 } else {
                                   // Nếu chưa có endTime, tính đến currentTime hoặc hết khung ca
                                   const endOfDay = getTimelineDayEnd(roomsDate);
-                                  const now = dayjs();
-                                  const actualEnd = now.isBefore(endOfDay)
-                                    ? now
+                                  const actualEnd = currentTime.isBefore(endOfDay)
+                                    ? currentTime
                                     : endOfDay;
                                   endTimeLabel = actualEnd.format("HH:mm");
                                 }
@@ -1940,31 +1983,12 @@ const RoomTimelineTable: React.FC = () => {
                 })}
 
                 {/* Now marker: render sau rows để nằm trên lưới CSS */}
-                {roomsIsToday &&
-                  roomsMarkerLeft >= TIMELINE_LEFT_OFFSET &&
-                  roomsMarkerLeft <= timelineTotalWidth && (
-                    <>
-                      <div
-                        className="pointer-events-none absolute z-30"
-                        style={{
-                          left: roomsMarkerLeft - 18,
-                          top: 8,
-                        }}
-                      >
-                        <div className="rounded bg-white/95 px-1 text-xs font-medium text-red-500 shadow-sm">
-                          {currentTime.format("HH:mm")}
-                        </div>
-                      </div>
-                      <div
-                        className="pointer-events-none absolute z-30 w-0.5 bg-red-500"
-                        style={{
-                          left: roomsMarkerLeft,
-                          top: 0,
-                          bottom: 0,
-                        }}
-                      />
-                    </>
-                  )}
+                <TimelineNowMarker
+                  isToday={roomsIsToday}
+                  markerLeft={roomsMarkerLeft}
+                  timelineTotalWidth={timelineTotalWidth}
+                  currentTime={currentTime}
+                />
               </div>
             </div>
           )}
@@ -1984,14 +2008,37 @@ const RoomTimelineTable: React.FC = () => {
             }}
             isBusinessToday={coffeeIsToday}
             dateLabel="Coffee table"
+            extraActions={
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void refetchCoffeeSessions()}
+                disabled={isFetchingCoffeeSessions}
+                className="gap-1.5"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isFetchingCoffeeSessions ? "animate-spin" : ""}`}
+                />
+                Tải lại
+              </Button>
+            }
           />
 
           {coffeeSessionsError ? (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-              {coffeeSessionsError.message}
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive space-y-3">
+              <p>{coffeeSessionsError.message}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void refetchCoffeeSessions()}
+              >
+                Thử lại
+              </Button>
             </div>
           ) : loadingCoffeeTables || loadingCoffeeSessions ? (
-            <div>Loading...</div>
+            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground animate-pulse">
+              Đang tải bàn coffee…
+            </div>
           ) : !coffeeTables?.length ? (
             <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
               Chưa có bàn coffee.
@@ -2006,41 +2053,13 @@ const RoomTimelineTable: React.FC = () => {
                 className="relative will-change-transform"
                 style={{ width: `${timelineTotalWidth}px` }}
               >
-                <div
-                  className="flex border-b bg-gray-200 w-full dark:border-slate-600 dark:bg-slate-800"
-                  style={{ position: "sticky", top: 0, zIndex: 20 }}
-                >
-                  <div className="sticky left-0 z-30 w-[240px] p-2 border-r flex items-center justify-center font-medium bg-gray-200 dark:border-slate-600 dark:bg-slate-800">
-                    Bàn coffee
-                  </div>
-                  <div
-                    className="relative h-10"
-                    style={{
-                      width: timelineContentWidth,
-                      ...timelineGridStyle,
-                    }}
-                  >
-                    {Array.from({
-                      length: DAY_END_HOUR - DAY_START_HOUR + 1,
-                    }).map((_, index) => {
-                      const hour = DAY_START_HOUR + index;
-                      const left = index * hourMarkerSpacing;
-                      return (
-                        <div
-                          key={`coffee-header-marker-${hour}`}
-                          className={`absolute top-1/2 -translate-y-1/2 text-xs text-center font-medium ${
-                            hour >= 24
-                              ? "text-amber-700 dark:text-amber-300"
-                              : "text-gray-600 dark:text-slate-300"
-                          }`}
-                          style={{ left, width: hour >= 24 ? 40 : 28 }}
-                        >
-                          {formatTimelineHourLabel(hour)}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <TimelineHeaderRow
+                  label="Bàn coffee"
+                  keyPrefix="coffee-header-marker"
+                  timelineContentWidth={timelineContentWidth}
+                  timelineGridStyle={timelineGridStyle}
+                  hourMarkerSpacing={hourMarkerSpacing}
+                />
 
                 {coffeeTables.map((table) => {
                   const tableSessions =
@@ -2212,11 +2231,11 @@ const RoomTimelineTable: React.FC = () => {
                       {(() => {
                         const packed = packTimelineLanes(
                           tableSessions.map((session) => {
-                            const { left, width } =
-                              getCoffeeMarkerStyle(session);
-                            const startMin = left / timelineScale;
-                            const endMin = startMin + width / timelineScale;
-                            return { item: session, startMin, endMin };
+                            const marker = getCoffeeMarkerStyle(session);
+                            const startMin = marker.left / timelineScale;
+                            const endMin =
+                              startMin + marker.width / timelineScale;
+                            return { item: { session, marker }, startMin, endMin };
                           }),
                         );
                         const laneCount = packed[0]?.laneCount ?? 1;
@@ -2235,19 +2254,21 @@ const RoomTimelineTable: React.FC = () => {
                             }}
                             onClick={() => handleCoffeeEmptySlotClick(table)}
                           >
-                            {packed.map(({ item: session, lane }) => {
+                            {packed.map(({ item: { session, marker }, lane }) => {
                               const {
                                 left,
                                 width,
                                 bgColor,
                                 eventStart,
                                 eventEnd,
-                              } = getCoffeeMarkerStyle(session);
+                              } = marker;
 
                               const eventElement = (
-                                <div
+                                <button
                                   key={session._id}
-                                  className={`absolute rounded shadow-sm ${bgColor} opacity-90 hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md`}
+                                  type="button"
+                                  aria-label={`${table.name} - ${getCoffeeSessionStatusLabel(session.status)} từ ${eventStart.format("HH:mm")}`}
+                                  className={`absolute rounded shadow-sm ${bgColor} opacity-90 hover:opacity-100 hover:z-20 transition-[opacity,box-shadow] duration-150 hover:shadow-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500`}
                                   style={{
                                     left,
                                     width,
@@ -2259,12 +2280,16 @@ const RoomTimelineTable: React.FC = () => {
                                     handleCoffeeSessionClick(table, session);
                                   }}
                                 >
-                                  <div className="text-xs text-white font-medium px-1 py-0.5 truncate">
-                                    {getCoffeeSessionStatusLabel(
-                                      session.status,
-                                    )}
+                                  <div className="flex h-full items-center gap-1 px-1.5 text-xs text-white font-medium truncate">
+                                    <span>{eventStart.format("HH:mm")}</span>
+                                    <span className="truncate">
+                                      {session.customerName ||
+                                        getCoffeeSessionStatusLabel(
+                                          session.status,
+                                        )}
+                                    </span>
                                   </div>
-                                </div>
+                                </button>
                               );
 
                               return (
@@ -2294,31 +2319,12 @@ const RoomTimelineTable: React.FC = () => {
                   );
                 })}
 
-                {coffeeIsToday &&
-                  coffeeMarkerLeft >= TIMELINE_LEFT_OFFSET &&
-                  coffeeMarkerLeft <= timelineTotalWidth && (
-                    <>
-                      <div
-                        className="pointer-events-none absolute z-30"
-                        style={{
-                          left: coffeeMarkerLeft - 18,
-                          top: 8,
-                        }}
-                      >
-                        <div className="rounded bg-white/95 px-1 text-xs font-medium text-red-500 shadow-sm">
-                          {currentTime.format("HH:mm")}
-                        </div>
-                      </div>
-                      <div
-                        className="pointer-events-none absolute z-30 w-0.5 bg-red-500"
-                        style={{
-                          left: coffeeMarkerLeft,
-                          top: 0,
-                          bottom: 0,
-                        }}
-                      />
-                    </>
-                  )}
+                <TimelineNowMarker
+                  isToday={coffeeIsToday}
+                  markerLeft={coffeeMarkerLeft}
+                  timelineTotalWidth={timelineTotalWidth}
+                  currentTime={currentTime}
+                />
               </div>
             </div>
           )}
